@@ -46,42 +46,6 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-function formatUptime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  return `${hours}h ${minutes}m`;
-}
-
-interface SystemMetrics {
-  timestamp: string;
-  database: {
-    sizeBytes: number;
-    sizeMB: number;
-  };
-  memory: {
-    rss: number;
-    heapTotal: number;
-    heapUsed: number;
-    external: number;
-  };
-  records: {
-    pools: number;
-    orders: number;
-    trades: number;
-    depth: number;
-    balances: number;
-  };
-  websocket?: {
-    activeConnections: number;
-    totalSubscriptions: number;
-    userConnections: number;
-    publicConnections: number;
-    messagesSentLastMinute: number;
-    messagesReceivedLastMinute: number;
-  };
-  uptime: number;
-}
-
 function displayMetrics(count = 5): void {
   try {
     if (!fs.existsSync(logFile)) {

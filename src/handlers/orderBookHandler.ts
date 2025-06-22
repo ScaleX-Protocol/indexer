@@ -1,89 +1,351 @@
-import dotenv from "dotenv";
+import { OrderMatchedEventArgs, OrderPlacedEventArgs } from "@/types";
 import {
-    dailyBuckets,
-    fiveMinuteBuckets,
-    hourBuckets,
-    minuteBuckets,
-    orderBookTrades,
-    orderHistory,
-    orders,
-    pools,
-    thirtyMinuteBuckets,
-    trades
-} from "ponder:schema";
+  createDepthData,
+  createOrderData,
+  createOrderHistoryId,
+  createOrderId,
+  createPoolId,
+  createTradeId,
+  getOppositeSide,
+  getSide,
+  insertOrder,
+  insertOrderBookDepth,
+  insertOrderBookTrades,
+  insertTrade,
+  ORDER_STATUS,
+  OrderSide,
+  TIME_INTERVALS,
+  updateCandlestickBuckets,
+  updateOrder,
+  updateOrderStatusAndTimestamp,
+  updatePoolVolume,
+  upsertOrderBookDepth,
+  upsertOrderBookDepthOnCancel,
+  upsertOrderHistory,
+} from "@/utils";
+import { getDepth } from "@/utils/getDepth";
+import { getPoolTradingPair } from "@/utils/getPoolTradingPair";
+import { pushExecutionReport } from "@/utils/pushExecutionReport";
+import { executeIfInSync, shouldEnableWebSocket } from "@/utils/syncState";
+import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "@/websocket/broadcaster";
+import dotenv from "dotenv";
 import { and, desc, eq, gte } from "ponder";
 import {
-	createDepthData,
-	createOrderData,
-	createOrderHistoryId,
-	createOrderId,
-	createPoolId,
-	createTradeId,
-	getOppositeSide,
-	getSide,
-	insertOrder,
-	insertOrderBookDepth,
-	insertOrderBookTrades,
-	insertTrade,
-	ORDER_STATUS,
-	OrderSide,
-	TIME_INTERVALS,
-	updateCandlestickBuckets,
-	updateOrder,
-	updateOrderStatusAndTimestamp,
-	updatePoolVolume,
-	upsertOrderBookDepth,
-	upsertOrderBookDepthOnCancel,
-	upsertOrderHistory,
-} from "@/utils";
-import { OrderMatchedEventArgs, OrderPlacedEventArgs } from "@/types";
-import { pushExecutionReport } from "@/utils/pushExecutionReport";
-import {pushDepth, pushKline, pushMiniTicker, pushTrade} from "@/websocket/broadcaster";
-import {executeIfInSync} from "@/utils/syncState";
+  dailyBuckets,
+  fiveMinuteBuckets,
+  hourBuckets,
+  minuteBuckets,
+  orders,
+  thirtyMinuteBuckets
+} from "ponder:schema";
 
 dotenv.config();
 
-const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === "true";
-const START_WEBSOCKET_BLOCK = process.env.START_WEBSOCKET_BLOCK ? parseInt(process.env.START_WEBSOCKET_BLOCK) : 0;
-
 export async function handleOrderPlaced({ event, context }: any) {
-	const args = event.args as OrderPlacedEventArgs;
-	const db = context.db;
-	const chainId = context.network.chainId;
-	const txHash = event.transaction.hash;
+  const shouldDebug = await shouldEnableWebSocket(Number(event.block.number));
+  
+  if (shouldDebug) {
+    console.log('=== ORDER PLACED EVENT DEBUG START ===');
+  }
 
-	const filled = BigInt(0);
-	const orderId = BigInt(args.orderId!);
-	const poolAddress = event.log.address!;
-	const price = BigInt(args.price);
-	const quantity = BigInt(args.quantity);
-	const side = getSide(args.side);
-	const status = ORDER_STATUS[Number(args.status)];
-	const timestamp = Number(event.block.timestamp);
+  try {
+    if (shouldDebug) {
+      console.log('1. Raw event data:', {
+        eventType: 'OrderPlaced',
+        blockNumber: event.block.number,
+        blockHash: event.block.hash,
+        txHash: event.transaction.hash,
+        logIndex: event.log.logIndex,
+        contractAddress: event.log.address
+      });
+    }
 
-	const orderData = createOrderData(chainId, args, poolAddress, side, timestamp);
-	await insertOrder(db, orderData);
+    const args = event.args as OrderPlacedEventArgs;
+    if (shouldDebug) {
+      console.log('2. Event args validation:', {
+        args,
+        hasOrderId: !!args.orderId,
+        hasPrice: !!args.price,
+        hasQuantity: !!args.quantity,
+        hasSide: args.side !== undefined,
+        hasStatus: args.status !== undefined
+      });
+    }
 
-	const historyId = createOrderHistoryId(chainId, txHash, filled, poolAddress, orderId.toString());
-	const historyData = { id: historyId, chainId, orderId, poolId: poolAddress, timestamp, quantity, filled, status };
-	await upsertOrderHistory(db, historyData);
+    // if (!args.orderId) throw new Error('Missing orderId in event args');
+    // if (!args.price) throw new Error('Missing price in event args');
+    // if (!args.quantity) throw new Error('Missing quantity in event args');
+    // if (args.side === undefined) throw new Error('Missing side in event args');
+    // if (args.status === undefined) throw new Error('Missing status in event args');
 
-	const depthId = `${poolAddress}-${side.toLowerCase()}-${price.toString()}`;
-	const depthData = createDepthData(chainId, depthId, poolAddress, side, price, quantity, timestamp);
-	await insertOrderBookDepth(db, depthData);
+    const db = context.db;
+    const chainId = context.network.chainId;
+    const txHash = event.transaction.hash;
 
-    await executeIfInSync(Number(event.block.number), async () => {
-        const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
-		const id = createOrderId(chainId, args.orderId, poolAddress);
-        const order = await context.db.find(orders, { id: id });
-        pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
+    if (shouldDebug) {
+      console.log('3. Context validation:', {
+        hasDb: !!db,
+        chainId,
+        txHash,
+        networkName: context.network.name
+      });
+    }
 
-        const latestDepth = await getDepth(event.log.address!, context, chainId);
-        pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-    });
+    if (!db) throw new Error('Database context is null or undefined');
+    if (!chainId) throw new Error('Chain ID is missing from context');
+    if (!txHash) throw new Error('Transaction hash is missing');
+
+    const filled = BigInt(0);
+    const orderId = BigInt(args.orderId!);
+    const poolAddress = event.log.address!;
+    const price = BigInt(args.price);
+    const quantity = BigInt(args.quantity);
+
+    if (shouldDebug) {
+      console.log('4. BigInt conversions:', {
+        orderId: orderId.toString(),
+        price: price.toString(),
+        quantity: quantity.toString(),
+        filled: filled.toString(),
+        poolAddress
+      });
+    }
+
+    let side, status;
+    try {
+      side = getSide(args.side);
+      if (shouldDebug) {
+        console.log('5a. Side conversion successful:', { rawSide: args.side, convertedSide: side });
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('5a. Side conversion failed:', { rawSide: args.side, error: (error as Error).message });
+      }
+      throw new Error(`Failed to convert side: ${(error as Error).message}`);
+    }
+
+    try {
+      status = ORDER_STATUS[Number(args.status)];
+      if (shouldDebug) {
+        console.log('5b. Status conversion successful:', { rawStatus: args.status, convertedStatus: status });
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('5b. Status conversion failed:', { rawStatus: args.status, error: (error as Error).message });
+      }
+      throw new Error(`Failed to convert status: ${(error as Error).message}`);
+    }
+
+    const timestamp = Number(event.block.timestamp);
+    if (shouldDebug) {
+      console.log('6. Timestamp conversion:', { rawTimestamp: event.block.timestamp, convertedTimestamp: timestamp });
+    }
+
+    if (shouldDebug) {
+      console.log('7. Creating order data...');
+    }
+    let orderData;
+    try {
+      orderData = createOrderData(chainId, args, poolAddress, side, timestamp);
+      if (shouldDebug) {
+        console.log('7. Order data created successfully:', { orderDataId: orderData.id });
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('7. Order data creation failed:', error);
+      }
+      throw new Error(`Failed to create order data: ${(error as Error).message}`);
+    }
+
+    if (shouldDebug) {
+      console.log('8. Inserting order into database...');
+    }
+    try {
+      await insertOrder(db, orderData);
+      if (shouldDebug) {
+        console.log('8. Order inserted successfully');
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('8. Order insertion failed:', error);
+      }
+      throw new Error(`Failed to insert order: ${(error as Error).message}`);
+    }
+
+    if (shouldDebug) {
+      console.log('9. Creating order history...');
+    }
+    const historyId = createOrderHistoryId(chainId, txHash, filled, poolAddress, orderId.toString());
+    const historyData = { id: historyId, chainId, orderId, poolId: poolAddress, timestamp, quantity, filled, status };
+    if (shouldDebug) {
+      console.log('9. History data created:', { historyId, historyData });
+    }
+
+    try {
+      await upsertOrderHistory(db, historyData);
+      if (shouldDebug) {
+        console.log('9. Order history upserted successfully');
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('9. Order history upsert failed:', error);
+      }
+      throw new Error(`Failed to upsert order history: ${(error as Error).message}`);
+    }
+
+    if (shouldDebug) {
+      console.log('10. Creating order book depth...');
+    }
+    const depthId = `${poolAddress}-${side.toLowerCase()}-${price.toString()}`;
+    let depthData;
+    try {
+      depthData = createDepthData(chainId, depthId, poolAddress, side, price, quantity, timestamp);
+      if (shouldDebug) {
+        console.log('10. Depth data created:', { depthId, depthData });
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('10. Depth data creation failed:', error);
+      }
+      throw new Error(`Failed to create depth data: ${(error as Error).message}`);
+    }
+
+    try {
+      await insertOrderBookDepth(db, depthData);
+      if (shouldDebug) {
+        console.log('10. Order book depth inserted successfully');
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('10. Order book depth insertion failed:', error);
+      }
+      throw new Error(`Failed to insert order book depth: ${(error as Error).message}`);
+    }
+
+    if (shouldDebug) {
+      console.log('11. Starting executeIfInSync operation...');
+    }
+    try {
+      await executeIfInSync(Number(event.block.number), async () => {
+        if (shouldDebug) {
+          console.log('11a. Inside executeIfInSync callback');
+        }
+
+        let symbol;
+        try {
+          symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+          if (shouldDebug) {
+            console.log('11b. Trading pair retrieved:', { symbol, poolAddress: event.log.address });
+          }
+        } catch (error) {
+          if (shouldDebug) {
+            console.error('11b. Failed to get trading pair:', error);
+          }
+          throw new Error(`Failed to get trading pair: ${(error as Error).message}`);
+        }
+
+        const id = createOrderId(chainId, args.orderId, poolAddress);
+        if (shouldDebug) {
+          console.log('11c. Order ID created for lookup:', { id });
+        }
+
+        let order;
+        try {
+          order = await context.db.find(orders, { id: id });
+          if (shouldDebug) {
+            console.log('11d. Order found in database:', { orderId: id, orderExists: !!order });
+          }
+          if (!order) {
+            throw new Error(`Order not found in database with id: ${id}`);
+          }
+        } catch (error) {
+          if (shouldDebug) {
+            console.error('11d. Failed to find order:', error);
+          }
+          throw new Error(`Failed to find order: ${(error as Error).message}`);
+        }
+
+        try {
+          pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
+          if (shouldDebug) {
+            console.log('11e. Execution report pushed successfully');
+          }
+        } catch (error) {
+          if (shouldDebug) {
+            console.error('11e. Failed to push execution report:', error);
+          }
+          throw new Error(`Failed to push execution report: ${(error as Error).message}`);
+        }
+
+        let latestDepth;
+        try {
+          latestDepth = await getDepth(event.log.address!, context, chainId);
+          if (shouldDebug) {
+            console.log('11f. Latest depth retrieved:', {
+              bidsCount: latestDepth.bids?.length || 0,
+              asksCount: latestDepth.asks?.length || 0
+            });
+          }
+        } catch (error) {
+          if (shouldDebug) {
+            console.error('11f. Failed to get depth:', error);
+          }
+          throw new Error(`Failed to get depth: ${(error as Error).message}`);
+        }
+
+        try {
+          pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+          if (shouldDebug) {
+            console.log('11g. Depth pushed successfully');
+          }
+        } catch (error) {
+          if (shouldDebug) {
+            console.error('11g. Failed to push depth:', error);
+          }
+          throw new Error(`Failed to push depth: ${(error as Error).message}`);
+        }
+
+        if (shouldDebug) {
+          console.log('11h. executeIfInSync callback completed successfully');
+        }
+      });
+      if (shouldDebug) {
+        console.log('11. executeIfInSync operation completed successfully');
+      }
+    } catch (error) {
+      if (shouldDebug) {
+        console.error('11. executeIfInSync operation failed:', error);
+      }
+      throw new Error(`executeIfInSync failed: ${(error as Error).message}`);
+    }
+
+    if (shouldDebug) {
+      console.log('=== ORDER PLACED EVENT DEBUG SUCCESS ===');
+    }
+
+  } catch (error) {
+    if (shouldDebug) {
+      console.error('=== ORDER PLACED EVENT DEBUG FAILED ===');
+      console.error('Error details:', {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name
+      });
+      console.error('Event context at time of error:', {
+        blockNumber: event?.block?.number,
+        txHash: event?.transaction?.hash,
+        poolAddress: event?.log?.address,
+        args: event?.args
+      });
+    }
+    throw error;
+  }
 }
 
 export async function handleOrderMatched({ event, context }: any) {
+    console.log('===============================')
+    console.log('handleOrderMatched')
+
 	const args = event.args as OrderMatchedEventArgs;
 	const db = context.db;
 	const chainId = context.network.chainId;
@@ -116,6 +378,7 @@ export async function handleOrderMatched({ event, context }: any) {
 	await updateCandlestickBuckets(db, chainId, poolId, price, quantity, event, args);
 
     await executeIfInSync(Number(event.block.number), async () => {
+        console.log('executeIfInSync')
         const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
         const symbolLower = symbol.toLowerCase();
         const txHash = event.transaction.hash;
@@ -214,6 +477,10 @@ export async function handleOrderMatched({ event, context }: any) {
             lowPrice,
             volume
         );
+
+        console.log('===============================')
+        console.log('websocket pushed')
+        console.log('===============================')
     });
 }
 
@@ -292,47 +559,4 @@ export async function handleUpdateOrder({ event, context }: any) {
         const latestDepth = await getDepth(event.log.address!, context, chainId);
         pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
     });
-}
-
-async function getPoolTradingPair(context: any, poolAddress: string, chainId: number): Promise<string> {
-	const poolId = createPoolId(chainId, poolAddress);
-	const pool = await context.db.find(pools, { id: poolId });
-
-	if (!pool || !pool.symbol) {
-		throw new Error(`Pool not found or missing symbol for address ${poolAddress} on chain ${chainId}`);
-	}
-
-	return pool.symbol;
-}
-
-export async function getDepth(pool: `0x${string}`, context: any, chainId: number) {
-	try {
-		const bids = await context.db.findMany(orders, {
-			where: {
-				poolId: pool,
-				side: "Buy",
-				status: { in: ["OPEN", "PARTIALLY_FILLED"] },
-			},
-			orderBy: [{ price: "desc" }],
-			limit: 50,
-		});
-
-		const asks = await context.db.findMany(orders, {
-			where: {
-				poolId: pool,
-				side: "Sell",
-				status: { in: ["OPEN", "PARTIALLY_FILLED"] },
-			},
-			orderBy: [{ price: "asc" }],
-			limit: 50,
-		});
-
-		return {
-			bids: bids.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()]),
-			asks: asks.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()]),
-		};
-	} catch (error) {
-		console.error("Error getting depth data:", error);
-		return { bids: [], asks: [] };
-	}
 }
