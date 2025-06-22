@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
+import * as readline from 'readline';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -13,11 +14,13 @@ console.log('📊 This will generate real trading activity to test WebSocket met
 const clobDexPath = process.env.CLOB_DEX_PATH || '';
 
 // Function to run a make command in the clob-dex directory
-function runMakeCommand(target: string): Promise<void> {
+function runMakeCommand(target: string, network?: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    console.log(`\n🔧 Running: make ${target} in ${clobDexPath}`);
+    const command = network ? `${target} network=${network}` : target;
+    console.log(`\n🔧 Running: make ${command} in ${clobDexPath}`);
     
-    const childProcess = spawn('make', [target], {
+    const args = network ? [target, `network=${network}`] : [target];
+    const childProcess = spawn('make', args, {
       cwd: clobDexPath,
       stdio: 'inherit',
       shell: true,
@@ -49,9 +52,50 @@ function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Function to prompt user for input
+function promptUser(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
 async function simulateMarketData() {
   try {
-    console.log('📋 Market Data Simulation Sequence:');
+    console.log('📋 Market Data Simulation Setup:');
+    console.log('');
+
+    // Ask about network
+    const networkAnswer = await promptUser('🌐 Which network to use? (leave empty for default, or enter: riseSepolia, arbitrumSepolia, etc.): ');
+    const network = networkAnswer || undefined;
+    
+    if (network) {
+      console.log(`✅ Using network: ${network}`);
+    } else {
+      console.log('✅ Using default network');
+    }
+
+    // Ask about contract deployment
+    const deployAnswer = await promptUser('🚀 Do you need to deploy a new contract before running the simulation? (y/n): ');
+    
+    if (deployAnswer.toLowerCase() === 'y' || deployAnswer.toLowerCase() === 'yes') {
+      console.log('\n🔧 Deploying contracts...');
+      await runMakeCommand('deploy', network);
+      console.log('✅ Contract deployment completed');
+      
+      // Wait a bit for deployment to settle
+      console.log('⏳ Waiting 5 seconds for deployment to settle...');
+      await wait(5000);
+    }
+
+    console.log('\n📋 Market Data Simulation Sequence:');
     console.log('1. Fill orderbook with limit orders');
     console.log('2. Place market orders (triggers trades)');
     console.log('3. Repeat cycle multiple times');
@@ -66,7 +110,7 @@ async function simulateMarketData() {
       
       // Step 1: Fill orderbook with limit orders
       console.log(`\n📝 Step 1: Filling orderbook with limit orders (cycle ${cycle})...`);
-      await runMakeCommand('fill-orderbook');
+      await runMakeCommand('fill-orderbook', network);
       
       // Wait a bit for the indexer to process
       console.log('⏳ Waiting 5 seconds for indexer to process...');
@@ -74,7 +118,7 @@ async function simulateMarketData() {
       
       // Step 2: Place market orders to trigger trades
       console.log(`\n💰 Step 2: Placing market orders to trigger trades (cycle ${cycle})...`);
-      await runMakeCommand('market-orderbook');
+      await runMakeCommand('market-orderbook', network);
       
       // Wait for processing
       console.log('⏳ Waiting 5 seconds for indexer to process...');
