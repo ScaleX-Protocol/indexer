@@ -2,6 +2,7 @@ import { eq } from "ponder";
 import { pools } from "../../ponder.schema";
 import { createPoolCacheKey, getCachedData, setCachedData } from "./redis";
 import { validatePoolId } from "./validation";
+import { shouldEnableWebSocket } from "./syncState";
 
 type PoolData = {
   id: string;
@@ -18,33 +19,162 @@ type PoolData = {
   timestamp: number;
 };
 
-export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chainId: number) => {
-    const validatedPoolId = validatePoolId(pool);
-
-    const cacheKey = createPoolCacheKey(validatedPoolId, chainId);
-    const cachedPoolData = await getCachedData<PoolData>(cacheKey);
+export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chainId: number, blockNumber?: number) => {
+    const shouldDebug = blockNumber ? await shouldEnableWebSocket(blockNumber) : false;
     
-    if (cachedPoolData && cachedPoolData.coin) {
-        return cachedPoolData.coin.replace('/', '').toLowerCase();
+    if (shouldDebug) {
+        console.log('=== GET POOL TRADING PAIR DEBUG START ===');
+        console.log('1. Input parameters:', {
+            pool,
+            chainId,
+            blockNumber,
+            poolType: typeof pool,
+            chainIdType: typeof chainId
+        });
     }
-    
-    let poolData = await context.db.find(pools, {
-        orderBook: validatedPoolId,
-        chainId: chainId
-    });
 
-    if (!poolData) {
-        const poolRows = await context.db.sql.select().from(pools).where(
-            eq(pools.orderBook, validatedPoolId), 
-            eq(pools.chainId, chainId)
-        ).limit(1).execute();
+    try {
+        const validatedPoolId = validatePoolId(pool);
         
-        if (poolRows.length > 0) {
-            poolData = poolRows[0];
+        if (shouldDebug) {
+            console.log('2. Pool validation:', {
+                originalPool: pool,
+                validatedPoolId,
+                validationPassed: !!validatedPoolId
+            });
         }
+
+        const cacheKey = createPoolCacheKey(validatedPoolId, chainId);
+        
+        if (shouldDebug) {
+            console.log('3. Cache key creation:', {
+                cacheKey,
+                validatedPoolId,
+                chainId
+            });
+        }
+        
+        const cachedPoolData = await getCachedData<PoolData>(cacheKey);
+        
+        if (shouldDebug) {
+            console.log('4. Cache lookup result:', {
+                cacheKey,
+                hasCachedData: !!cachedPoolData,
+                cachedDataKeys: cachedPoolData ? Object.keys(cachedPoolData) : null,
+                cachedCoin: cachedPoolData?.coin,
+                cacheHit: !!(cachedPoolData && cachedPoolData.coin)
+            });
+        }
+        
+        if (cachedPoolData && cachedPoolData.coin) {
+            const result = cachedPoolData.coin.replace('/', '').toLowerCase();
+            if (shouldDebug) {
+                console.log('5. Cache hit - returning:', {
+                    originalCoin: cachedPoolData.coin,
+                    processedResult: result
+                });
+                console.log('=== GET POOL TRADING PAIR DEBUG END (CACHE HIT) ===');
+            }
+            return result;
+        }
+        
+        if (shouldDebug) {
+            console.log('6. Cache miss - querying database:', {
+                searchCriteria: {
+                    orderBook: validatedPoolId,
+                    chainId: chainId
+                },
+                hasContext: !!context,
+                hasDb: !!context?.db
+            });
+        }
+        
+        let poolData = await context.db.find(pools, {
+            orderBook: validatedPoolId,
+            chainId: chainId
+        });
+
+        if (shouldDebug) {
+            console.log('7. Database find result:', {
+                foundPoolData: !!poolData,
+                poolDataKeys: poolData ? Object.keys(poolData) : null,
+                poolDataCoin: poolData?.coin
+            });
+        }
+
+        if (!poolData) {
+            if (shouldDebug) {
+                console.log('8. Fallback SQL query attempt:', {
+                    reason: 'context.db.find returned null/undefined'
+                });
+            }
+            
+            const poolRows = await context.db.sql.select().from(pools).where(
+                eq(pools.orderBook, validatedPoolId), 
+                eq(pools.chainId, chainId)
+            ).limit(1).execute();
+            
+            if (shouldDebug) {
+                console.log('9. SQL query result:', {
+                    rowsFound: poolRows.length,
+                    firstRowKeys: poolRows.length > 0 ? Object.keys(poolRows[0]) : null,
+                    firstRowCoin: poolRows.length > 0 ? poolRows[0].coin : null
+                });
+            }
+            
+            if (poolRows.length > 0) {
+                poolData = poolRows[0];
+            }
+        }
+        
+        if (shouldDebug) {
+            console.log('10. Final pool data before caching:', {
+                hasPoolData: !!poolData,
+                poolDataCoin: poolData?.coin,
+                poolDataKeys: poolData ? Object.keys(poolData) : null
+            });
+        }
+        
+        await setCachedData(cacheKey, poolData);
+        
+        if (shouldDebug) {
+            console.log('11. Data cached successfully');
+        }
+        
+        if (!poolData || !poolData.coin) {
+            if (shouldDebug) {
+                console.log('12. ERROR: No pool data or coin found:', {
+                    hasPoolData: !!poolData,
+                    hasCoin: !!poolData?.coin,
+                    poolData: poolData
+                });
+                console.log('=== GET POOL TRADING PAIR DEBUG END (ERROR) ===');
+            }
+            throw new Error(`Pool data not found for pool ${pool} on chain ${chainId}`);
+        }
+        
+        const result = poolData.coin.replace('/', '').toLowerCase();
+        
+        if (shouldDebug) {
+            console.log('13. Success - returning result:', {
+                originalCoin: poolData.coin,
+                processedResult: result
+            });
+            console.log('=== GET POOL TRADING PAIR DEBUG END (SUCCESS) ===');
+        }
+        
+        return result;
+    } catch (error) {
+        if (shouldDebug) {
+            console.log('ERROR in getPoolTradingPair:', {
+                error: error instanceof Error ? error.message : error,
+                stack: error instanceof Error ? error.stack : undefined,
+                pool,
+                chainId,
+                blockNumber
+            });
+            console.log('=== GET POOL TRADING PAIR DEBUG END (EXCEPTION) ===');
+        }
+        throw error;
     }
-    
-    await setCachedData(cacheKey, poolData);
-    
-    return poolData.coin.replace('/', '').toLowerCase();
 };

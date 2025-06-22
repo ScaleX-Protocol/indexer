@@ -1,11 +1,17 @@
 import readline from "readline";
 import { WebSocket } from "ws";
+import dotenv from "dotenv";
+
+dotenv.config();
+
 
 const config = {
   url: process.env.WEBSOCKET_URL || 'ws://localhost:42080',
   autoReconnect: process.env.AUTO_RECONNECT === "true",
   reconnectInterval: Number(process.env.RECONNECT_INTERVAL) || 3000,
   pingInterval: Number(process.env.PING_INTERVAL) || 30000,
+  useDefaultSubscriptions: process.env.NO_DEFAULT_SUBS !== "true",
+  defaultSubscriptions: ['mwethmusdc@trade', 'mwethmusdc@kline_1m', 'mwethmusdc@depth', 'mwethmusdc@miniTicker'],
 };
 
 type ServerMessage =
@@ -58,6 +64,13 @@ function connect(): void {
         log(colors.blue, "PING", "Sent ping");
       }
     }, config.pingInterval);
+
+    // Auto-subscribe to default streams if enabled
+    if (config.useDefaultSubscriptions) {
+      setTimeout(() => {
+        subscribeToDefaultStreams();
+      }, 100); // Small delay to ensure connection is stable
+    }
   });
 
   ws.on("message", (data: Buffer) => {
@@ -141,6 +154,7 @@ function processCommand(input: string): void {
   ${colors.cyan}list${colors.reset}                  - List current subscriptions
   ${colors.cyan}ping${colors.reset}                  - Send a ping message
   ${colors.cyan}reconnect${colors.reset}             - Reconnect to the WebSocket server
+  ${colors.cyan}defaults${colors.reset}               - Subscribe to default streams
   ${colors.cyan}exit${colors.reset}                  - Exit the application
   ${colors.cyan}user <wallet>${colors.reset}          - Open user-data socket for wallet
   ${colors.cyan}closeuser${colors.reset}              - Close user-data socket
@@ -156,7 +170,6 @@ function processCommand(input: string): void {
     if (userWs) userWs.close();
     rl.close();
     process.exit(0);
-    return;
   }
   if (command.startsWith("user ")) {
     const addr = command.substring(5).trim();
@@ -183,6 +196,15 @@ function processCommand(input: string): void {
     if (pingInterval) clearInterval(pingInterval);
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
     connect();
+    return;
+  }
+
+  if (command === "defaults") {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      log(colors.red, "ERROR", "Not connected to WebSocket server");
+      return;
+    }
+    subscribeToDefaultStreams();
     return;
   }
 
@@ -230,9 +252,60 @@ function processCommand(input: string): void {
   log(colors.red, "ERROR", `Unknown command: ${command}. Type "commands" for help.`);
 }
 
-log(colors.cyan, "SYSTEM", "CLOB DEX WebSocket Test Client");
-log(colors.cyan, "SYSTEM", `Server URL: ${config.url}`);
-connect();
+function subscribeToDefaultStreams(): void {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+  log(colors.magenta, "AUTO-SUB", "Subscribing to default streams...");
+  config.defaultSubscriptions.forEach(stream => {
+    ws!.send(JSON.stringify({ method: "SUBSCRIBE", params: [stream], id: Date.now() + Math.random() }));
+    log(colors.magenta, "AUTO-SUB", `Subscribed to ${stream}`);
+  });
+}
+
+function promptForDefaultSubscriptions(): Promise<boolean> {
+  return new Promise((resolve) => {
+    log(colors.cyan, "SYSTEM", "CLOB DEX WebSocket Test Client");
+    log(colors.cyan, "SYSTEM", `Server URL: ${config.url}`);
+    log(colors.cyan, "CONFIG", `Auto-reconnect: ${config.autoReconnect}`);
+    log(colors.cyan, "CONFIG", `Reconnect interval: ${config.reconnectInterval}ms`);
+    log(colors.cyan, "CONFIG", `Ping interval: ${config.pingInterval}ms`);
+    
+    console.log(`\n${colors.yellow}Default subscriptions available:${colors.reset}`);
+    config.defaultSubscriptions.forEach((stream, index) => {
+      console.log(`  ${index + 1}. ${stream}`);
+    });
+    
+    rl.question(`\n${colors.cyan}Do you want to use default subscriptions? (y/N): ${colors.reset}`, (answer) => {
+      const useDefaults = answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes';
+      resolve(useDefaults);
+    });
+  });
+}
+
+async function startClient(): Promise<void> {
+  // Check if default subscriptions should be used based on env var or user prompt
+  if (process.env.NO_DEFAULT_SUBS === "true") {
+    config.useDefaultSubscriptions = false;
+    log(colors.cyan, "SYSTEM", "CLOB DEX WebSocket Test Client");
+    log(colors.cyan, "SYSTEM", `Server URL: ${config.url}`);
+    log(colors.cyan, "CONFIG", `Auto-reconnect: ${config.autoReconnect}`);
+    log(colors.cyan, "CONFIG", `Reconnect interval: ${config.reconnectInterval}ms`);
+    log(colors.cyan, "CONFIG", `Ping interval: ${config.pingInterval}ms`);
+    log(colors.cyan, "CONFIG", "Default subscriptions: disabled (NO_DEFAULT_SUBS=true)");
+  } else {
+    config.useDefaultSubscriptions = await promptForDefaultSubscriptions();
+  }
+  
+  if (config.useDefaultSubscriptions) {
+    log(colors.cyan, "CONFIG", `Default subscriptions: enabled`);
+  } else {
+    log(colors.cyan, "CONFIG", "Default subscriptions: disabled");
+  }
+  
+  connect();
+}
+
+startClient();
 
 rl.on("line", processCommand);
 rl.on("close", () => {
