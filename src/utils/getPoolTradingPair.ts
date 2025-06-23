@@ -52,6 +52,35 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
                 validatedPoolId,
                 chainId
             });
+            
+            // Log all Redis data before attempting to get specific cache
+            try {
+                const { initRedisClient } = await import('./redis');
+                const client = await initRedisClient();
+                if (client) {
+                    console.log('3a. Attempting to get all Redis keys...');
+                    const allKeys = await client.keys('pool:*');
+                    console.log('3b. All Redis pool keys:', allKeys);
+                    
+                    if (allKeys.length > 0) {
+                        console.log('3c. All Redis pool data:');
+                        for (const key of allKeys) {
+                            try {
+                                const data = await client.get(key);
+                                console.log(`  ${key}:`, data ? JSON.parse(data) : null);
+                            } catch (err) {
+                                console.log(`  ${key}: Error parsing -`, err);
+                            }
+                        }
+                    } else {
+                        console.log('3c. No pool data found in Redis');
+                    }
+                } else {
+                    console.log('3a. Redis client not available');
+                }
+            } catch (err) {
+                console.log('3a. Error accessing Redis for debugging:', err);
+            }
         }
         
         const cachedPoolData = await getCachedData<PoolData>(cacheKey);

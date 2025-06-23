@@ -4,7 +4,11 @@ export const isHexPoolId = (id: string): id is `0x${string}` => {
 }
 
 export const validatePoolId = (poolId: string): `0x${string}` => {
+    if (!poolId) {
+        console.log(`PoolId is null or undefined: ${poolId} (type: ${typeof poolId})`);
+        process.exit(1);
+    }
     if (isHexPoolId(poolId)) return poolId;
-    console.log(`Invalid poolId format: ${poolId}`);
+    console.log(`Invalid poolId format: ${poolId} (type: ${typeof poolId})`);
     process.exit(1);
 }

@@ -233,7 +233,31 @@ export async function handleOrderPlaced({ event, context }: any) {
 
         let symbol;
         try {
-          symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+          // Debug the event.log.address value
+          if (shouldDebug) {
+            console.log('11a1. Event log address debug:', {
+              address: event.log.address,
+              addressType: typeof event.log.address,
+              isUndefined: event.log.address === undefined,
+              isNull: event.log.address === null,
+              addressLength: event.log.address?.length,
+              eventLog: event.log
+            });
+          }
+          
+          if (!event.log.address) {
+            throw new Error(`Event log address is ${event.log.address} (${typeof event.log.address})`);
+          }
+          
+          if (shouldDebug) {
+            console.log('11a2. About to call getPoolTradingPair with:', {
+              address: event.log.address,
+              chainId: chainId,
+              blockNumber: Number(event.block.number)
+            });
+          }
+          
+          symbol = (await getPoolTradingPair(context, event.log.address, chainId, Number(event.block.number))).toUpperCase();
           if (shouldDebug) {
             console.log('11b. Trading pair retrieved:', { symbol, poolAddress: event.log.address });
           }
