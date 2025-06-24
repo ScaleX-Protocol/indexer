@@ -118,10 +118,42 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
             });
         }
         
-        let poolData = await context.db.find(pools, {
-            orderBook: validatedPoolId,
-            chainId: chainId
-        });
+        let poolData;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+            try {
+                if (shouldDebug) {
+                    console.log(`6a. Database query attempt ${retryCount + 1}/${maxRetries}`);
+                }
+                
+                // Add a small delay on retries to let reorg complete
+                if (retryCount > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+                }
+                
+                poolData = await context.db.find(pools, {
+                    orderBook: validatedPoolId,
+                    chainId: chainId
+                });
+                
+                if (shouldDebug) {
+                    console.log(`6b. Database query successful on attempt ${retryCount + 1}`);
+                }
+                break;
+                
+            } catch (error) {
+                retryCount++;
+                if (shouldDebug) {
+                    console.log(`6c. Database query failed on attempt ${retryCount}, error:`, error instanceof Error ? error.message : error);
+                }
+                
+                if (retryCount >= maxRetries) {
+                    throw error;
+                }
+            }
+        }
 
         if (shouldDebug) {
             console.log('7. Database find result:', {
@@ -138,10 +170,42 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
                 });
             }
             
-            const poolRows = await context.db.sql.select().from(pools).where(
-                eq(pools.orderBook, validatedPoolId), 
-                eq(pools.chainId, chainId)
-            ).limit(1).execute();
+            let poolRows;
+            let sqlRetryCount = 0;
+            const sqlMaxRetries = 3;
+            
+            while (sqlRetryCount < sqlMaxRetries) {
+                try {
+                    if (shouldDebug) {
+                        console.log(`8a. SQL query attempt ${sqlRetryCount + 1}/${sqlMaxRetries}`);
+                    }
+                    
+                    // Add a small delay on retries
+                    if (sqlRetryCount > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 100 * sqlRetryCount));
+                    }
+                    
+                    poolRows = await context.db.sql.select().from(pools).where(
+                        eq(pools.orderBook, validatedPoolId), 
+                        eq(pools.chainId, chainId)
+                    ).limit(1).execute();
+                    
+                    if (shouldDebug) {
+                        console.log(`8b. SQL query successful on attempt ${sqlRetryCount + 1}`);
+                    }
+                    break;
+                    
+                } catch (error) {
+                    sqlRetryCount++;
+                    if (shouldDebug) {
+                        console.log(`8c. SQL query failed on attempt ${sqlRetryCount}, error:`, error instanceof Error ? error.message : error);
+                    }
+                    
+                    if (sqlRetryCount >= sqlMaxRetries) {
+                        throw error;
+                    }
+                }
+            }
             
             if (shouldDebug) {
                 console.log('9. SQL query result:', {
