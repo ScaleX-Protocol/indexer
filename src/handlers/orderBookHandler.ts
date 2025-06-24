@@ -535,6 +535,12 @@ export async function handleUpdateOrder({ event, context }: any) {
 	const db = context.db;
 	const chainId = context.network.chainId;
 
+	// Validate required event args exist
+	if (!event.args.orderId || !event.args.filled || !event.args.status || !event.args.timestamp) {
+		console.error('UpdateOrder event missing required arguments:', event.args);
+		return;
+	}
+
 	const filled = BigInt(event.args.filled);
 	const orderId = BigInt(event.args.orderId);
 	const poolAddress = event.log.address!;
@@ -561,17 +567,19 @@ export async function handleUpdateOrder({ event, context }: any) {
 
 	if (event.args.status == isExpired) {
 		const order = await db.find(orders, { id: hashedOrderId });
-		const price = BigInt(order.price);
-		await upsertOrderBookDepth(
-			db,
-			chainId,
-			poolAddress,
-			getSide(event.args.side),
-			price,
-			BigInt(order.quantity),
-			timestamp,
-			false
-		);
+		if (order) {
+			const price = BigInt(order.price);
+			await upsertOrderBookDepth(
+				db,
+				chainId,
+				poolAddress,
+        order.side,
+				price,
+				BigInt(order.quantity),
+				timestamp,
+				false
+			);
+		}
 	}
     await executeIfInSync(Number(event.block.number), async () => {
         const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();

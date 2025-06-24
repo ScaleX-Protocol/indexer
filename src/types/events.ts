@@ -18,3 +18,11 @@ export interface OrderPlacedEventArgs {
 	isMarketOrder: boolean;
 	status: number;
 }
+
+export interface UpdateOrderEventArgs {
+	orderId: bigint;
+	timestamp: number;
+	filled: bigint;
+	status: number;
+	side?: number;
+}
