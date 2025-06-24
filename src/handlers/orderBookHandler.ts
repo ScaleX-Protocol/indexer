@@ -536,16 +536,32 @@ export async function handleUpdateOrder({ event, context }: any) {
 	const chainId = context.network.chainId;
 
 	// Validate required event args exist
-	if (!event.args.orderId || !event.args.filled || !event.args.status || !event.args.timestamp) {
+	if (event.args.orderId === undefined || event.args.filled === undefined || event.args.status === undefined || event.args.timestamp === undefined) {
 		console.error('UpdateOrder event missing required arguments:', event.args);
+		return;
+	}
+
+	// Validate log address exists
+	if (!event.log.address) {
+		console.error('UpdateOrder event missing log address:', event.log);
 		return;
 	}
 
 	const filled = BigInt(event.args.filled);
 	const orderId = BigInt(event.args.orderId);
-	const poolAddress = event.log.address!;
+	const poolAddress = event.log.address;
 	const status = ORDER_STATUS[Number(event.args.status)];
 	const timestamp = Number(event.args.timestamp);
+
+	console.log('UpdateOrder debug - processing:', {
+		orderId: orderId.toString(),
+		poolAddress,
+		status,
+		filled: filled.toString(),
+		timestamp,
+		poolAddressType: typeof poolAddress,
+		statusType: typeof status
+	});
 
 	const hashedOrderId = createOrderId(chainId, orderId, poolAddress);
 	const orderHistoryId = createOrderHistoryId(chainId, event.transaction.hash, filled, poolAddress, orderId.toString());
@@ -567,13 +583,19 @@ export async function handleUpdateOrder({ event, context }: any) {
 
 	if (event.args.status == isExpired) {
 		const order = await db.find(orders, { id: hashedOrderId });
-		if (order) {
+		if (order && order.side) {
+			console.log('UpdateOrder expiry debug:', {
+				orderId: hashedOrderId,
+				orderSide: order.side,
+				orderSideType: typeof order.side,
+				orderSideLength: order.side?.length
+			});
 			const price = BigInt(order.price);
 			await upsertOrderBookDepth(
 				db,
 				chainId,
 				poolAddress,
-        order.side,
+				order.side,
 				price,
 				BigInt(order.quantity),
 				timestamp,
