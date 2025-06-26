@@ -25,6 +25,7 @@ import {
 } from "@/utils";
 import { getDepth } from "@/utils/getDepth";
 import { getPoolTradingPair } from "@/utils/getPoolTradingPair";
+import { createLogger } from "@/utils/logger";
 import { pushExecutionReport } from "@/utils/pushExecutionReport";
 import { executeIfInSync, shouldEnableWebSocket } from "@/utils/syncState";
 import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "@/websocket/broadcaster";
@@ -43,33 +44,34 @@ dotenv.config();
 
 export async function handleOrderPlaced({ event, context }: any) {
   const shouldDebug = await shouldEnableWebSocket(Number(event.block.number));
+  const logger = createLogger('orderBookHandler.ts', 'handleOrderPlaced');
   
   if (shouldDebug) {
-    console.log('=== ORDER PLACED EVENT DEBUG START ===');
+    console.log(`${logger.log(event, '=== DEBUG START ===')}`);
   }
 
   try {
     if (shouldDebug) {
-      console.log('1. Raw event data:', {
+      console.log(`${logger.log(event, '1. Raw event data')}: ${JSON.stringify({
         eventType: 'OrderPlaced',
         blockNumber: event.block.number,
         blockHash: event.block.hash,
         txHash: event.transaction.hash,
         logIndex: event.log.logIndex,
         contractAddress: event.log.address
-      });
+      })}`);
     }
 
     const args = event.args as OrderPlacedEventArgs;
     if (shouldDebug) {
-      console.log('2. Event args validation:', {
+      console.log(`${logger.log(event, '2. Event args validation')}: ${JSON.stringify({
         args,
         hasOrderId: !!args.orderId,
         hasPrice: !!args.price,
         hasQuantity: !!args.quantity,
         hasSide: args.side !== undefined,
         hasStatus: args.status !== undefined
-      });
+      })}`);
     }
 
     // if (!args.orderId) throw new Error('Missing orderId in event args');
@@ -83,12 +85,12 @@ export async function handleOrderPlaced({ event, context }: any) {
     const txHash = event.transaction.hash;
 
     if (shouldDebug) {
-      console.log('3. Context validation:', {
+      console.log(`${logger.log(event, '3. Context validation')}: ${JSON.stringify({
         hasDb: !!db,
         chainId,
         txHash,
         networkName: context.network.name
-      });
+      })}`);
     }
 
     if (!db) throw new Error('Database context is null or undefined');
@@ -102,24 +104,24 @@ export async function handleOrderPlaced({ event, context }: any) {
     const quantity = BigInt(args.quantity);
 
     if (shouldDebug) {
-      console.log('4. BigInt conversions:', {
+      console.log(`${logger.log(event, '4. BigInt conversions')}: ${JSON.stringify({
         orderId: orderId.toString(),
         price: price.toString(),
         quantity: quantity.toString(),
         filled: filled.toString(),
         poolAddress
-      });
+      })}`);
     }
 
     let side, status;
     try {
       side = getSide(args.side);
       if (shouldDebug) {
-        console.log('5a. Side conversion successful:', { rawSide: args.side, convertedSide: side });
+        console.log(`${logger.log(event, '5a. Side conversion successful')}: ${JSON.stringify({ rawSide: args.side, convertedSide: side })}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('5a. Side conversion failed:', { rawSide: args.side, error: (error as Error).message });
+        console.error(`${logger.log(event, '5a. Side conversion failed')}: ${JSON.stringify({ rawSide: args.side, error: (error as Error).message })}`);
       }
       throw new Error(`Failed to convert side: ${(error as Error).message}`);
     }
@@ -127,85 +129,85 @@ export async function handleOrderPlaced({ event, context }: any) {
     try {
       status = ORDER_STATUS[Number(args.status)];
       if (shouldDebug) {
-        console.log('5b. Status conversion successful:', { rawStatus: args.status, convertedStatus: status });
+        console.log(`${logger.log(event, '5b. Status conversion successful')}: ${JSON.stringify({ rawStatus: args.status, convertedStatus: status })}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('5b. Status conversion failed:', { rawStatus: args.status, error: (error as Error).message });
+        console.error(`${logger.log(event, '5b. Status conversion failed')}: ${JSON.stringify({ rawStatus: args.status, error: (error as Error).message })}`);
       }
       throw new Error(`Failed to convert status: ${(error as Error).message}`);
     }
 
     const timestamp = Number(event.block.timestamp);
     if (shouldDebug) {
-      console.log('6. Timestamp conversion:', { rawTimestamp: event.block.timestamp, convertedTimestamp: timestamp });
+      console.log(`${logger.log(event, '6. Timestamp conversion')}: ${JSON.stringify({ rawTimestamp: event.block.timestamp, convertedTimestamp: timestamp })}`);
     }
 
     if (shouldDebug) {
-      console.log('7. Creating order data...');
+      console.log(`${logger.log(event, '7. Creating order data...')}`);
     }
     let orderData;
     try {
       orderData = createOrderData(chainId, args, poolAddress, side, timestamp);
       if (shouldDebug) {
-        console.log('7. Order data created successfully:', { orderDataId: orderData.id });
+        console.log(`${logger.log(event, '7. Order data created successfully')}: ${JSON.stringify({ orderDataId: orderData.id })}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('7. Order data creation failed:', error);
+        console.error(`${logger.log(event, '7. Order data creation failed')}:`, error);
       }
       throw new Error(`Failed to create order data: ${(error as Error).message}`);
     }
 
     if (shouldDebug) {
-      console.log('8. Inserting order into database...');
+      console.log(`${logger.log(event, '8. Inserting order into database...')}`);
     }
     try {
       await insertOrder(db, orderData);
       if (shouldDebug) {
-        console.log('8. Order inserted successfully');
+        console.log(`${logger.log(event, '8. Order inserted successfully')}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('8. Order insertion failed:', error);
+        console.error(`${logger.log(event, '8. Order insertion failed')}:`, error);
       }
       throw new Error(`Failed to insert order: ${(error as Error).message}`);
     }
 
     if (shouldDebug) {
-      console.log('9. Creating order history...');
+      console.log(`${logger.log(event, '9. Creating order history...')}`);
     }
     const historyId = createOrderHistoryId(chainId, txHash, filled, poolAddress, orderId.toString());
     const historyData = { id: historyId, chainId, orderId, poolId: poolAddress, timestamp, quantity, filled, status };
     if (shouldDebug) {
-      console.log('9. History data created:', { historyId, historyData });
+      console.log(`${logger.log(event, '9. History data created')}: ${JSON.stringify({ historyId, historyData })}`);
     }
 
     try {
       await upsertOrderHistory(db, historyData);
       if (shouldDebug) {
-        console.log('9. Order history upserted successfully');
+        console.log(`${logger.log(event, '9. Order history upserted successfully')}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('9. Order history upsert failed:', error);
+        console.error(`${logger.log(event, '9. Order history upsert failed')}:`, error);
       }
       throw new Error(`Failed to upsert order history: ${(error as Error).message}`);
     }
 
     if (shouldDebug) {
-      console.log('10. Creating order book depth...');
+      console.log(`${logger.log(event, '10. Creating order book depth...')}`);
     }
     const depthId = `${poolAddress}-${side.toLowerCase()}-${price.toString()}`;
     let depthData;
     try {
       depthData = createDepthData(chainId, depthId, poolAddress, side, price, quantity, timestamp);
       if (shouldDebug) {
-        console.log('10. Depth data created:', { depthId, depthData });
+        console.log(`${logger.log(event, '10. Depth data created')}: ${JSON.stringify({ depthId, depthData })}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('10. Depth data creation failed:', error);
+        console.error(`${logger.log(event, '10. Depth data creation failed')}:`, error);
       }
       throw new Error(`Failed to create depth data: ${(error as Error).message}`);
     }
@@ -213,36 +215,35 @@ export async function handleOrderPlaced({ event, context }: any) {
     try {
       await insertOrderBookDepth(db, depthData);
       if (shouldDebug) {
-        console.log('10. Order book depth inserted successfully');
+        console.log(`${logger.log(event, '10. Order book depth inserted successfully')}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('10. Order book depth insertion failed:', error);
+        console.error(`${logger.log(event, '10. Order book depth insertion failed')}:`, error);
       }
       throw new Error(`Failed to insert order book depth: ${(error as Error).message}`);
     }
 
     if (shouldDebug) {
-      console.log('11. Starting executeIfInSync operation...');
+      console.log(`${logger.log(event, '11. Starting executeIfInSync operation...')}`);
     }
     try {
       await executeIfInSync(Number(event.block.number), async () => {
         if (shouldDebug) {
-          console.log('11a. Inside executeIfInSync callback');
+          console.log(`${logger.log(event, '11a. Inside executeIfInSync callback')}`);
         }
 
         let symbol;
         try {
-          // Debug the event.log.address value
           if (shouldDebug) {
-            console.log('11a1. Event log address debug:', {
+            console.log(`${logger.log(event, '11a1. Event log address debug')}: ${JSON.stringify({
               address: event.log.address,
               addressType: typeof event.log.address,
               isUndefined: event.log.address === undefined,
               isNull: event.log.address === null,
               addressLength: event.log.address?.length,
               eventLog: event.log
-            });
+            })}`);
           }
           
           if (!event.log.address) {
@@ -250,41 +251,41 @@ export async function handleOrderPlaced({ event, context }: any) {
           }
           
           if (shouldDebug) {
-            console.log('11a2. About to call getPoolTradingPair with:', {
+            console.log(`${logger.log(event, '11a2. About to call getPoolTradingPair with')}: ${JSON.stringify({
               address: event.log.address,
               chainId: chainId,
               blockNumber: Number(event.block.number)
-            });
+            })}`);
           }
           
           symbol = (await getPoolTradingPair(context, event.log.address, chainId, Number(event.block.number))).toUpperCase();
           if (shouldDebug) {
-            console.log('11b. Trading pair retrieved:', { symbol, poolAddress: event.log.address });
+            console.log(`${logger.log(event, '11b. Trading pair retrieved')}: ${JSON.stringify({ symbol, poolAddress: event.log.address })}`);
           }
         } catch (error) {
           if (shouldDebug) {
-            console.error('11b. Failed to get trading pair:', error);
+            console.error(`${logger.log(event, '11b. Failed to get trading pair')}: ${JSON.stringify(error)}`);
           }
           throw new Error(`Failed to get trading pair: ${(error as Error).message}`);
         }
 
         const id = createOrderId(chainId, args.orderId, poolAddress);
         if (shouldDebug) {
-          console.log('11c. Order ID created for lookup:', { id });
+          console.log(`${logger.log(event, '11c. Order ID created for lookup')}: ${JSON.stringify({ id })}`);
         }
 
         let order;
         try {
           order = await context.db.find(orders, { id: id });
           if (shouldDebug) {
-            console.log('11d. Order found in database:', { orderId: id, orderExists: !!order });
+            console.log(`${logger.log(event, '11d. Order found in database')}: ${JSON.stringify({ orderId: id, orderExists: !!order })}`);
           }
           if (!order) {
             throw new Error(`Order not found in database with id: ${id}`);
           }
         } catch (error) {
           if (shouldDebug) {
-            console.error('11d. Failed to find order:', error);
+            console.error(`${logger.log(event, '11d. Failed to find order')}: ${JSON.stringify(error)}`);
           }
           throw new Error(`Failed to find order: ${(error as Error).message}`);
         }
@@ -292,11 +293,11 @@ export async function handleOrderPlaced({ event, context }: any) {
         try {
           pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
           if (shouldDebug) {
-            console.log('11e. Execution report pushed successfully');
+            console.log(`${logger.log(event, '11e. Execution report pushed successfully')}`);
           }
         } catch (error) {
           if (shouldDebug) {
-            console.error('11e. Failed to push execution report:', error);
+            console.error(`${logger.log(event, '11e. Failed to push execution report')}: ${JSON.stringify(error)}`);
           }
           throw new Error(`Failed to push execution report: ${(error as Error).message}`);
         }
@@ -305,14 +306,14 @@ export async function handleOrderPlaced({ event, context }: any) {
         try {
           latestDepth = await getDepth(event.log.address!, context, chainId);
           if (shouldDebug) {
-            console.log('11f. Latest depth retrieved:', {
+            console.log(`${logger.log(event, '11f. Latest depth retrieved')}: ${JSON.stringify({
               bidsCount: latestDepth.bids?.length || 0,
               asksCount: latestDepth.asks?.length || 0
-            });
+            })}`);
           }
         } catch (error) {
           if (shouldDebug) {
-            console.error('11f. Failed to get depth:', error);
+            console.error(`${logger.log(event, '11f. Failed to get depth')}: ${JSON.stringify(error)}`);
           }
           throw new Error(`Failed to get depth: ${(error as Error).message}`);
         }
@@ -320,25 +321,25 @@ export async function handleOrderPlaced({ event, context }: any) {
         try {
           pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
           if (shouldDebug) {
-            console.log('11g. Depth pushed successfully');
+            console.log(`${logger.log(event, '11g. Depth pushed successfully')}`);
           }
         } catch (error) {
           if (shouldDebug) {
-            console.error('11g. Failed to push depth:', error);
+            console.error(`${logger.log(event, '11g. Failed to push depth')}: ${JSON.stringify(error)}`);
           }
           throw new Error(`Failed to push depth: ${(error as Error).message}`);
         }
 
         if (shouldDebug) {
-          console.log('11h. executeIfInSync callback completed successfully');
+          console.log(`${logger.log(event, '11h. executeIfInSync callback completed successfully')}`);
         }
       });
       if (shouldDebug) {
-        console.log('11. executeIfInSync operation completed successfully');
+        console.log(`${logger.log(event, '11. executeIfInSync operation completed successfully')}`);
       }
     } catch (error) {
       if (shouldDebug) {
-        console.error('11. executeIfInSync operation failed:', error);
+        console.error(`${logger.log(event, '11. executeIfInSync operation failed')}: ${JSON.stringify(error)}`);
       }
       throw new Error(`executeIfInSync failed: ${(error as Error).message}`);
     }
@@ -367,8 +368,9 @@ export async function handleOrderPlaced({ event, context }: any) {
 }
 
 export async function handleOrderMatched({ event, context }: any) {
-    console.log('===============================')
-    console.log('handleOrderMatched')
+    const logger = createLogger('orderBookHandler.ts', 'handleOrderMatched');
+    console.log(`${logger.log(event, '===============================')}`)
+    console.log(`${logger.log(event, 'handleOrderMatched')}`)
 
 	const args = event.args as OrderMatchedEventArgs;
 	const db = context.db;
@@ -402,7 +404,7 @@ export async function handleOrderMatched({ event, context }: any) {
 	await updateCandlestickBuckets(db, chainId, poolId, price, quantity, event, args);
 
     await executeIfInSync(Number(event.block.number), async () => {
-        console.log('executeIfInSync')
+        console.log(`${logger.log(event, 'executeIfInSync')}`)
         const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
         const symbolLower = symbol.toLowerCase();
         const txHash = event.transaction.hash;
@@ -502,9 +504,9 @@ export async function handleOrderMatched({ event, context }: any) {
             volume
         );
 
-        console.log('===============================')
-        console.log('websocket pushed')
-        console.log('===============================')
+        console.log(`${logger.log(event, '===============================')}`)
+        console.log(`${logger.log(event, 'websocket pushed')}`)
+        console.log(`${logger.log(event, '===============================')}`)
     });
 }
 
@@ -532,6 +534,7 @@ export async function handleOrderCancelled({ event, context }: any) {
 }
 
 export async function handleUpdateOrder({ event, context }: any) {
+	const logger = createLogger('orderBookHandler.ts', 'handleUpdateOrder');
 	const db = context.db;
 	const chainId = context.network.chainId;
 
@@ -553,7 +556,7 @@ export async function handleUpdateOrder({ event, context }: any) {
 	const status = ORDER_STATUS[Number(event.args.status)];
 	const timestamp = Number(event.args.timestamp);
 
-	console.log('UpdateOrder debug - processing:', {
+	console.log(`${logger.log(event, 'UpdateOrder debug - processing')}: ${JSON.stringify({
 		orderId: orderId.toString(),
 		poolAddress,
 		status,
@@ -561,7 +564,7 @@ export async function handleUpdateOrder({ event, context }: any) {
 		timestamp,
 		poolAddressType: typeof poolAddress,
 		statusType: typeof status
-	});
+	})}`);
 
 	const hashedOrderId = createOrderId(chainId, orderId, poolAddress);
 	const orderHistoryId = createOrderHistoryId(chainId, event.transaction.hash, filled, poolAddress, orderId.toString());
@@ -584,12 +587,12 @@ export async function handleUpdateOrder({ event, context }: any) {
 	if (event.args.status == isExpired) {
 		const order = await db.find(orders, { id: hashedOrderId });
 		if (order && order.side) {
-			console.log('UpdateOrder expiry debug:', {
+			console.log(`${logger.log(event, 'UpdateOrder expiry debug')}: ${JSON.stringify({
 				orderId: hashedOrderId,
 				orderSide: order.side,
 				orderSideType: typeof order.side,
 				orderSideLength: order.side?.length
-			});
+			})}`);
 			const price = BigInt(order.price);
 			await upsertOrderBookDepth(
 				db,
