@@ -25,7 +25,7 @@ import {
 } from "@/utils";
 import { getDepth } from "@/utils/getDepth";
 import { getPoolTradingPair } from "@/utils/getPoolTradingPair";
-import { createLogger } from "@/utils/logger";
+import { createLogger, safeStringify } from "@/utils/logger";
 import { pushExecutionReport } from "@/utils/pushExecutionReport";
 import { executeIfInSync, shouldEnableWebSocket } from "@/utils/syncState";
 import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "@/websocket/broadcaster";
@@ -52,7 +52,7 @@ export async function handleOrderPlaced({ event, context }: any) {
 
   try {
     if (shouldDebug) {
-      console.log(`${logger.log(event, '1. Raw event data')}: ${JSON.stringify({
+      console.log(`${logger.log(event, '1. Raw event data')}: ${safeStringify({
         eventType: 'OrderPlaced',
         blockNumber: event.block.number,
         blockHash: event.block.hash,
