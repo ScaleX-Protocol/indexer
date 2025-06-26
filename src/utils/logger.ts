@@ -87,6 +87,16 @@ export const formatLogPrefixSimple = (
   return parts.join(', ');
 };
 
+// Utility function to safely stringify objects containing BigInt values
+export const safeStringify = (obj: any, space?: string | number): string => {
+  return JSON.stringify(obj, (_key, value) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    return value;
+  }, space);
+};
+
 // Helper to create a log function for a specific file and function
 export const createLogger = (fileName: string, functionName: string) => {
   return {
