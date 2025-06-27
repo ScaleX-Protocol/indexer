@@ -1,18 +1,17 @@
 import dotenv from "dotenv";
-import { getCachedData } from "./redis";
 import { createLogger, safeStringify } from "./logger";
+import { getCachedData } from "./redis";
 
 dotenv.config();
 
 const logger = createLogger('syncState.ts', 'shouldEnableWebSocket');
-const executeLogger = createLogger('syncState.ts', 'executeIfInSync');
 
 export const shouldEnableWebSocket = async (currentBlockNumber: number): Promise<boolean> => {
     try {
         const enabledWebSocket = process.env.ENABLE_WEBSOCKET === 'true';
         if (!enabledWebSocket) return false;
 
-        const enabledBlockNumber = await getCachedData<number>('websocket:enable:block');
+        const enabledBlockNumber = await getCachedData<number>('websocket:enable:block', currentBlockNumber);
         if (!enabledBlockNumber) return true;
 
         console.log(`${logger.logSimple(currentBlockNumber, 'WebSocket enable check')}: ${safeStringify({

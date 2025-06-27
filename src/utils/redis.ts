@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
+import { safeStringify } from './logger';
 
 dotenv.config();
 
@@ -29,14 +30,39 @@ export const initRedisClient = async () => {
   }
 };
 
-export const getCachedData = async <T>(key: string): Promise<T | null> => {
+export const getCachedData = async <T>(key: string, blockNumber: number): Promise<T | null> => {
+  const logPrefix = `[redis.ts:getCachedData:block-${blockNumber}]`;
+  
   try {
+    console.log(`${logPrefix} Starting cache retrieval: ${safeStringify({
+      key,
+      blockNumber
+    })}`);
+    
     const client = await initRedisClient();
-    if (!client) return null;
+    if (!client) {
+      console.log(`${logPrefix} Redis client not available, returning null for key: ${key}`);
+      return null;
+    }
     
     const data = await client.get(key);
-    return data ? JSON.parse(data, jsonReviver) as T : null;
+    const result = data ? JSON.parse(data, jsonReviver) as T : null;
+    
+    console.log(`${logPrefix} Cache retrieval completed: ${safeStringify({
+      key,
+      blockNumber,
+      found: !!data,
+      dataLength: data?.length || 0
+    })}`);
+    
+    return result;
   } catch (error) {
+    console.error(`${logPrefix} Error getting cached data: ${safeStringify({
+      key,
+      blockNumber,
+      error: (error as Error).message,
+      stack: (error as Error).stack
+    })}`);
     console.error(`Error getting cached data for key ${key}:`, error);
     return null;
   }
@@ -56,13 +82,43 @@ const jsonReviver = (_key: string, value: any) => {
   return value;
 };
 
-export const setCachedData = async <T>(key: string, data: T, ttl: number = REDIS_CACHE_TTL): Promise<void> => {
+export const setCachedData = async <T>(key: string, data: T, ttl: number = REDIS_CACHE_TTL, blockNumber: number): Promise<void> => {
+  const logPrefix = `[redis.ts:setCachedData:block-${blockNumber}]`;
+  
   try {
-    const client = await initRedisClient();
-    if (!client) return;
+    console.log(`${logPrefix} Starting cache operation: ${safeStringify({
+      key,
+      ttl,
+      dataType: typeof data,
+      dataKeys: data && typeof data === 'object' ? Object.keys(data) : undefined
+    })}`);
     
-    await client.set(key, JSON.stringify(data, jsonReplacer), { EX: ttl });
+    const client = await initRedisClient();
+    if (!client) {
+      console.log(`${logPrefix} Redis client not available, skipping cache operation for key: ${key}`);
+      return;
+    }
+    
+    const serializedData = JSON.stringify(data, jsonReplacer);
+    console.log(`${logPrefix} Data serialized successfully: ${safeStringify({
+      key,
+      serializedLength: serializedData.length,
+      containsBigInt: serializedData.includes('__type":"bigint"')
+    })}`);
+    
+    await client.set(key, serializedData, { EX: ttl });
+    console.log(`${logPrefix} Cache set successfully: ${safeStringify({
+      key,
+      ttl,
+      success: true
+    })}`);
   } catch (error) {
+    console.error(`${logPrefix} Error setting cached data: ${safeStringify({
+      key,
+      ttl,
+      error: (error as Error).message,
+      stack: (error as Error).stack
+    })}`);
     console.error(`Error setting cached data for key ${key}:`, error);
   }
 };

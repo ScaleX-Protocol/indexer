@@ -839,7 +839,7 @@ async function setWebSocketEnableBlockNumber() {
     }
 
     if (blockNumber > 0) {
-      await setCachedData('websocket:enable:block', blockNumber);
+      await setCachedData('websocket:enable:block', blockNumber, 3600, blockNumber);
       console.log(`WebSocket enable block number set to ${blockNumber}`);
     }
   } catch (error) {
