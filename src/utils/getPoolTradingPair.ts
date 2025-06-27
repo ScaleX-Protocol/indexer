@@ -85,7 +85,7 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
             }
         }
         
-        const cachedPoolData = await getCachedData<PoolData>(cacheKey);
+        const cachedPoolData = await getCachedData<PoolData>(cacheKey, blockNumber || 0);
         
         if (shouldDebug) {
             console.log(`${logger.logSimple(blockNumber, '5. Cache lookup result')}: ${safeStringify({
@@ -253,7 +253,7 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
             })}`);
         }
         
-        await setCachedData(cacheKey, poolData);
+        await setCachedData(cacheKey, poolData, 3600, blockNumber || 0);
         
         if (shouldDebug) {
             console.log(logger.logSimple(blockNumber, '13. Data cached successfully'));
