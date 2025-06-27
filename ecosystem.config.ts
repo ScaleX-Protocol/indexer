@@ -27,6 +27,14 @@ const config: Pm2Config = {
             }
         },
         {
+            name: "run-anvil",
+            script: "./run-gtx-anvil.sh",
+            args: "",
+            autorestart: true,
+            watch: false,
+            restart_delay: 2000
+        },
+        {
             name: "metrics-dashboard",
             script: "node",
             args: "--import ./scripts/ts-register.js ./scripts/metrics-dashboard.ts",
