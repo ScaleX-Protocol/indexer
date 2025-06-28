@@ -15,9 +15,8 @@ import schema, {
 	pools,
 	thirtyMinuteBuckets,
 } from "ponder:schema";
-import { createPublicClient, http, defineChain } from "viem";
-import { mainnet, sepolia, goerli, arbitrum, optimism, polygon, base } from "viem/chains";
-import { setCachedData } from "../utils/redis";
+import { createPublicClient, defineChain, http } from "viem";
+import { arbitrum, base, goerli, mainnet, optimism, polygon, sepolia } from "viem/chains";
 import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
 
@@ -729,31 +728,7 @@ async function getCurrentBlockNumber(): Promise<number> {
   }
 }
 
-async function setWebSocketEnableBlockNumber() {
-  try {
-    const enableWebSocketBlockNumberStr = process.env.ENABLE_WEBSOCKET_BLOCK_NUMBER;
-    let blockNumber: number;
-
-    if (enableWebSocketBlockNumberStr) {
-      blockNumber = parseInt(enableWebSocketBlockNumberStr);
-      console.log(`Using WebSocket enable block number from env: ${blockNumber}`);
-    } else {
-      blockNumber = await getCurrentBlockNumber();
-      console.log(`Using current block number for WebSocket enable: ${blockNumber}`);
-    }
-
-    if (blockNumber > 0) {
-      await setCachedData('websocket:enable:block', blockNumber, 3600, blockNumber, 'setWebSocketEnableBlockNumber');
-      console.log(`WebSocket enable block number set to ${blockNumber}`);
-    }
-  } catch (error) {
-    console.error('Error setting WebSocket enable block number:', error);
-  }
-}
-
 bootstrapGateway(app);
-
-setWebSocketEnableBlockNumber();
 
 // Start system monitor for metrics collection (configurable)
 const ENABLE_SYSTEM_MONITOR = process.env.ENABLE_SYSTEM_MONITOR === 'true';

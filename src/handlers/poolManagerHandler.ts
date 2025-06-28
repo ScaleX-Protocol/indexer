@@ -2,6 +2,7 @@ import { createCurrencyId, createPoolId } from "@/utils";
 import { createLogger, safeStringify } from "@/utils/logger";
 import { shouldEnableWebSocket } from "@/utils/syncState";
 import dotenv from "dotenv";
+import { sql } from "ponder";
 import { currencies, pools } from "ponder:schema";
 import { Address, getAddress } from "viem";
 import { ERC20ABI } from "../../abis/ERC20";
@@ -47,16 +48,22 @@ async function safeReadContract(client: any, address: string, functionName: stri
 	}
 }
 
-async function insertCurrency(db: any, chainId: number, address: Address, data: any) {
+async function insertCurrency(context: any, chainId: number, address: Address, data: any) {
 	if (USE_RAW_SQL) {
 		const currencyId = createCurrencyId(chainId, address);
-		await db.sql`
-			INSERT INTO currencies (id, address, "chainId", name, symbol, decimals)
-			VALUES (${currencyId}, ${address}, ${chainId}, ${data.name}, ${data.symbol}, ${data.decimals})
-			ON CONFLICT (id) DO NOTHING
-		`;
+		await context.db.sql
+			.insert(currencies)
+			.values({
+				id: currencyId,
+				address: address,
+				chainId,
+				name: data.name,
+				symbol: data.symbol,
+				decimals: data.decimals,
+			})
+			.onConflictDoNothing();
 	} else {
-		await db
+		await context.db
 			.insert(currencies)
 			.values({
 				id: createCurrencyId(chainId, address),
@@ -175,7 +182,7 @@ export async function handlePoolCreated({ event, context }: any) {
 		}
 
 		try {
-			await insertCurrency(db, chainId, baseCurrency, baseData);
+			await insertCurrency(context, chainId, baseCurrency, baseData);
 			if (shouldDebug) {
 				console.log(`${logger.log(event, '6a. Base currency inserted successfully')}: ${safeStringify({ currencyId: createCurrencyId(chainId, baseCurrency) })}`);
 			}
@@ -187,7 +194,7 @@ export async function handlePoolCreated({ event, context }: any) {
 		}
 
 		try {
-			await insertCurrency(db, chainId, quoteCurrency, quoteData);
+			await insertCurrency(context, chainId, quoteCurrency, quoteData);
 			if (shouldDebug) {
 				console.log(`${logger.log(event, '6b. Quote currency inserted successfully')}: ${safeStringify({ currencyId: createCurrencyId(chainId, quoteCurrency) })}`);
 			}
@@ -249,16 +256,15 @@ export async function handlePoolCreated({ event, context }: any) {
 				if (shouldDebug) {
 					console.log(logger.log(event, '9a. Using raw SQL for pool insertion'));
 				}
-				await db.sql`
-					INSERT INTO pools (id, "chainId", coin, "orderBook", "baseCurrency", "quoteCurrency", "baseDecimals", "quoteDecimals", volume, "volumeInQuote", price, timestamp)
-					VALUES (${poolData.id}, ${poolData.chainId}, ${poolData.coin}, ${poolData.orderBook}, ${poolData.baseCurrency}, ${poolData.quoteCurrency}, ${poolData.baseDecimals}, ${poolData.quoteDecimals}, ${poolData.volume}, ${poolData.volumeInQuote}, ${poolData.price}, ${poolData.timestamp})
-					ON CONFLICT (id) DO NOTHING
-				`;
+				await context.db.sql
+					.insert(pools)
+					.values(poolData)
+					.onConflictDoNothing();
 			} else {
 				if (shouldDebug) {
 					console.log(logger.log(event, '9a. Using Ponder stores API for pool insertion'));
 				}
-				await db
+				await context.db
 					.insert(pools)
 					.values(poolData)
 					.onConflictDoNothing();
@@ -323,7 +329,7 @@ export async function handlePoolCreated({ event, context }: any) {
 				if (shouldDebug) {
 					console.log(logger.log(event, '11d. executeIfInSync callback completed successfully'));
 				}
-			});
+			}, 'handlePoolCreated');
 			if (shouldDebug) {
 				console.log(logger.log(event, '11. executeIfInSync operation completed successfully'));
 			}

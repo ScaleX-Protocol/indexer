@@ -21,7 +21,7 @@ async function fetchAndPushBalance(context: any, balanceId: string, timestamp: n
                 l: balance.lockedAmount.toString()
             });
         }
-    });
+    }, 'fetchAndPushBalance');
 }
 
 function fromId(id: number): string {
