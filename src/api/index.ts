@@ -15,9 +15,8 @@ import schema, {
 	pools,
 	thirtyMinuteBuckets,
 } from "ponder:schema";
-import { createPublicClient, http, defineChain } from "viem";
-import { mainnet, sepolia, goerli, arbitrum, optimism, polygon, base } from "viem/chains";
-import { setCachedData } from "../utils/redis";
+import { createPublicClient, defineChain, http } from "viem";
+import { arbitrum, base, goerli, mainnet, optimism, polygon, sepolia } from "viem/chains";
 import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
 
