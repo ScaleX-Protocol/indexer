@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { Hono } from "hono";
-import { and, client, desc, eq, graphql, gt, gte, lte, or, sql } from "ponder";
+import { and, client, desc, eq, graphql, gt, gte, lte, or, sql, asc } from "ponder";
 import { db } from "ponder:api";
 import schema, {
 	balances,
@@ -177,31 +177,43 @@ app.get("/api/depth", async c => {
 		// Use the new util common service for bids and asks
 		// Bids: Buy, OPEN or PARTIALLY_FILLED, price desc
 		const bids = await db
-			.select()
+			.select({
+				price: orders.price,
+				quantity: sql`SUM(${orders.quantity})`.as("quantity"),
+				filled: sql`SUM(${orders.filled})`.as("filled"),
+			})
 			.from(orders)
 			.where(
 				and(
+					gt(orders.price, 0),
 					eq(orders.poolId, poolId),
 					eq(orders.side, "Buy"),
 					or(eq(orders.status, "OPEN"), eq(orders.status, "PARTIALLY_FILLED"))
 				)
 			)
-			.orderBy(desc(orders.price))
+			.groupBy(orders.price)
+			.orderBy(asc(orders.price))
 			.limit(limit)
 			.execute();
 
 		// Asks: Sell, OPEN or PARTIALLY_FILLED, price asc
 		const asks = await db
-			.select()
+			.select({
+				price: orders.price,
+				quantity: sql`SUM(${orders.quantity})`.as("quantity"),
+				filled: sql`SUM(${orders.filled})`.as("filled"),
+			})
 			.from(orders)
 			.where(
 				and(
+					gt(orders.price, 0),
 					eq(orders.poolId, poolId),
 					eq(orders.side, "Sell"),
 					or(eq(orders.status, "OPEN"), eq(orders.status, "PARTIALLY_FILLED"))
 				)
 			)
-			.orderBy(orders.price)
+			.orderBy(asc(orders.price))
+			.groupBy(orders.price)
 			.limit(limit)
 			.execute();
 
