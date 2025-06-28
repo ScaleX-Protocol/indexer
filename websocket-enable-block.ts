@@ -198,7 +198,7 @@ process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
 // Run the main function if this script is executed directly
-if (require.main === module || process.argv[1]?.endsWith('websocket-enable-block.ts')) {
+if (process.argv[1]?.endsWith('websocket-enable-block.ts')) {
   setWebSocketEnableBlockNumber()
     .then(() => {
       console.log('WebSocket enable block number set successfully');
