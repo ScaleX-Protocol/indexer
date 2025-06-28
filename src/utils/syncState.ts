@@ -6,12 +6,18 @@ dotenv.config();
 
 const logger = createLogger('syncState.ts', 'shouldEnableWebSocket');
 
+let cachedEnabledBlockNumber: number | null = null;
+
 export const shouldEnableWebSocket = async (currentBlockNumber: number, callerFunction: string = 'shouldEnableWebSocket'): Promise<boolean> => {
     try {
         const enabledWebSocket = process.env.ENABLE_WEBSOCKET === 'true';
         if (!enabledWebSocket) return false;
 
-        const enabledBlockNumber = await getCachedData<number>('websocket:enable:block', currentBlockNumber, callerFunction);
+        if (cachedEnabledBlockNumber === null) {
+            cachedEnabledBlockNumber = await getCachedData<number>('websocket:enable:block', currentBlockNumber, callerFunction);
+        }
+        
+        const enabledBlockNumber = cachedEnabledBlockNumber;
         if (!enabledBlockNumber) return true;
 
         console.log(logger.logSimple(currentBlockNumber, `${callerFunction} WebSocket enable check: ${safeStringify({
