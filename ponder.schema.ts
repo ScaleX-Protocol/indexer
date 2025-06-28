@@ -48,9 +48,11 @@ export const orders = onchainTable(
 		statusIdx: index().on(table.status),
 		poolIdx: index().on(table.poolId),
 		chainIdIdx: index().on(table.chainId),
+		priceIdx: index().on(table.price),
 		orderIdChainIdx: index().on(table.orderId, table.chainId),
 		poolChainStatusIdx: index().on(table.poolId, table.chainId, table.status),
 		poolChainSideIdx: index().on(table.poolId, table.chainId, table.side),
+		poolStatusSideIdx: index().on(table.poolId, table.status, table.side),
 		userPoolIdx: index().on(table.user, table.poolId),
 		timestampIdx: index().on(table.timestamp),
 	})

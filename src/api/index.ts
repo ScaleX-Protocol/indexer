@@ -168,39 +168,46 @@ app.get("/api/depth", async c => {
 		}
 
 		const poolId = queriedPools[0]!.orderBook;
-		const chainId = queriedPools[0]!.chainId;
 
 		if (!poolId) {
 			return c.json({ error: "Pool order book address not found" }, 404);
 		}
 
+		// Buy order book: price asc
 		const bids = await db
-			.select()
-			.from(orderBookDepth)
+			.select({
+				price: orders.price,
+				quantity: sql`SUM(${orders.quantity})`.as("quantity"),
+			})
+			.from(orders)
 			.where(
 				and(
-					eq(orderBookDepth.poolId, poolId),
-					eq(orderBookDepth.chainId, chainId),
-					eq(orderBookDepth.side, "Buy"),
-					gt(orderBookDepth.quantity, BigInt(0))
+					eq(orders.poolId, poolId),
+					eq(orders.status, "OPEN"),
+					eq(orders.side, "Buy")
 				)
 			)
-			.orderBy(desc(orderBookDepth.price))
+			.groupBy(orders.price)
+			.orderBy(orders.price)
 			.limit(limit)
 			.execute();
 
+		// Sell order book: price desc
 		const asks = await db
-			.select()
-			.from(orderBookDepth)
+			.select({
+				price: orders.price,
+				quantity: sql`SUM(${orders.quantity})`.as("quantity"),
+			})
+			.from(orders)
 			.where(
 				and(
-					eq(orderBookDepth.poolId, poolId),
-					eq(orderBookDepth.chainId, chainId),
-					eq(orderBookDepth.side, "Sell"),
-					gt(orderBookDepth.quantity, BigInt(0))
+					eq(orders.poolId, poolId),
+					eq(orders.status, "OPEN"),
+					eq(orders.side, "Sell")
 				)
 			)
-			.orderBy(orderBookDepth.price)
+			.groupBy(orders.price)
+			.orderBy(desc(orders.price))
 			.limit(limit)
 			.execute();
 
