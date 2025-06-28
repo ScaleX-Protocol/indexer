@@ -175,7 +175,7 @@ app.get("/api/depth", async c => {
 		}
 
 		// Use the new util common service for bids and asks
-		const response = await await getDepth(db, poolId, limit);
+		const response = await await getDepth(poolId, db, limit);
 
 		return c.json({
 			lastUpdateId: Date.now(),
