@@ -21,113 +21,69 @@ type PoolData = {
 };
 
 const STATIC_POOL_DATA = {
-  "data": {
-    "poolss": {
-      "items": [
-        {
-          "baseDecimals": 8,
-          "chainId": 11155931,
-          "coin": "mWBTC/MUSDC",
-          "id": "5dec33f246999d5aebb70e3adc138ab9203c22b522c843c6325f1b696d8fc45c",
-          "orderBook": "0xd9fcb06641bd88d888ebca7c9d6eda774cd11e43",
-          "price": "0",
-          "quoteDecimals": 6,
-          "volume": "0",
-          "timestamp": 1746888129,
-          "volumeInQuote": "0",
-          "quoteCurrency": {
-            "address": "0x4b9a14ca8b00b6d83c8d663a4d9471a79ca6f58e",
+    "data": {
+      "poolss": {
+        "items": [
+          {
             "chainId": 11155931,
-            "decimals": 6,
-            "id": "80dafa0151c39bd79ce3e637c01f8dff3c75f4e097261f6f14d7161cd1d471f4",
-            "name": "MockUSDC",
-            "symbol": "MUSDC"
-          }
-        },
-        {
-          "baseDecimals": 18,
-          "chainId": 11155931,
-          "coin": "MLINK/MUSDC",
-          "id": "b31aeaca00c53a694f9e622c4db434f444d7efa95fc079d54e632544a562b5b3",
-          "orderBook": "0xbcd9b173dcb1374e344c449840b6a317542632f4",
-          "price": "0",
-          "quoteDecimals": 6,
-          "volume": "0",
-          "timestamp": 1747407547,
-          "volumeInQuote": "0",
-          "quoteCurrency": {
-            "address": "0x4b9a14ca8b00b6d83c8d663a4d9471a79ca6f58e",
+            "id": "a8e602dc46351c604f988ea52ff319d45d07d892fdf2da4fac572e3eab48657f",
+            "coin": "MUSDC/mWBTC",
+            "orderBook": "0x0c7907a26424bae17908803d1045604e8c1bb19f",
+            "price": "10720688650000",
+            "quoteDecimals": 8,
+            "timestamp": 1751112787,
+            "volume": "26200000",
+            "volumeInQuote": "280960220318000",
+            "baseDecimals": 6,
+            "quoteCurrency": {
+              "address": "0xca1de9daf1d62d0e0e9cd1db7e3a31c61875a6c0",
+              "chainId": 11155931,
+              "id": "9752ff740daa0034507394c6fa8bebfa01cf4c152859cf7984064964f423108c",
+              "decimals": 8,
+              "name": "Mock WBTC",
+              "symbol": "mWBTC"
+            },
+            "baseCurrency": {
+              "symbol": "MUSDC",
+              "name": "MockUSDC",
+              "id": "79ddf016627fedccb8660681b22c6311d6d5b74996442bc33796a9ace66b0676",
+              "decimals": 6,
+              "chainId": 11155931,
+              "address": "0xa652aede05d70c1aff00249ac05a9d021f9d30c2"
+            }
+          },
+          {
             "chainId": 11155931,
-            "decimals": 6,
-            "id": "80dafa0151c39bd79ce3e637c01f8dff3c75f4e097261f6f14d7161cd1d471f4",
-            "name": "MockUSDC",
-            "symbol": "MUSDC"
+            "id": "d751ecff384afb051fb9917e00fcfbceea1a7df23ce9a76d8cfc410a00b2fc97",
+            "coin": "MWETH/MUSDC",
+            "orderBook": "0x9ce34b49aee0bba07a34752a917189b34b54d433",
+            "price": "1980000000",
+            "quoteDecimals": 6,
+            "timestamp": 1751114691,
+            "volume": "112700000000000000000",
+            "volumeInQuote": "1291082012710019207999988",
+            "baseDecimals": 18,
+            "baseCurrency": {
+              "symbol": "MWETH",
+              "name": "MockWETH",
+              "id": "f7324016cb4804fcf77959766a4a0262b549ac07ad7972b802595b56f654286d",
+              "decimals": 18,
+              "chainId": 11155931,
+              "address": "0x05d889798a21c3838d7ff6f67cd46b576dab2174"
+            },
+            "quoteCurrency": {
+              "address": "0xa652aede05d70c1aff00249ac05a9d021f9d30c2",
+              "chainId": 11155931,
+              "id": "79ddf016627fedccb8660681b22c6311d6d5b74996442bc33796a9ace66b0676",
+              "decimals": 6,
+              "name": "MockUSDC",
+              "symbol": "MUSDC"
+            }
           }
-        },
-        {
-          "baseDecimals": 18,
-          "chainId": 11155931,
-          "coin": "MWETH/MUSDC",
-          "id": "d8466431bc58e06019a343acf064464d65361ece575367fddc25d2951b3fb8cb",
-          "orderBook": "0xb154f8d27e328a788140f121d649e0684f80923a",
-          "price": "2495040000",
-          "quoteDecimals": 6,
-          "volume": "43456392200000000410872",
-          "timestamp": 1750527318,
-          "volumeInQuote": "108540494287099",
-          "quoteCurrency": {
-            "address": "0x4b9a14ca8b00b6d83c8d663a4d9471a79ca6f58e",
-            "chainId": 11155931,
-            "decimals": 6,
-            "id": "80dafa0151c39bd79ce3e637c01f8dff3c75f4e097261f6f14d7161cd1d471f4",
-            "name": "MockUSDC",
-            "symbol": "MUSDC"
-          }
-        },
-        {
-          "baseDecimals": 18,
-          "chainId": 11155931,
-          "coin": "/",
-          "id": "db889952f7a2ad35ba827bd29bb4454fc2f94af13167c5d677efaeb4e9190700",
-          "orderBook": "0x54a8b50180d8bdc30a41b381daa85e223acb9836",
-          "price": "0",
-          "quoteDecimals": 18,
-          "volume": "0",
-          "timestamp": 1747407247,
-          "volumeInQuote": "0",
-          "quoteCurrency": {
-            "address": "0x0000000000000000000000000000000000000000",
-            "chainId": 11155931,
-            "decimals": 18,
-            "id": "2bbcb676028636158e156c7e7d08dd4b04459fa2a8e31d72185ab4755fab99cc",
-            "name": "",
-            "symbol": ""
-          }
-        },
-        {
-          "baseDecimals": 18,
-          "chainId": 11155931,
-          "coin": "MADA/",
-          "id": "e507be30c686e05c79e2b5becd9a826c66ccd2260fc9cec8532ef78787ff5628",
-          "orderBook": "0x19e511baa073400da230c88e1a9e80fd1bfc1d83",
-          "price": "0",
-          "quoteDecimals": 18,
-          "volume": "0",
-          "timestamp": 1747837285,
-          "volumeInQuote": "0",
-          "quoteCurrency": {
-            "address": "0x0000000000000000000000000000000000000000",
-            "chainId": 11155931,
-            "decimals": 18,
-            "id": "2bbcb676028636158e156c7e7d08dd4b04459fa2a8e31d72185ab4755fab99cc",
-            "name": "",
-            "symbol": ""
-          }
-        }
-      ]
+        ]
+      }
     }
-  }
-};
+  };
 
 // Check if static data mode is enabled
 const USE_STATIC_DATA = process.env.USE_STATIC_POOL_DATA === 'true';
