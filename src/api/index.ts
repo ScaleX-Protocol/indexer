@@ -19,6 +19,7 @@ import { createPublicClient, defineChain, http } from "viem";
 import { arbitrum, base, goerli, mainnet, optimism, polygon, sepolia } from "viem/chains";
 import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
+import {getDepth} from "@/utils/getDepth";
 
 export const rise = defineChain({
 	id: parseInt(process.env.CHAIN_ID || '11155931'),
@@ -173,51 +174,13 @@ app.get("/api/depth", async c => {
 			return c.json({ error: "Pool order book address not found" }, 404);
 		}
 
-		// Buy order book: price asc
-		const bids = await db
-			.select({
-				price: orders.price,
-				quantity: sql`SUM(${orders.quantity})`.as("quantity"),
-			})
-			.from(orders)
-			.where(
-				and(
-					eq(orders.poolId, poolId),
-					eq(orders.status, "OPEN"),
-					eq(orders.side, "Buy")
-				)
-			)
-			.groupBy(orders.price)
-			.orderBy(orders.price)
-			.limit(limit)
-			.execute();
+		// Use the new util common service for bids and asks
+		const response = await await getDepth(db, poolId, limit);
 
-		// Sell order book: price desc
-		const asks = await db
-			.select({
-				price: orders.price,
-				quantity: sql`SUM(${orders.quantity})`.as("quantity"),
-			})
-			.from(orders)
-			.where(
-				and(
-					eq(orders.poolId, poolId),
-					eq(orders.status, "OPEN"),
-					eq(orders.side, "Sell")
-				)
-			)
-			.groupBy(orders.price)
-			.orderBy(desc(orders.price))
-			.limit(limit)
-			.execute();
-
-		const response = {
+		return c.json({
 			lastUpdateId: Date.now(),
-			bids: bids.map(bid => [bid.price.toString(), bid.quantity.toString()]),
-			asks: asks.map(ask => [ask.price.toString(), ask.quantity.toString()]),
-		};
-
-		return c.json(response);
+			...response
+		});
 	} catch (error) {
 		return c.json({ error: `Failed to fetch depth data: ${error}` }, 500);
 	}
