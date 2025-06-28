@@ -9,7 +9,8 @@ NC='\033[0m' # No Color
 
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WEBSOCKET_SCRIPT="$SCRIPT_DIR/websocket-enable-block.ts"
+WEBSOCKET_SCRIPT_TS="$SCRIPT_DIR/websocket-enable-block.ts"
+WEBSOCKET_SCRIPT_JS="$SCRIPT_DIR/websocket-enable-block.cjs"
 REDIS_KEY="websocket:enable:block"
 MAX_RETRIES=5
 RETRY_DELAY=2
@@ -89,12 +90,25 @@ check_websocket_block() {
 run_websocket_script() {
     echo -e "${YELLOW}🔧 Running WebSocket enable block script...${NC}"
     
-    if [[ ! -f "$WEBSOCKET_SCRIPT" ]]; then
-        echo -e "${RED}❌ WebSocket script not found: $WEBSOCKET_SCRIPT${NC}"
+    # Prefer Node.js version if available
+    if [[ -f "$WEBSOCKET_SCRIPT_JS" ]] && command -v node &> /dev/null; then
+        echo -e "${YELLOW}🚀 Running JavaScript version with Node.js...${NC}"
+        cd "$SCRIPT_DIR" && node "$WEBSOCKET_SCRIPT_JS"
+    elif [[ -f "$WEBSOCKET_SCRIPT_TS" ]] && command -v tsx &> /dev/null; then
+        echo -e "${YELLOW}🚀 Running TypeScript with tsx...${NC}"
+        cd "$SCRIPT_DIR" && tsx "$WEBSOCKET_SCRIPT_TS"
+    elif [[ -f "$WEBSOCKET_SCRIPT_TS" ]] && command -v ts-node &> /dev/null; then
+        echo -e "${YELLOW}🚀 Running TypeScript with ts-node...${NC}"
+        cd "$SCRIPT_DIR" && ts-node "$WEBSOCKET_SCRIPT_TS"
+    elif [[ -f "$WEBSOCKET_SCRIPT_TS" ]] && command -v bun &> /dev/null; then
+        echo -e "${YELLOW}🚀 Running TypeScript with Bun...${NC}"
+        cd "$SCRIPT_DIR" && bun "$WEBSOCKET_SCRIPT_TS"
+    else
+        echo -e "${RED}❌ No suitable script runner found or WebSocket script missing${NC}"
+        echo -e "${YELLOW}📄 Available files:${NC}"
+        ls -la "$SCRIPT_DIR"/websocket-enable-block.*
         return 1
     fi
-    
-    bun run "$WEBSOCKET_SCRIPT"
     local exit_code=$?
     
     if [[ $exit_code -eq 0 ]]; then
