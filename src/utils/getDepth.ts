@@ -4,6 +4,7 @@ import {eq, and, or, desc } from "ponder";
 export async function getDepth(pool: `0x${string}`, db: any, limit: number) {
     // Bids: Buy, OPEN or PARTIALLY_FILLED, price desc
     const bids = await db
+        .sql
         .select()
         .from(orders)
         .where(
@@ -19,6 +20,7 @@ export async function getDepth(pool: `0x${string}`, db: any, limit: number) {
 
     // Asks: Sell, OPEN or PARTIALLY_FILLED, price asc
     const asks = await db
+        .sql
         .select()
         .from(orders)
         .where(
