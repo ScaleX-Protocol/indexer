@@ -304,7 +304,7 @@ export async function handleOrderPlaced({ event, context }: any) {
 
         let latestDepth;
         try {
-          latestDepth = await getDepth(event.log.address!, context, chainId);
+          latestDepth = await getDepth(event.log.address!, context.db, chainId);
           if (shouldDebug) {
             console.log(`${logger.log(event, '12f. Latest depth retrieved')}: ${safeStringify({
               bidsCount: latestDepth.bids?.length || 0,
@@ -425,7 +425,7 @@ export async function handleOrderMatched({ event, context }: any) {
     if (buyRow) pushExecutionReport(symbol.toLowerCase(), buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
     if (sellRowById) pushExecutionReport(symbol.toLowerCase(), sellRowById.user, sellRowById, "TRADE", sellRowById.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
 
-    const latestDepth = await getDepth(event.log.address!, context, chainId);
+    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
     pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
 
     const timeIntervals = [
@@ -529,7 +529,7 @@ export async function handleOrderCancelled({ event, context }: any) {
     if (!row) return;
 
     pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
-    const latestDepth = await getDepth(event.log.address!, context, chainId);
+    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
     pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
   }, 'handleOrderCancelled');
 }
@@ -616,7 +616,7 @@ export async function handleUpdateOrder({ event, context }: any) {
     if (!row) return;
 
     pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
-    const latestDepth = await getDepth(event.log.address!, context, chainId);
+    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
     pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
   }, 'handleUpdateOrder');
 }
