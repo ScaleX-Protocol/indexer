@@ -22,34 +22,38 @@ import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
 
 export const rise = defineChain({
-	id: 11155931,
-	name: 'RISE Testnet',
-	nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+	id: parseInt(process.env.CHAIN_ID || '11155931'),
+	name: process.env.CHAIN_NAME || 'RISE Testnet',
+	nativeCurrency: { 
+		name: process.env.NATIVE_CURRENCY_NAME || 'Ether', 
+		symbol: process.env.NATIVE_CURRENCY_SYMBOL || 'ETH', 
+		decimals: parseInt(process.env.NATIVE_CURRENCY_DECIMALS || '18') 
+	},
 	rpcUrls: {
 		default: {
-			http: ['https://testnet.riselabs.xyz'],
-			webSocket: ['wss://testnet.riselabs.xyz/ws']
+			http: [process.env.PONDER_RPC_URL || 'https://testnet.riselabs.xyz'],
+			webSocket: [process.env.WS_RPC_URL || 'wss://testnet.riselabs.xyz/ws']
 		},
 	},
 	blockExplorers: {
 		default: {
-			name: 'RISE Explorer',
-			url: 'https://testnet.explorer.riselabs.xyz',
+			name: process.env.BLOCK_EXPLORER_NAME || 'RISE Explorer',
+			url: process.env.BLOCK_EXPLORER_URL || 'https://testnet.explorer.riselabs.xyz',
 		},
 	},
 	contracts: {
 		multicall3: {
-			address: '0x4200000000000000000000000000000000000013',  // Using standard L2 multicall address
-			blockCreated: 0,
+			address: (process.env.MULTICALL3_ADDRESS || '0x4200000000000000000000000000000000000013') as `0x${string}`,
+			blockCreated: parseInt(process.env.MULTICALL3_BLOCK_CREATED || '0'),
 		},
 		l2StandardBridge: {
-			address: '0x4200000000000000000000000000000000000010',
+			address: (process.env.L2_STANDARD_BRIDGE_ADDRESS || '0x4200000000000000000000000000000000000010') as `0x${string}`,
 		},
 		l2CrossDomainMessenger: {
-			address: '0x4200000000000000000000000000000000000007',
+			address: (process.env.L2_CROSS_DOMAIN_MESSENGER_ADDRESS || '0x4200000000000000000000000000000000000007') as `0x${string}`,
 		},
 	},
-	testnet: true
+	testnet: process.env.IS_TESTNET === 'true' || true
 })
 
 
@@ -96,21 +100,6 @@ interface BucketData {
 }
 
 type IntervalType = "1m" | "5m" | "30m" | "1h" | "1d";
-
-app.get("/api/kline/mocks", async c => {
-	const symbol = c.req.query("symbol");
-	const interval = c.req.query("interval") || "1m";
-	const startTime = parseInt(c.req.query("startTime") || "0");
-	const endTime = parseInt(c.req.query("endTime") || Date.now().toString());
-	const limit = parseInt(c.req.query("limit") || "1000");
-
-	if (!symbol) {
-		return c.json({ error: "Symbol parameter is required" }, 400);
-	}
-
-	const mockData = generateMockKlineData(symbol, interval, startTime, endTime, limit);
-	return c.json(mockData);
-});
 
 app.get("/api/kline", async c => {
 	const symbol = c.req.query("symbol");
@@ -707,91 +696,6 @@ function formatKlineData(bucket: BucketData): BinanceKlineData {
 	];
 }
 
-// Function to generate mock data when real data isn't available
-function generateMockKlineData(
-	symbol: string,
-	interval: string,
-	startTime: number,
-	endTime: number,
-	limit: number
-): BinanceKlineData[] {
-	const intervalInMs = getIntervalInMs(interval);
-	const mockData: BinanceKlineData[] = [];
-
-	// Determine how many data points to generate
-	const timeRange = endTime - startTime;
-	const numPoints = Math.min(limit, Math.ceil(timeRange / intervalInMs));
-
-	// Generate a starting price based on the symbol (just for variety in mocks)
-	const symbolHash = symbol.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
-	let basePrice = 100 + (symbolHash % 900); // Price between 100 and 999
-
-	// Generate the mock data points
-	for (let i = 0; i < numPoints; i++) {
-		const openTime = startTime + i * intervalInMs;
-		const closeTime = openTime + intervalInMs - 1;
-
-		// Create some price movement
-		const priceChange = (Math.random() - 0.5) * 2; // Between -1 and 1
-		const open = basePrice;
-		const close = open * (1 + priceChange * 0.01); // Up to 1% change
-		const high = Math.max(open, close) * (1 + Math.random() * 0.005); // Up to 0.5% higher
-		const low = Math.min(open, close) * (1 - Math.random() * 0.005); // Up to 0.5% lower
-
-		// Generate volume data
-		const volume = 10 + Math.random() * 90; // Between 10 and 100
-		const quoteVolume = volume * ((open + close) / 2);
-		const count = Math.floor(10 + Math.random() * 90); // Between 10 and 100 trades
-
-		// Taker volumes
-		const takerBuyPercent = Math.random(); // Between 0 and 1
-		const takerBuyBaseVolume = volume * takerBuyPercent;
-		const takerBuyQuoteVolume = quoteVolume * takerBuyPercent;
-
-		mockData.push([
-			openTime, // Open time
-			open.toFixed(8), // Open price
-			high.toFixed(8), // High price
-			low.toFixed(8), // Low price
-			close.toFixed(8), // Close price
-			volume.toFixed(8), // Volume
-			closeTime, // Close time
-			quoteVolume.toFixed(8), // Quote asset volume
-			count, // Number of trades
-			takerBuyBaseVolume.toFixed(8), // Taker buy base asset volume
-			takerBuyQuoteVolume.toFixed(8), // Taker buy quote asset volume
-			"0", // Unused field (ignored)
-		]);
-
-		// Update the base price for the next iteration
-		basePrice = close;
-	}
-
-	return mockData;
-}
-
-// Helper function to convert interval strings to milliseconds
-function getIntervalInMs(interval: string): number {
-	const value = parseInt(interval);
-	const unit = interval.slice(-1);
-
-	switch (unit) {
-		case "m":
-			return value * 60 * 1000; // minutes
-		case "h":
-			return value * 60 * 60 * 1000; // hours
-		case "d":
-			return value * 24 * 60 * 60 * 1000; // days
-		case "w":
-			return value * 7 * 24 * 60 * 60 * 1000; // weeks
-		case "M":
-			return value * 30 * 24 * 60 * 60 * 1000; // months (approximate)
-		default:
-			return 60 * 1000; // default to 1 minute
-	}
-}
-
-
 async function getCurrentBlockNumber(): Promise<number> {
   try {
     const networkName = process.env.NETWORK?.toLowerCase() || 'mainnet';
@@ -839,14 +743,13 @@ async function setWebSocketEnableBlockNumber() {
     }
 
     if (blockNumber > 0) {
-      await setCachedData('websocket:enable:block', blockNumber, 3600, blockNumber);
+      await setCachedData('websocket:enable:block', blockNumber, 3600, blockNumber, 'setWebSocketEnableBlockNumber');
       console.log(`WebSocket enable block number set to ${blockNumber}`);
     }
   } catch (error) {
     console.error('Error setting WebSocket enable block number:', error);
   }
 }
-
 
 bootstrapGateway(app);
 

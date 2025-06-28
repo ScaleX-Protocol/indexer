@@ -10,6 +10,7 @@ import { executeIfInSync } from "../utils/syncState";
 import { pushMiniTicker } from "../websocket/broadcaster";
 
 const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '3600');
+const USE_RAW_SQL = process.env.USE_RAW_SQL === 'true';
 
 dotenv.config();
 
@@ -47,21 +48,30 @@ async function safeReadContract(client: any, address: string, functionName: stri
 }
 
 async function insertCurrency(db: any, chainId: number, address: Address, data: any) {
-	await db
-		.insert(currencies)
-		.values({
-			id: createCurrencyId(chainId, address),
-			address: address,
-			chainId,
-			name: data.name,
-			symbol: data.symbol,
-			decimals: data.decimals,
-		})
-		.onConflictDoNothing();
+	if (USE_RAW_SQL) {
+		const currencyId = createCurrencyId(chainId, address);
+		await db.sql`
+			INSERT INTO currencies (id, address, "chainId", name, symbol, decimals)
+			VALUES (${currencyId}, ${address}, ${chainId}, ${data.name}, ${data.symbol}, ${data.decimals})
+			ON CONFLICT (id) DO NOTHING
+		`;
+	} else {
+		await db
+			.insert(currencies)
+			.values({
+				id: createCurrencyId(chainId, address),
+				address: address,
+				chainId,
+				name: data.name,
+				symbol: data.symbol,
+				decimals: data.decimals,
+			})
+			.onConflictDoNothing();
+	}
 }
 
 export async function handlePoolCreated({ event, context }: any) {
-	const shouldDebug = await shouldEnableWebSocket(Number(event.block.number));
+	const shouldDebug = await shouldEnableWebSocket(Number(event.block.number), 'handlePoolCreated');
 	const logger = createLogger('poolManagerHandler.ts', 'handlePoolCreated');
 
 	if (shouldDebug) {
@@ -235,16 +245,30 @@ export async function handlePoolCreated({ event, context }: any) {
 		}
 
 		try {
-			await db
-				.insert(pools)
-				.values(poolData)
-				.onConflictDoNothing();
+			if (USE_RAW_SQL) {
+				if (shouldDebug) {
+					console.log(logger.log(event, '9a. Using raw SQL for pool insertion'));
+				}
+				await db.sql`
+					INSERT INTO pools (id, "chainId", coin, "orderBook", "baseCurrency", "quoteCurrency", "baseDecimals", "quoteDecimals", volume, "volumeInQuote", price, timestamp)
+					VALUES (${poolData.id}, ${poolData.chainId}, ${poolData.coin}, ${poolData.orderBook}, ${poolData.baseCurrency}, ${poolData.quoteCurrency}, ${poolData.baseDecimals}, ${poolData.quoteDecimals}, ${poolData.volume}, ${poolData.volumeInQuote}, ${poolData.price}, ${poolData.timestamp})
+					ON CONFLICT (id) DO NOTHING
+				`;
+			} else {
+				if (shouldDebug) {
+					console.log(logger.log(event, '9a. Using Ponder stores API for pool insertion'));
+				}
+				await db
+					.insert(pools)
+					.values(poolData)
+					.onConflictDoNothing();
+			}
 			if (shouldDebug) {
-				console.log(logger.log(event, '9. Pool inserted successfully'));
+				console.log(`${logger.log(event, '9. Pool inserted successfully')}: ${safeStringify({ method: USE_RAW_SQL ? 'raw SQL' : 'Ponder stores API' })}`);
 			}
 		} catch (error) {
 			if (shouldDebug) {
-				console.error(`${logger.log(event, '9. Pool insertion failed')}: ${safeStringify(error)}`);
+				console.error(`${logger.log(event, '9. Pool insertion failed')}: ${safeStringify({ error, method: USE_RAW_SQL ? 'raw SQL' : 'Ponder stores API' })}`);
 			}
 			throw new Error(`Failed to insert pool: ${(error as Error).message}`);
 		}
@@ -258,7 +282,7 @@ export async function handlePoolCreated({ event, context }: any) {
 			if (shouldDebug) {
 				console.log(`${logger.log(event, '10a. Cache key created')}: ${safeStringify({ cacheKey })}`);
 			}
-			await setCachedData(cacheKey, poolData, REDIS_CACHE_TTL, Number(event.block.number));
+			await setCachedData(cacheKey, poolData, REDIS_CACHE_TTL, Number(event.block.number), 'handlePoolCreated');
 			if (shouldDebug) {
 				console.log(logger.log(event, '10. Pool data cached successfully'));
 			}
