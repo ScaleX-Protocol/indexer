@@ -20,6 +20,146 @@ type PoolData = {
   timestamp: number;
 };
 
+const STATIC_POOL_DATA = {
+  "data": {
+    "poolss": {
+      "items": [
+        {
+          "baseDecimals": 8,
+          "chainId": 11155931,
+          "coin": "mWBTC/MUSDC",
+          "id": "5dec33f246999d5aebb70e3adc138ab9203c22b522c843c6325f1b696d8fc45c",
+          "orderBook": "0xd9fcb06641bd88d888ebca7c9d6eda774cd11e43",
+          "price": "0",
+          "quoteDecimals": 6,
+          "volume": "0",
+          "timestamp": 1746888129,
+          "volumeInQuote": "0",
+          "quoteCurrency": {
+            "address": "0x4b9a14ca8b00b6d83c8d663a4d9471a79ca6f58e",
+            "chainId": 11155931,
+            "decimals": 6,
+            "id": "80dafa0151c39bd79ce3e637c01f8dff3c75f4e097261f6f14d7161cd1d471f4",
+            "name": "MockUSDC",
+            "symbol": "MUSDC"
+          }
+        },
+        {
+          "baseDecimals": 18,
+          "chainId": 11155931,
+          "coin": "MLINK/MUSDC",
+          "id": "b31aeaca00c53a694f9e622c4db434f444d7efa95fc079d54e632544a562b5b3",
+          "orderBook": "0xbcd9b173dcb1374e344c449840b6a317542632f4",
+          "price": "0",
+          "quoteDecimals": 6,
+          "volume": "0",
+          "timestamp": 1747407547,
+          "volumeInQuote": "0",
+          "quoteCurrency": {
+            "address": "0x4b9a14ca8b00b6d83c8d663a4d9471a79ca6f58e",
+            "chainId": 11155931,
+            "decimals": 6,
+            "id": "80dafa0151c39bd79ce3e637c01f8dff3c75f4e097261f6f14d7161cd1d471f4",
+            "name": "MockUSDC",
+            "symbol": "MUSDC"
+          }
+        },
+        {
+          "baseDecimals": 18,
+          "chainId": 11155931,
+          "coin": "MWETH/MUSDC",
+          "id": "d8466431bc58e06019a343acf064464d65361ece575367fddc25d2951b3fb8cb",
+          "orderBook": "0xb154f8d27e328a788140f121d649e0684f80923a",
+          "price": "2495040000",
+          "quoteDecimals": 6,
+          "volume": "43456392200000000410872",
+          "timestamp": 1750527318,
+          "volumeInQuote": "108540494287099",
+          "quoteCurrency": {
+            "address": "0x4b9a14ca8b00b6d83c8d663a4d9471a79ca6f58e",
+            "chainId": 11155931,
+            "decimals": 6,
+            "id": "80dafa0151c39bd79ce3e637c01f8dff3c75f4e097261f6f14d7161cd1d471f4",
+            "name": "MockUSDC",
+            "symbol": "MUSDC"
+          }
+        },
+        {
+          "baseDecimals": 18,
+          "chainId": 11155931,
+          "coin": "/",
+          "id": "db889952f7a2ad35ba827bd29bb4454fc2f94af13167c5d677efaeb4e9190700",
+          "orderBook": "0x54a8b50180d8bdc30a41b381daa85e223acb9836",
+          "price": "0",
+          "quoteDecimals": 18,
+          "volume": "0",
+          "timestamp": 1747407247,
+          "volumeInQuote": "0",
+          "quoteCurrency": {
+            "address": "0x0000000000000000000000000000000000000000",
+            "chainId": 11155931,
+            "decimals": 18,
+            "id": "2bbcb676028636158e156c7e7d08dd4b04459fa2a8e31d72185ab4755fab99cc",
+            "name": "",
+            "symbol": ""
+          }
+        },
+        {
+          "baseDecimals": 18,
+          "chainId": 11155931,
+          "coin": "MADA/",
+          "id": "e507be30c686e05c79e2b5becd9a826c66ccd2260fc9cec8532ef78787ff5628",
+          "orderBook": "0x19e511baa073400da230c88e1a9e80fd1bfc1d83",
+          "price": "0",
+          "quoteDecimals": 18,
+          "volume": "0",
+          "timestamp": 1747837285,
+          "volumeInQuote": "0",
+          "quoteCurrency": {
+            "address": "0x0000000000000000000000000000000000000000",
+            "chainId": 11155931,
+            "decimals": 18,
+            "id": "2bbcb676028636158e156c7e7d08dd4b04459fa2a8e31d72185ab4755fab99cc",
+            "name": "",
+            "symbol": ""
+          }
+        }
+      ]
+    }
+  }
+};
+
+// Check if static data mode is enabled
+const USE_STATIC_DATA = process.env.USE_STATIC_POOL_DATA === 'true';
+
+/**
+ * Get pool data from static configuration
+ */
+const getStaticPoolData = (orderBook: string, chainId: number): PoolData | null => {
+  const pool = STATIC_POOL_DATA.data.poolss.items.find(
+    item => item.orderBook.toLowerCase() === orderBook.toLowerCase() && item.chainId === chainId
+  );
+  
+  if (!pool) {
+    return null;
+  }
+  
+  return {
+    id: pool.id,
+    chainId: pool.chainId,
+    coin: pool.coin,
+    orderBook: pool.orderBook,
+    baseCurrency: "", // Not available in static data
+    quoteCurrency: pool.quoteCurrency.address,
+    baseDecimals: pool.baseDecimals,
+    quoteDecimals: pool.quoteDecimals,
+    volume: BigInt(pool.volume),
+    volumeInQuote: BigInt(pool.volumeInQuote),
+    price: BigInt(pool.price),
+    timestamp: pool.timestamp,
+  };
+};
+
 export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chainId: number, callerFunction: string, blockNumber?: number) => {
     const shouldDebug = blockNumber ? await shouldEnableWebSocket(blockNumber, callerFunction) : false;
     const logger = createLogger('getPoolTradingPair.ts', 'getPoolTradingPair');
@@ -31,7 +171,8 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
             chainId,
             blockNumber,
             poolType: typeof pool,
-            chainIdType: typeof chainId
+            chainIdType: typeof chainId,
+            useStaticData: USE_STATIC_DATA
         })}`));
     }
 
@@ -44,6 +185,34 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
                 validatedPoolId,
                 validationPassed: !!validatedPoolId
             })}`));
+        }
+
+        // If static data mode is enabled, use static pool data
+        if (USE_STATIC_DATA) {
+            if (shouldDebug) {
+                console.log(logger.logSimple(blockNumber, `${callerFunction} Using static pool data mode`));
+            }
+            
+            const staticPoolData = getStaticPoolData(validatedPoolId, chainId);
+            
+            if (staticPoolData && staticPoolData.coin) {
+                const result = staticPoolData.coin.replace('/', '').toLowerCase();
+                if (shouldDebug) {
+                    console.log(logger.logSimple(blockNumber, `${callerFunction} Static data found - returning: ${safeStringify({
+                        originalCoin: staticPoolData.coin,
+                        processedResult: result,
+                        poolData: staticPoolData
+                    })}`));
+                    console.log(logger.logSimple(blockNumber, `${callerFunction} ===== GET POOL TRADING PAIR END (STATIC DATA) =====`));
+                }
+                return result;
+            } else {
+                if (shouldDebug) {
+                    console.log(logger.logSimple(blockNumber, `${callerFunction} No static data found for pool ${validatedPoolId} on chain ${chainId}`));
+                    console.log(logger.logSimple(blockNumber, `${callerFunction} ===== GET POOL TRADING PAIR END (STATIC DATA NOT FOUND) =====`));
+                }
+                throw new Error(`Static pool data not found for pool ${pool} on chain ${chainId}`);
+            }
         }
 
         const cacheKey = createPoolCacheKey(validatedPoolId, chainId);
