@@ -43,7 +43,7 @@ import {
 dotenv.config();
 
 export async function handleOrderPlaced({ event, context }: any) {
-  const shouldDebug = await shouldEnableWebSocket(Number(event.block.number));
+  const shouldDebug = await shouldEnableWebSocket(Number(event.block.number), 'handleOrderPlaced');
   const logger = createLogger('orderBookHandler.ts', 'handleOrderPlaced');
 
   if (shouldDebug) {
@@ -258,7 +258,7 @@ export async function handleOrderPlaced({ event, context }: any) {
             })}`);
           }
 
-          symbol = (await getPoolTradingPair(context, event.log.address, chainId, Number(event.block.number))).toUpperCase();
+          symbol = (await getPoolTradingPair(context, event.log.address, chainId, 'handleOrderPlaced', Number(event.block.number))).toUpperCase();
           if (shouldDebug) {
             console.log(`${logger.log(event, '12b. Trading pair retrieved')}: ${safeStringify({ symbol, poolAddress: event.log.address })}`);
           }
@@ -333,7 +333,7 @@ export async function handleOrderPlaced({ event, context }: any) {
         if (shouldDebug) {
           console.log(logger.log(event, '12h. executeIfInSync callback completed successfully'));
         }
-      });
+      }, 'handleOrderPlaced');
       if (shouldDebug) {
         console.log(logger.log(event, '12. executeIfInSync operation completed successfully'));
       }
@@ -404,7 +404,7 @@ export async function handleOrderMatched({ event, context }: any) {
 
   await executeIfInSync(Number(event.block.number), async () => {
     console.log(logger.log(event, '3. Starting executeIfInSync operation'))
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderMatched')).toUpperCase();
     const symbolLower = symbol.toLowerCase();
     const txHash = event.transaction.hash;
     const price = event.args.executionPrice.toString();
@@ -505,7 +505,7 @@ export async function handleOrderMatched({ event, context }: any) {
 
     console.log(logger.log(event, '4. Websocket operations completed'))
     console.log(logger.log(event, '5. ======= ORDER MATCHED END ======='))
-  });
+  }, 'handleOrderMatched');
 }
 
 export async function handleOrderCancelled({ event, context }: any) {
@@ -523,7 +523,7 @@ export async function handleOrderCancelled({ event, context }: any) {
   await upsertOrderBookDepthOnCancel(db, chainId, hashedOrderId, event, timestamp);
 
   await executeIfInSync(Number(event.block.number), async () => {
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled')).toUpperCase();
     const row = await context.db.find(orders, { id: hashedOrderId });
 
     if (!row) return;
@@ -531,7 +531,7 @@ export async function handleOrderCancelled({ event, context }: any) {
     pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
     const latestDepth = await getDepth(event.log.address!, context, chainId);
     pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-  });
+  }, 'handleOrderCancelled');
 }
 
 export async function handleUpdateOrder({ event, context }: any) {
@@ -610,7 +610,7 @@ export async function handleUpdateOrder({ event, context }: any) {
     }
   }
   await executeIfInSync(Number(event.block.number), async () => {
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
     const row = await context.db.find(orders, { id: hashedOrderId });
 
     if (!row) return;
@@ -618,5 +618,5 @@ export async function handleUpdateOrder({ event, context }: any) {
     pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
     const latestDepth = await getDepth(event.log.address!, context, chainId);
     pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-  });
+  }, 'handleUpdateOrder');
 }
