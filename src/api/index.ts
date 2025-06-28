@@ -597,6 +597,28 @@ app.get("/api/openOrders", async c => {
 	}
 });
 
+app.get("/api/pairs", async c => {
+	try {
+		const allPools = await db.select().from(pools).execute();
+
+		const pairs = allPools.map(pool => {
+			const symbol = pool.coin || "";
+			const symbolParts = symbol.split("/");
+			
+			return {
+				symbol: symbol.replace("/", ""),
+				baseAsset: symbolParts[0] || symbol,
+				quoteAsset: symbolParts[1] || "USDT",
+				poolId: pool.orderBook
+			};
+		});
+
+		return c.json(pairs);
+	} catch (error) {
+		return c.json({ error: `Failed to fetch pairs data: ${error}` }, 500);
+	}
+});
+
 app.get("/api/account", async c => {
 	const address = c.req.query("address");
 
