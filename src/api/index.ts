@@ -609,7 +609,7 @@ app.get("/api/pairs", async c => {
 				symbol: symbol.replace("/", ""),
 				baseAsset: symbolParts[0] || symbol,
 				quoteAsset: symbolParts[1] || "USDT",
-				poolId: pool.orderBook
+				poolId: pool.id
 			};
 		});
 

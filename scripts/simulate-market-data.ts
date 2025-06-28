@@ -95,18 +95,25 @@ async function simulateMarketData() {
       await wait(5000);
     }
 
+    // Ask about iteration count
+    const iterationAnswer = await promptUser('🔄 How many cycles to run? (enter a number, or "infinity" for continuous loop): ');
+    const isInfinite = iterationAnswer.toLowerCase() === 'infinity' || iterationAnswer.toLowerCase() === 'inf';
+    const maxCycles = isInfinite ? Infinity : parseInt(iterationAnswer) || 3;
+
     console.log('\n📋 Market Data Simulation Sequence:');
     console.log('1. Fill orderbook with limit orders');
     console.log('2. Place market orders (triggers trades)');
-    console.log('3. Repeat cycle multiple times');
+    console.log(`3. Repeat cycle ${isInfinite ? 'infinitely' : `${maxCycles} times`}`);
     console.log('');
 
     // Check if .env file exists
     console.log('🔍 Checking environment setup...');
     
-    // Run the simulation cycle multiple times
-    for (let cycle = 1; cycle <= 3; cycle++) {
-      console.log(`\n🔄 Starting simulation cycle ${cycle}/3`);
+    // Run the simulation cycle
+    let cycle = 1;
+    while (cycle <= maxCycles) {
+      const cycleDisplay = isInfinite ? `${cycle}` : `${cycle}/${maxCycles}`;
+      console.log(`\n🔄 Starting simulation cycle ${cycleDisplay}`);
       
       // Step 1: Fill orderbook with limit orders
       console.log(`\n📝 Step 1: Filling orderbook with limit orders (cycle ${cycle})...`);
@@ -126,10 +133,12 @@ async function simulateMarketData() {
       
       console.log(`✅ Cycle ${cycle} completed`);
       
-      if (cycle < 3) {
+      if (cycle < maxCycles) {
         console.log('⏳ Waiting 10 seconds before next cycle...');
         await wait(10000);
       }
+      
+      cycle++;
     }
 
     console.log('\n🎉 Market data simulation completed successfully!');
