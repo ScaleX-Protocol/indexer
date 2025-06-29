@@ -621,7 +621,7 @@ app.get("/api/pairs", async c => {
 			const symbolParts = symbol.split("/");
 			
 			return {
-				symbol: symbol.replace("/", ""),
+				symbol: symbol,
 				baseAsset: symbolParts[0] || symbol,
 				quoteAsset: symbolParts[1] || "USDT",
 				poolId: pool.id
