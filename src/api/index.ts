@@ -621,10 +621,12 @@ app.get("/api/pairs", async c => {
 			const symbolParts = symbol.split("/");
 			
 			return {
-				symbol: symbol,
+				symbol: symbol.replace("/", ""),
 				baseAsset: symbolParts[0] || symbol,
 				quoteAsset: symbolParts[1] || "USDT",
-				poolId: pool.id
+				poolId: pool.id,
+				baseDecimals: pool.baseDecimals,
+				quoteDecimals: pool.quoteDecimals,
 			};
 		});
 
