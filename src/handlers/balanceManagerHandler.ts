@@ -25,7 +25,7 @@ async function fetchAndPushBalance(context: any, balanceId: string, timestamp: n
 }
 
 function fromId(id: number): string {
-	return `0x${id.toString(16).padStart(40, "0")}`;
+return `0x${id.toString(16).padStart(40, "0")}`;
 }
 
 export async function handleDeposit({ event, context }: any) {

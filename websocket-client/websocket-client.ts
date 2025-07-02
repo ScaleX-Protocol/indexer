@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const DEFAULT_USER_ADDRESS = '0x77C037fbF42e85dB1487B390b08f58C00f438812';
 
 const config = {
   url: process.env.WEBSOCKET_URL || 'ws://localhost:42080',
@@ -12,6 +13,8 @@ const config = {
   pingInterval: Number(process.env.PING_INTERVAL) || 30000,
   useDefaultSubscriptions: process.env.NO_DEFAULT_SUBS !== "true",
   defaultSubscriptions: ['mwethmusdc@trade', 'mwethmusdc@kline_1m', 'mwethmusdc@depth', 'mwethmusdc@miniTicker'],
+  defaultUserAddress: process.env.DEFAULT_USER_ADDRESS || DEFAULT_USER_ADDRESS,
+  autoConnectUser: process.env.AUTO_CONNECT_USER !== "false",
 };
 
 type ServerMessage =
@@ -27,6 +30,7 @@ const rl = readline.createInterface({
 let ws: WebSocket | null = null;
 let userWs: WebSocket | null = null;
 let pingInterval: NodeJS.Timeout | null = null;
+let userPingInterval: NodeJS.Timeout | null = null;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let isConnecting = false;
 
@@ -116,13 +120,27 @@ function connectUser(address: string): void {
     userWs.close();
   }
 
-  const url = `${config.url.replace(/\/$/, "")}/ws/${address.toLowerCase()}`;
+  const normalizedAddress = address.toLowerCase();
+  const url = `${config.url.replace(/\/$/, "")}/${normalizedAddress}`;
   log(colors.blue, "USER", `Connecting to ${url} ...`);
+  log(colors.blue, "USER", `Normalized address: ${normalizedAddress}`);
 
   userWs = new WebSocket(url);
 
   userWs.on("open", () => {
     log(colors.green, "USER", "User socket connected");
+    // Send a ping immediately to keep connection alive
+    userWs.send(JSON.stringify({ method: "PING" }));
+    log(colors.blue, "USER", "Sent initial ping");
+    
+    // Start regular ping interval for user connection
+    if (userPingInterval) clearInterval(userPingInterval);
+    userPingInterval = setInterval(() => {
+      if (userWs && userWs.readyState === WebSocket.OPEN) {
+        userWs.send(JSON.stringify({ method: "PING" }));
+        log(colors.blue, "USER", "Sent ping");
+      }
+    }, config.pingInterval);
   });
 
   userWs.on("message", (buf) => {
@@ -134,8 +152,12 @@ function connectUser(address: string): void {
     }
   });
 
-  userWs.on("close", () => {
-    log(colors.yellow, "USER", "User socket closed");
+  userWs.on("close", (code, reason) => {
+    log(colors.yellow, "USER", `User socket closed - Code: ${code}, Reason: ${reason.toString()}`);
+    if (userPingInterval) {
+      clearInterval(userPingInterval);
+      userPingInterval = null;
+    }
   });
 
   userWs.on("error", (err) => {
@@ -166,6 +188,7 @@ function processCommand(input: string): void {
     log(colors.yellow, "SYSTEM", "Exiting...");
     if (ws) ws.close();
     if (pingInterval) clearInterval(pingInterval);
+    if (userPingInterval) clearInterval(userPingInterval);
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
     if (userWs) userWs.close();
     rl.close();
@@ -186,6 +209,10 @@ function processCommand(input: string): void {
       userWs.close();
     } else {
       log(colors.yellow, "USER", "No user socket open");
+    }
+    if (userPingInterval) {
+      clearInterval(userPingInterval);
+      userPingInterval = null;
     }
     return;
   }
@@ -302,7 +329,19 @@ async function startClient(): Promise<void> {
     log(colors.cyan, "CONFIG", "Default subscriptions: disabled");
   }
   
+  log(colors.cyan, "CONFIG", `Auto-connect user: ${config.autoConnectUser}`);
+  if (config.autoConnectUser) {
+    log(colors.cyan, "CONFIG", `Default user address: ${config.defaultUserAddress}`);
+  }
+  
   connect();
+  
+  // Auto-connect to user websocket if enabled
+  if (config.autoConnectUser) {
+    setTimeout(() => {
+      connectUser(config.defaultUserAddress);
+    }, 500); // Small delay to ensure main connection is established
+  }
 }
 
 startClient();
@@ -311,6 +350,7 @@ rl.on("line", processCommand);
 rl.on("close", () => {
   if (ws) ws.close();
   if (pingInterval) clearInterval(pingInterval);
+  if (userPingInterval) clearInterval(userPingInterval);
   if (reconnectTimeout) clearTimeout(reconnectTimeout);
   if (userWs) userWs.close();
   process.exit(0);
