@@ -121,7 +121,11 @@ function connectUser(address: string): void {
   }
 
   const normalizedAddress = address.toLowerCase();
-  const url = `${config.url.replace(/\/$/, "")}/${normalizedAddress}`;
+  let baseUrl = config.url.replace(/\/$/, "");
+  if (!baseUrl.endsWith("/ws")) {
+    baseUrl += "/ws";
+  }
+  const url = `${baseUrl}/${normalizedAddress}`;
   log(colors.blue, "USER", `Connecting to ${url} ...`);
   log(colors.blue, "USER", `Normalized address: ${normalizedAddress}`);
 

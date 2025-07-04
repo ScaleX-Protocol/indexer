@@ -5,6 +5,8 @@ import { URL } from "url";
 import type { WebSocket as WSWebSocket } from "ws";
 import { systemMonitor } from "../utils/systemMonitor.js";
 import { registerBroadcastFns } from "./broadcaster";
+import fs from "fs";
+import path from "path";
 
 dotenv.config();
 
@@ -13,6 +15,25 @@ const { WebSocketServer } = require("ws");
 const ENABLE_WEBSOCKET_LOG = process.env.ENABLE_WEBSOCKET_LOG === "true";
 
 console.log("ENABLE_WEBSOCKET_LOG", ENABLE_WEBSOCKET_LOG);
+
+const LOG_FILE_PATH = path.join(process.cwd(), 'websocket-connection-logs.txt');
+
+const logToFile = (message: string) => {
+	try {
+		const timestamp = new Date().toISOString();
+		const logEntry = `${timestamp} - ${message}\n`;
+		fs.appendFileSync(LOG_FILE_PATH, logEntry);
+	} catch (error) {
+		console.error('Failed to write to log file:', error);
+	}
+};
+
+try {
+	fs.writeFileSync(LOG_FILE_PATH, `WebSocket Connection Logs - Started at ${new Date().toISOString()}\n${'='.repeat(80)}\n`);
+	console.log(`WebSocket logs will be written to: ${LOG_FILE_PATH}`);
+} catch (error) {
+	console.error('Failed to initialize log file:', error);
+}
 
 interface BinanceControl {
 	method?: "SUBSCRIBE" | "UNSUBSCRIBE" | "LIST_SUBSCRIPTIONS" | "PING" | "PONG";
@@ -59,6 +80,26 @@ export function bootstrapGateway(app: Hono) {
 	const http = createServer();
 	const wss = new WebSocketServer({
 		server: http,
+		verifyClient: (info: any) => {
+			const origin = info.origin;
+			const userAgent = info.req.headers['user-agent'];
+			const host = info.req.headers.host;
+			
+			const connectionInfo = {
+				origin: origin || 'NO_ORIGIN',
+				userAgent: userAgent?.substring(0, 100) || 'NO_USER_AGENT',
+				host: host || 'NO_HOST',
+				url: info.req.url,
+				secure: info.secure,
+				ip: info.req.socket.remoteAddress
+			};
+			
+			const logMessage = `[WS SERVER] Connection attempt: ${JSON.stringify(connectionInfo, null, 2)}`;
+			console.log(logMessage);
+			logToFile(logMessage);
+			
+			return true;
+		}
 	});
 
 	// Register WebSocket stats callback with system monitor
