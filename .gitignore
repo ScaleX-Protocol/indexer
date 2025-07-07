@@ -1,6 +1,14 @@
 # Dependencies
 /node_modules
 /websocket-client/node_modules
+/websocket-service/node_modules
+/analytics-service/node_modules
+
+# Service build outputs
+/websocket-service/dist
+/analytics-service/dist
+/websocket-service/.env
+/analytics-service/.env
 
 # Debug
 npm-debug.log*
@@ -10,6 +18,7 @@ yarn-error.log*
 
 # Logs
 /logs
+websocket-connection-logs.txt
 
 # Misc
 .DS_Store
@@ -34,12 +43,7 @@ yarn-error.log*
 # Scripts
 /scripts/development
 
-# Temporary
-/tmp
 
 
 # Claude
 .claude/
-
-# Pool data configuration
-pool-data.json

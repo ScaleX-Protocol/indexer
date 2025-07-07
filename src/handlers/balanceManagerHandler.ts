@@ -4,6 +4,7 @@ import { createBalanceId } from "@/utils";
 import { getAddress } from "viem";
 import { pushBalanceUpdate } from "../websocket/broadcaster";
 import { executeIfInSync } from "../utils/syncState";
+import { getEventPublisher } from "@/events/index";
 
 dotenv.config();
 
@@ -13,6 +14,21 @@ async function fetchAndPushBalance(context: any, balanceId: string, timestamp: n
     await executeIfInSync(blockNumber, async () => {
         const balance = await context.db.find(balances, { id: balanceId });
         if (balance) {
+            // Publish balance update event
+            try {
+                const eventPublisher = getEventPublisher();
+                await eventPublisher.publishBalanceUpdate({
+                    userId: balance.user,
+                    token: balance.currency,
+                    available: (balance.amount - balance.lockedAmount).toString(),
+                    locked: balance.lockedAmount.toString(),
+                    timestamp: timestamp.toString()
+                });
+            } catch (error) {
+                console.error('Failed to publish balance update event:', error);
+            }
+            
+            // Keep websocket for backward compatibility
             pushBalanceUpdate(balance.user, {
                 e: "balanceUpdate",
                 E: timestamp,

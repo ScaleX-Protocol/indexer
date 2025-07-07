@@ -1,4 +1,5 @@
 import { createClient } from 'redis';
+import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
 import { safeStringify, createLogger } from './logger';
 
@@ -8,6 +9,7 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '2147483647'); 
 
 let redisClient: ReturnType<typeof createClient> | null = null;
+let ioredisClient: Redis | null = null;
 
 export const initRedisClient = async () => {
   try {
@@ -125,4 +127,32 @@ export const setCachedData = async <T>(key: string, data: T, ttl: number = REDIS
 
 export const createPoolCacheKey = (orderBook: string, chainId: number): string => {
   return `pool:${orderBook.toLowerCase()}:${chainId}`;
+};
+
+export const initIORedisClient = async (): Promise<Redis | null> => {
+  try {
+    if (!ioredisClient) {
+      ioredisClient = new Redis(REDIS_URL);
+      
+      ioredisClient.on('error', (err) => {
+        console.error('IORedis Client Error:', err);
+      });
+      
+      ioredisClient.on('connect', () => {
+        console.log('IORedis client connected');
+      });
+      
+      // Test connection
+      await ioredisClient.ping();
+      console.log('IORedis client initialized successfully');
+    }
+    return ioredisClient;
+  } catch (error) {
+    console.error('Failed to initialize IORedis client:', error);
+    return null;
+  }
+};
+
+export const getIORedisClient = (): Redis | null => {
+  return ioredisClient;
 };

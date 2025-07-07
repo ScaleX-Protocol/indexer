@@ -815,6 +815,28 @@ if (process.env.ENABLE_WEBSOCKET === 'true') {
   bootstrapGateway(app);
 }
 
+// Initialize event publisher
+async function initializeServices() {
+  try {
+    console.log('Initializing services...');
+    
+    // Initialize Redis client for event publishing
+    const redisClient = await initIORedisClient();
+    if (redisClient) {
+      const eventPublisher = initializeEventPublisher(redisClient);
+      await eventPublisher.createConsumerGroups();
+      console.log('Event publisher initialized successfully');
+    } else {
+      console.warn('Redis client not available, event publishing disabled');
+    }
+  } catch (error) {
+    console.error('Failed to initialize services:', error);
+  }
+}
+
+// Initialize services on startup
+initializeServices();
+
 // Start system monitor for metrics collection (configurable)
 const ENABLE_SYSTEM_MONITOR = process.env.ENABLE_SYSTEM_MONITOR === 'true';
 const SYSTEM_MONITOR_INTERVAL = parseInt(process.env.SYSTEM_MONITOR_INTERVAL || '60');

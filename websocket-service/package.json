@@ -1,0 +1,26 @@
+{
+  "name": "gtx-websocket-service",
+  "version": "1.0.0",
+  "description": "GTX CLOB WebSocket Service",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "ioredis": "^5.3.2",
+    "hono": "^3.11.7",
+    "postgres": "^3.4.3",
+    "dotenv": "^16.3.1",
+    "curl": "^0.1.4"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3",
+    "tsx": "^4.6.2"
+  }
+}

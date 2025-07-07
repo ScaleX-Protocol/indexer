@@ -29,6 +29,7 @@ import { createLogger, safeStringify } from "@/utils/logger";
 import { pushExecutionReport } from "@/utils/pushExecutionReport";
 import { executeIfInSync, shouldEnableWebSocket } from "@/utils/syncState";
 import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "@/websocket/broadcaster";
+import { getEventPublisher } from "@/events/index";
 import dotenv from "dotenv";
 import { and, desc, eq, gte } from "ponder";
 import {
@@ -41,6 +42,100 @@ import {
 } from "ponder:schema";
 
 dotenv.config();
+
+// Helper function to publish events
+async function publishOrderEvent(order: any, symbol: string, timestamp: number, executionType: string, filledQuantity: bigint, executionPrice: bigint) {
+  try {
+    const eventPublisher = getEventPublisher();
+    
+    // Publish order event
+    await eventPublisher.publishOrder({
+      orderId: order.orderId.toString(),
+      userId: order.user,
+      symbol: symbol.toLowerCase(),
+      side: order.side.toLowerCase(),
+      type: order.type.toLowerCase(),
+      price: order.price.toString(),
+      quantity: order.quantity.toString(),
+      filledQuantity: order.filled.toString(),
+      status: order.status.toLowerCase(),
+      timestamp: timestamp.toString()
+    });
+
+    // Publish execution report
+    await eventPublisher.publishExecutionReport({
+      orderId: order.orderId.toString(),
+      userId: order.user,
+      symbol: symbol.toLowerCase(),
+      side: order.side.toLowerCase(),
+      type: order.type.toLowerCase(),
+      price: order.price.toString(),
+      quantity: order.quantity.toString(),
+      filledQuantity: filledQuantity.toString(),
+      status: order.status.toLowerCase(),
+      timestamp: timestamp.toString(),
+      executionType: executionType.toLowerCase()
+    });
+  } catch (error) {
+    console.error('Failed to publish order event:', error);
+  }
+}
+
+async function publishTradeEvent(symbol: string, price: string, quantity: string, userId: string, side: string, tradeId: string, orderId: string, makerOrderId: string, timestamp: number) {
+  try {
+    const eventPublisher = getEventPublisher();
+    
+    await eventPublisher.publishTrade({
+      symbol: symbol.toLowerCase(),
+      price: price,
+      quantity: quantity,
+      timestamp: timestamp.toString(),
+      userId: userId,
+      side: side.toLowerCase(),
+      tradeId: tradeId,
+      orderId: orderId,
+      makerOrderId: makerOrderId
+    });
+  } catch (error) {
+    console.error('Failed to publish trade event:', error);
+  }
+}
+
+async function publishDepthEvent(symbol: string, bids: any[], asks: any[], timestamp: number) {
+  try {
+    const eventPublisher = getEventPublisher();
+    
+    await eventPublisher.publishDepth({
+      symbol: symbol.toLowerCase(),
+      bids: bids,
+      asks: asks,
+      timestamp: timestamp.toString()
+    });
+  } catch (error) {
+    console.error('Failed to publish depth event:', error);
+  }
+}
+
+async function publishKlineEvent(symbol: string, interval: string, klinePayload: any) {
+  try {
+    const eventPublisher = getEventPublisher();
+    
+    await eventPublisher.publishKline({
+      symbol: symbol.toLowerCase(),
+      interval: interval,
+      openTime: klinePayload.t.toString(),
+      closeTime: klinePayload.T.toString(),
+      open: klinePayload.o,
+      high: klinePayload.h,
+      low: klinePayload.l,
+      close: klinePayload.c,
+      volume: klinePayload.v,
+      trades: klinePayload.n.toString()
+    });
+  } catch (error) {
+    console.error('Failed to publish kline event:', error);
+  }
+}
 
 export async function handleOrderPlaced({ event, context }: any) {
   const shouldDebug = await shouldEnableWebSocket(Number(event.block.number), 'handleOrderPlaced');
@@ -285,6 +380,10 @@ export async function handleOrderPlaced({ event, context }: any) {
         }
 
         try {
+          // Publish events
+          await publishOrderEvent(order, symbol, timestamp, "NEW", BigInt(0), BigInt(0));
+          
+          // Keep websocket for backward compatibility
           pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
           if (shouldDebug) {
             console.log(logger.log(event, '12e. Execution report pushed successfully'));
@@ -313,6 +412,10 @@ export async function handleOrderPlaced({ event, context }: any) {
         }
 
         try {
+          // Publish depth event
+          await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
+          
+          // Keep websocket for backward compatibility
           pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
           if (shouldDebug) {
             console.log(logger.log(event, '12g. Depth pushed successfully'));
@@ -414,12 +517,28 @@ export async function handleOrderMatched({ event, context }: any) {
       id: sellOrderId
     });
 
+    // Publish trade event
+    await publishTradeEvent(symbol, price, quantity, event.args.user, getSide(event.args.side), txHash, event.args.buyOrderId.toString(), event.args.sellOrderId.toString(), timestamp);
+    
+    // Keep websocket for backward compatibility
     pushTrade(symbolLower, txHash, price, quantity, isBuyerMaker, tradeTime);
 
-    if (buyRow) pushExecutionReport(symbol.toLowerCase(), buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
-    if (sellRowById) pushExecutionReport(symbol.toLowerCase(), sellRowById.user, sellRowById, "TRADE", sellRowById.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
+    if (buyRow) {
+      await publishOrderEvent(buyRow, symbol, timestamp, "TRADE", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
+      pushExecutionReport(symbol.toLowerCase(), buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
+    }
+    
+    if (sellRowById) {
+      await publishOrderEvent(sellRowById, symbol, timestamp, "TRADE", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
+      pushExecutionReport(symbol.toLowerCase(), sellRowById.user, sellRowById, "TRADE", sellRowById.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
+    }
 
-    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
+    
+    // Publish depth event
+    await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
+    
+    // Keep websocket for backward compatibility
     pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
 
     const timeIntervals = [
@@ -464,6 +583,10 @@ export async function handleOrderMatched({ event, context }: any) {
           Q: kline.takerBuyQuoteVolume.toString()
         };
 
+        // Publish kline event
+        await publishKlineEvent(symbol, interval, klinePayload);
+        
+        // Keep websocket for backward compatibility
         pushKline(symbol.toLowerCase(), interval, klinePayload);
       }
     }
@@ -523,18 +646,20 @@ export async function handleOrderCancelled({ event, context }: any) {
 
       if (!row) return;
 
-      pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
-      const latestDepth = await getDepth(event.log.address!, context.db, chainId);
-      pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-    }, 'handleOrderCancelled');
-  } catch (e) {
-    logger.writeError(e as Error, {
-      orderId: event.args.orderId,
-      poolAddress: event.log.address,
-      timestamp: event.args.timestamp
-    }, event);
-    throw e;
-  }
+    // Publish order event
+    await publishOrderEvent(row, symbol, timestamp, "CANCELED", BigInt(0), BigInt(0));
+    
+    // Keep websocket for backward compatibility
+    pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
+    
+    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+    
+    // Publish depth event
+    await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
+    
+    // Keep websocket for backward compatibility
+    pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+  }, 'handleOrderCancelled');
 }
 
 export async function handleUpdateOrder({ event, context }: any) {
@@ -634,4 +759,24 @@ export async function handleUpdateOrder({ event, context }: any) {
     }, event);
     throw e;
   }
+  await executeIfInSync(Number(event.block.number), async () => {
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
+    const row = await context.db.find(orders, { id: hashedOrderId });
+
+    if (!row) return;
+
+    // Publish order event
+    await publishOrderEvent(row, symbol, timestamp, "TRADE", BigInt(event.args.filled), row.price);
+    
+    // Keep websocket for backward compatibility
+    pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
+    
+    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
+    
+    // Publish depth event
+    await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
+    
+    // Keep websocket for backward compatibility
+    pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+  }, 'handleUpdateOrder');
 }
