@@ -73,14 +73,10 @@ async function simulateMarketData() {
     console.log('');
 
     // Ask about network
-    const networkAnswer = await promptUser('🌐 Which network to use? (leave empty for default, or enter: riseSepolia, arbitrumSepolia, etc.): ');
-    const network = networkAnswer || undefined;
+    const networkAnswer = await promptUser('🌐 Which network to use? (leave empty for default_network, or enter: riseSepolia, arbitrumSepolia, etc.): ');
+    const network = networkAnswer || 'default_network';
     
-    if (network) {
-      console.log(`✅ Using network: ${network}`);
-    } else {
-      console.log('✅ Using default network');
-    }
+    console.log(`✅ Using network: ${network}`);
 
     // Ask about contract deployment
     const deployAnswer = await promptUser('🚀 Do you need to deploy a new contract before running the simulation? (y/n): ');
@@ -96,8 +92,8 @@ async function simulateMarketData() {
     }
 
     // Ask about iteration count
-    const iterationAnswer = await promptUser('🔄 How many cycles to run? (enter a number, or "infinity" for continuous loop): ');
-    const isInfinite = iterationAnswer.toLowerCase() === 'infinity' || iterationAnswer.toLowerCase() === 'inf';
+    const iterationAnswer = await promptUser('🔄 How many cycles to run? (enter a number, or leave empty for continuous loop): ');
+    const isInfinite = iterationAnswer.trim() === '' || iterationAnswer.toLowerCase() === 'infinity' || iterationAnswer.toLowerCase() === 'inf';
     const maxCycles = isInfinite ? Infinity : parseInt(iterationAnswer) || 3;
 
     console.log('\n📋 Market Data Simulation Sequence:');

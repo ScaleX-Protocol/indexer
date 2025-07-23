@@ -20,6 +20,140 @@ interface MenuCategory {
 
 const menuCategories: MenuCategory[] = [
   {
+    title: 'Infrastructure Only',
+    emoji: '🗄️',
+    items: [
+      {
+        name: 'Start Core Infrastructure',
+        value: 'infra-core',
+        description: 'Start PostgreSQL and Redis only (minimal setup)',
+        command: 'docker-compose -f ../docker-compose.microservices.yml up -d postgres redis'
+      },
+      {
+        name: 'Start Full Infrastructure',
+        value: 'infra-full',
+        description: 'Start databases + monitoring (Prometheus, Grafana, Redis Commander)',
+        command: 'docker-compose -f ../docker-compose.microservices.yml up -d postgres redis prometheus grafana redis-commander'
+      },
+      {
+        name: 'Stop Infrastructure',
+        value: 'infra-stop',
+        description: 'Stop all infrastructure containers',
+        command: 'docker-compose -f ../docker-compose.microservices.yml down'
+      },
+      {
+        name: 'Infrastructure Status',
+        value: 'infra-status',
+        description: 'Check infrastructure container status',
+        command: 'docker-compose -f ../docker-compose.microservices.yml ps postgres redis prometheus grafana redis-commander'
+      },
+      {
+        name: 'Reset Databases (Dangerous)',
+        value: 'infra-reset',
+        description: 'Stop infrastructure and remove all data volumes',
+        command: 'docker-compose -f ../docker-compose.microservices.yml down -v',
+        dangerous: true
+      }
+    ]
+  },
+  {
+    title: 'Local Services (Hybrid Dev)',
+    emoji: '💻',
+    items: [
+      {
+        name: 'Run All Services Locally',
+        value: 'local-all',
+        description: 'Run indexer, websocket, and analytics services locally in parallel',
+        command: 'local-services-all'
+      },
+      {
+        name: 'Run Indexer Only',
+        value: 'local-indexer',
+        description: 'Run the core CLOB indexer service locally',
+        command: 'npm run dev'
+      },
+      {
+        name: 'Run WebSocket Service',
+        value: 'local-websocket',
+        description: 'Run the WebSocket service locally',
+        command: 'cd websocket-service && npm run dev'
+      },
+      {
+        name: 'Run Analytics Service',
+        value: 'local-analytics',
+        description: 'Run the Analytics service locally',
+        command: 'cd ../analytics-service && npm run dev'
+      },
+      {
+        name: 'Install All Dependencies',
+        value: 'local-install',
+        description: 'Install dependencies for all services',
+        command: 'npm install && cd ../websocket-service && npm install && cd ../analytics-service && npm install && cd ../scripts'
+      }
+    ]
+  },
+  {
+    title: 'Microservices (Docker)',
+    emoji: '🏗️',
+    items: [
+      {
+        name: 'Setup Environment',
+        value: 'ms-setup',
+        description: 'Setup environment files and dependencies for all services',
+        command: './scripts/microservices.sh setup'
+      },
+      {
+        name: 'Build All Services',
+        value: 'ms-build',
+        description: 'Build all microservices (WebSocket, Analytics)',
+        command: './scripts/microservices.sh build'
+      },
+      {
+        name: 'Start All Services',
+        value: 'ms-start',
+        description: 'Start complete microservices stack',
+        command: './scripts/microservices.sh start'
+      },
+      {
+        name: 'Start Development Mode',
+        value: 'ms-dev',
+        description: 'Start all services with development tools (Redis Commander)',
+        command: './scripts/microservices.sh dev'
+      },
+      {
+        name: 'Stop All Services',
+        value: 'ms-stop',
+        description: 'Stop all microservices',
+        command: './scripts/microservices.sh stop'
+      },
+      {
+        name: 'Restart All Services',
+        value: 'ms-restart',
+        description: 'Restart all microservices',
+        command: './scripts/microservices.sh restart'
+      },
+      {
+        name: 'Service Status & Health',
+        value: 'ms-status',
+        description: 'Check status and health of all services',
+        command: './scripts/microservices.sh status'
+      },
+      {
+        name: 'View All Logs',
+        value: 'ms-logs',
+        description: 'View logs from all services',
+        command: './scripts/microservices.sh logs'
+      },
+      {
+        name: 'Clean Up (Dangerous)',
+        value: 'ms-clean',
+        description: 'Stop services and remove all volumes/containers',
+        command: './scripts/microservices.sh clean',
+        dangerous: true
+      }
+    ]
+  },
+  {
     title: 'Development',
     emoji: '🚀',
     items: [
@@ -74,7 +208,7 @@ const menuCategories: MenuCategory[] = [
     ]
   },
   {
-    title: 'Metrics & Monitoring',
+    title: 'Monitoring & Debugging',
     emoji: '📊',
     items: [
       {
@@ -106,6 +240,72 @@ const menuCategories: MenuCategory[] = [
         value: 'monitor',
         description: 'Run system resource monitoring',
         command: 'pnpm monitor'
+      },
+      {
+        name: 'Open Grafana Dashboard',
+        value: 'open-grafana',
+        description: 'Open Grafana monitoring dashboard (admin/admin)',
+        command: 'open http://localhost:3000'
+      },
+      {
+        name: 'Open Prometheus',
+        value: 'open-prometheus',
+        description: 'Open Prometheus metrics collection',
+        command: 'open http://localhost:9090'
+      },
+      {
+        name: 'Open Redis Commander',
+        value: 'open-redis-commander',
+        description: 'Open Redis Commander for debugging streams',
+        command: 'open http://localhost:8081'
+      },
+      {
+        name: 'Redis CLI Access',
+        value: 'redis-cli',
+        description: 'Access Redis CLI for debugging',
+        command: 'docker-compose -f docker-compose.microservices.yml exec redis redis-cli'
+      },
+      {
+        name: 'PostgreSQL CLI Access',
+        value: 'postgres-cli',
+        description: 'Access PostgreSQL CLI for database queries',
+        command: 'docker-compose -f docker-compose.microservices.yml exec postgres psql -U postgres -d ponder'
+      }
+    ]
+  },
+  {
+    title: 'API Testing',
+    emoji: '🔌',
+    items: [
+      {
+        name: 'Test WebSocket Health',
+        value: 'test-ws-health',
+        description: 'Test WebSocket service health endpoint',
+        command: 'curl -s http://localhost:8080/health | jq'
+      },
+      {
+        name: 'Test Analytics Health',
+        value: 'test-analytics-health',
+        description: 'Test Analytics service health endpoint',
+        command: 'curl -s http://localhost:3001/health | jq'
+      },
+      {
+        name: 'Test Market Overview',
+        value: 'test-market-overview',
+        description: 'Test market overview analytics API',
+        command: 'curl -s http://localhost:3001/api/market/overview | jq'
+      },
+      {
+        name: 'Test Portfolio API',
+        value: 'test-portfolio',
+        description: 'Test portfolio API (requires wallet address input)',
+        command: 'echo "Usage: curl -s http://localhost:3001/api/portfolio/{address} | jq"'
+      },
+      {
+        name: 'Test All Analytics APIs',
+        value: 'test-all-analytics',
+        description: 'Test all analytics API endpoints',
+        command: 'echo "Testing all analytics endpoints..." && curl -s http://localhost:3001/api/market/overview | jq && curl -s http://localhost:3001/api/market/volume | jq && curl -s http://localhost:3001/api/market/liquidity | jq'
       }
     ]
   },
@@ -251,6 +451,18 @@ class CLI {
       return;
     }
 
+    // Special handling for portfolio API test (requires user input)
+    if (menuItem.value === 'test-portfolio') {
+      await this.executePortfolioTest();
+      return;
+    }
+
+    // Special handling for running all services locally
+    if (menuItem.value === 'local-all') {
+      await this.executeLocalServices();
+      return;
+    }
+
     // Show confirmation for dangerous commands
     if (menuItem.dangerous) {
       console.log(chalk.red.bold('\n⚠️  WARNING: This is a destructive operation!'));
@@ -275,10 +487,24 @@ class CLI {
 
     console.log(chalk.blue(`\n🚀 Executing: ${chalk.white.bold(menuItem.command)}\n`));
 
-    const [command, ...args] = menuItem.command.split(' ');
+    // Handle microservices commands with flexible paths
+    let command = menuItem.command;
+    if (command.includes('./scripts/microservices.sh')) {
+      // Detect if we're running from scripts directory or project root
+      const fs = await import('fs');
+      if (fs.existsSync('./microservices.sh')) {
+        // Running from scripts directory
+        command = command.replace('./scripts/microservices.sh', './microservices.sh');
+      } else if (fs.existsSync('../scripts/microservices.sh')) {
+        // Running from project root, but script is in scripts directory
+        command = command.replace('./scripts/microservices.sh', './scripts/microservices.sh');
+      }
+    }
+
+    const [cmd, ...args] = command.split(' ');
     
     return new Promise((resolve) => {
-      const child = spawn(command, args, {
+      const child = spawn(cmd, args, {
         stdio: 'inherit',
         shell: true
       });
@@ -457,6 +683,183 @@ class CLI {
         resolve(this.showPostCommandMenu());
       });
     });
+  }
+
+  private async executePortfolioTest(): Promise<void> {
+    console.log(chalk.blue.bold('\n💼 Portfolio API Test\n'));
+
+    const { address } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'address',
+        message: 'Enter wallet address to test:',
+        validate: (input: string) => {
+          if (!input.trim()) {
+            return 'Please enter a wallet address';
+          }
+          if (!input.startsWith('0x') || input.length !== 42) {
+            return 'Please enter a valid Ethereum address (0x followed by 40 hex characters)';
+          }
+          return true;
+        }
+      }
+    ]);
+
+    const commands = [
+      `curl -s http://localhost:3001/api/portfolio/${address} | jq`,
+      `curl -s http://localhost:3001/api/portfolio/${address}/performance | jq`,
+      `curl -s http://localhost:3001/api/portfolio/${address}/allocation | jq`,
+      `curl -s http://localhost:3001/api/portfolio/${address}/history | jq`
+    ];
+
+    console.log(chalk.blue(`\n🚀 Testing Portfolio APIs for: ${chalk.white.bold(address)}\n`));
+
+    for (const command of commands) {
+      console.log(chalk.cyan(`➤ ${command}`));
+      
+      const [cmd, ...args] = command.split(' ');
+      
+      await new Promise<void>((resolve) => {
+        const child = spawn(cmd, args, {
+          stdio: 'inherit',
+          shell: true
+        });
+
+        child.on('close', (code) => {
+          console.log();
+          if (code !== 0) {
+            console.log(chalk.red(`❌ Command failed with exit code ${code}`));
+          }
+          resolve();
+        });
+
+        child.on('error', (error) => {
+          console.log(chalk.red(`❌ Error executing command: ${error.message}`));
+          resolve();
+        });
+      });
+    }
+
+    console.log(chalk.green('✅ Portfolio API tests completed!'));
+    console.log();
+    await this.showPostCommandMenu();
+  }
+
+  private async executeLocalServices(): Promise<void> {
+    console.log(chalk.blue.bold('\n🚀 Starting All Local Services\n'));
+    
+    console.log(chalk.yellow('This will start 3 services in parallel:'));
+    console.log('  • CLOB Indexer (Core)');
+    console.log('  • WebSocket Service');
+    console.log('  • Analytics Service\n');
+
+    const { confirm } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'confirm',
+        message: 'Make sure infrastructure is running. Continue?',
+        default: true
+      }
+    ]);
+
+    if (!confirm) {
+      console.log(chalk.yellow('Operation cancelled.\n'));
+      await this.showPostCommandMenu();
+      return;
+    }
+
+    console.log(chalk.green('\n✨ Starting services...\n'));
+    console.log(chalk.gray('Press Ctrl+C to stop all services\n'));
+
+    // Create child processes for each service
+    const services = [
+      {
+        name: 'CLOB Indexer',
+        command: 'npm',
+        args: ['run', 'dev'],
+        cwd: '..',
+        color: chalk.cyan
+      },
+      {
+        name: 'WebSocket Service',
+        command: 'npm',
+        args: ['run', 'dev'],
+        cwd: '../websocket-service',
+        color: chalk.green
+      },
+      {
+        name: 'Analytics Service',
+        command: 'npm',
+        args: ['run', 'dev'],
+        cwd: '../analytics-service',
+        color: chalk.magenta
+      }
+    ];
+
+    const children: any[] = [];
+
+    // Start all services
+    services.forEach(service => {
+      console.log(service.color(`[${service.name}] Starting...`));
+      
+      const child = spawn(service.command, service.args, {
+        cwd: service.cwd,
+        shell: true,
+        env: { ...process.env, FORCE_COLOR: 'true' }
+      });
+
+      // Prefix output with service name
+      child.stdout?.on('data', (data: Buffer) => {
+        const lines = data.toString().split('\n').filter(line => line.trim());
+        lines.forEach(line => {
+          console.log(service.color(`[${service.name}]`), line);
+        });
+      });
+
+      child.stderr?.on('data', (data: Buffer) => {
+        const lines = data.toString().split('\n').filter(line => line.trim());
+        lines.forEach(line => {
+          console.error(service.color(`[${service.name}]`), chalk.red(line));
+        });
+      });
+
+      child.on('error', (error) => {
+        console.error(service.color(`[${service.name}]`), chalk.red(`Failed to start: ${error.message}`));
+      });
+
+      child.on('exit', (code) => {
+        console.log(service.color(`[${service.name}]`), chalk.yellow(`Exited with code ${code}`));
+      });
+
+      children.push(child);
+    });
+
+    // Handle graceful shutdown
+    const cleanup = () => {
+      console.log(chalk.yellow('\n\nShutting down services...'));
+      children.forEach(child => {
+        child.kill('SIGTERM');
+      });
+      setTimeout(() => {
+        children.forEach(child => {
+          if (!child.killed) {
+            child.kill('SIGKILL');
+          }
+        });
+        process.exit(0);
+      }, 5000);
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+
+    // Wait for all services to exit
+    await Promise.all(children.map(child => 
+      new Promise(resolve => child.on('exit', resolve))
+    ));
+
+    console.log(chalk.yellow('\nAll services stopped.'));
+    await this.showPostCommandMenu();
   }
 
   private async showPostCommandMenu(): Promise<void> {

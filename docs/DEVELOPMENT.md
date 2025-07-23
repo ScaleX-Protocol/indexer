@@ -300,7 +300,7 @@ If ports are already in use:
 lsof -i :42080  # WebSocket
 lsof -i :3001   # Analytics
 lsof -i :5432   # PostgreSQL
-lsof -i :6379   # Redis
+lsof -i :6380   # Redis
 
 # Kill processes if needed
 kill -9 <PID>

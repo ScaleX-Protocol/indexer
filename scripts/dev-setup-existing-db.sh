@@ -80,7 +80,7 @@ read -p "Do you want to configure database settings? (y/N): " configure_db
 if [[ $configure_db =~ ^[Yy]$ ]]; then
     prompt_for_config
 else
-    log_info "Using default configuration (PostgreSQL: localhost:5432, Redis: localhost:6379)"
+    log_info "Using default configuration (PostgreSQL: localhost:5432, Redis: localhost:6380)"
     read -s -p "PostgreSQL password: " POSTGRES_PASSWORD
     echo
 fi

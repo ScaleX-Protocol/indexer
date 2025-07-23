@@ -23,11 +23,22 @@ echo -e "${BLUE}🚀 Starting Ponder with WebSocket block number initialization.
 
 # Function to check if Redis is available
 check_redis() {
-    local redis_url="${REDIS_URL:-redis://localhost:6379}"
+    local redis_url="${REDIS_URL:-redis://localhost:6380}"
     echo -e "${YELLOW}📡 Checking Redis connection...${NC}"
     
     if command -v redis-cli &> /dev/null; then
-        redis-cli ping &> /dev/null
+        # Extract host and port from Redis URL
+        local redis_host="localhost"
+        local redis_port="6380"
+        
+        # Try to parse REDIS_URL if set
+        if [[ -n "$REDIS_URL" ]]; then
+            # Extract port from URL like redis://localhost:6380
+            redis_port=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
+            redis_port=${redis_port:-6380}
+        fi
+        
+        redis-cli -h "$redis_host" -p "$redis_port" ping &> /dev/null
         return $?
     elif command -v bun &> /dev/null; then
         # Try with bun and redis client
@@ -40,10 +51,11 @@ check_redis() {
             await client.quit();
             console.log('Redis connection successful');
             process.exit(0);
-        } catch (error) {
+          } catch (error) {
             console.error('Redis connection failed:', error.message);
             process.exit(1);
-        }
+          }
+        });
         " &> /dev/null
         return $?
     elif command -v node &> /dev/null; then
@@ -73,11 +85,22 @@ check_redis() {
 
 # Function to check if the websocket enable block is set in Redis
 check_websocket_block() {
-    local redis_url="${REDIS_URL:-redis://localhost:6379}"
+    local redis_url="${REDIS_URL:-redis://localhost:6380}"
     echo -e "${YELLOW}🔍 Checking if WebSocket enable block is set in Redis...${NC}"
     
     if command -v redis-cli &> /dev/null; then
-        local result=$(redis-cli get "$REDIS_KEY" 2>/dev/null)
+        # Extract host and port from Redis URL
+        local redis_host="localhost"
+        local redis_port="6380"
+        
+        # Try to parse REDIS_URL if set
+        if [[ -n "$REDIS_URL" ]]; then
+            # Extract port from URL like redis://localhost:6380
+            redis_port=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
+            redis_port=${redis_port:-6380}
+        fi
+        
+        local result=$(redis-cli -h "$redis_host" -p "$redis_port" get "$REDIS_KEY" 2>/dev/null)
         if [[ -n "$result" && "$result" != "(nil)" ]]; then
             echo -e "${GREEN}✅ WebSocket enable block found in Redis: $result${NC}"
             return 0
@@ -92,14 +115,15 @@ check_websocket_block() {
             const value = await client.get('$REDIS_KEY');
             await client.quit();
             if (value) {
-                console.log(value);
-                process.exit(0);
+              console.log(value);
+              process.exit(0);
             } else {
-                process.exit(1);
+              process.exit(1);
             }
-        } catch (error) {
+          } catch (error) {
             process.exit(1);
-        }
+          }
+        });
         " 2>/dev/null)
         
         if [[ $? -eq 0 && -n "$result" ]]; then
@@ -226,6 +250,60 @@ start_pm2_process() {
         echo -e "${RED}❌ Failed to start PM2 process${NC}"
         return 1
     fi
+}
+
+# Function to start with pnpm dev
+start_pnpm_dev() {
+    echo -e "${YELLOW}🚀 Starting with pnpm dev...${NC}"
+    
+    # Check if pnpm is installed
+    if ! command -v pnpm &> /dev/null; then
+        echo -e "${RED}❌ pnpm is not installed. Please install it first.${NC}"
+        return 1
+    fi
+    
+    # Start the development process
+    pnpm run dev --config pg-ponder.config.ts --disable-ui
+    
+    local exit_code=$?
+    
+    if [[ $exit_code -eq 0 ]]; then
+        echo -e "${GREEN}✅ pnpm dev completed successfully${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Failed to start with pnpm dev${NC}"
+        return 1
+    fi
+}
+
+# Function to prompt user for execution method
+prompt_execution_method() {
+    echo -e "${BLUE}🤔 How would you like to run Ponder?${NC}"
+    echo -e "${YELLOW}1) PM2 (background process with monitoring)${NC}"
+    echo -e "${YELLOW}2) pnpm dev (foreground process)${NC}"
+    echo -e "${YELLOW}3) Exit${NC}"
+    echo
+    
+    while true; do
+        read -p "Please select an option (1-3): " choice
+        case $choice in
+            1)
+                echo -e "${GREEN}✅ Selected: PM2${NC}"
+                return 1
+                ;;
+            2)
+                echo -e "${GREEN}✅ Selected: pnpm dev${NC}"
+                return 2
+                ;;
+            3)
+                echo -e "${YELLOW}👋 Exiting...${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}❌ Invalid option. Please choose 1, 2, or 3.${NC}"
+                ;;
+        esac
+    done
 }
 
 # Main execution flow

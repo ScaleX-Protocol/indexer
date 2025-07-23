@@ -14,10 +14,6 @@ export class DatabaseClient {
       max: 10, // More connections for analytics workload
       idle_timeout: 20,
       connect_timeout: 30,
-      options: {
-        statement_timeout: 60000, // Longer timeout for analytics queries
-        idle_in_transaction_session_timeout: 60000,
-      }
     });
   }
 

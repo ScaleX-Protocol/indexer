@@ -1,0 +1,125 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug CLOB Indexer",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "development",
+        "PONDER_DATABASE_URL": "postgresql://postgres:password@localhost:5433/ponder",
+        "REDIS_URL": "redis://localhost:6380",
+        "ENABLE_EVENT_PUBLISHING": "true",
+        "ENABLE_WEBSOCKET": "false"
+      },
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug WebSocket Service",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "tsx",
+      "args": ["src/index.ts"],
+      "cwd": "${workspaceFolder}/websocket-service",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "42080",
+        "HEALTH_PORT": "8080",
+        "REDIS_URL": "redis://localhost:6380",
+        "DATABASE_URL": "postgresql://postgres:password@localhost:5433/ponder",
+        "CONSUMER_GROUP": "websocket-consumers",
+        "CONSUMER_ID": "ws-consumer-dev-1",
+        "BATCH_SIZE": "10",
+        "POLL_INTERVAL": "1000",
+        "WS_PING_INTERVAL": "30000",
+        "MAX_CONNECTIONS": "1000"
+      },
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/websocket-service/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Debug Analytics Service",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "tsx",
+      "args": ["src/index.ts"],
+      "cwd": "${workspaceFolder}/analytics-service",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3001",
+        "REDIS_URL": "redis://localhost:6380",
+        "DATABASE_URL": "postgresql://postgres:password@localhost:5433/ponder",
+        "CONSUMER_GROUP": "analytics-consumers",
+        "CONSUMER_ID": "analytics-consumer-dev-1",
+        "ANALYTICS_BATCH_SIZE": "5",
+        "ANALYTICS_POLL_INTERVAL": "5000"
+      },
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/analytics-service/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Debug All Services (Compound)",
+      "type": "node",
+      "request": "launch",
+      "compounds": ["Debug CLOB Indexer", "Debug WebSocket Service", "Debug Analytics Service"]
+    },
+    {
+      "name": "Debug CLI",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "tsx",
+      "args": ["scripts/cli.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug Specific Script",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "tsx",
+      "args": ["${file}"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Attach to Node Process",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug All Services",
+      "configurations": [
+        "Debug CLOB Indexer",
+        "Debug WebSocket Service", 
+        "Debug Analytics Service"
+      ],
+      "stopAll": true,
+      "preLaunchTask": "Start Infrastructure"
+    }
+  ]
+}

@@ -16,8 +16,7 @@ class AnalyticsService {
 
   constructor() {
     // Initialize Redis connection
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-      retryDelayOnFailover: 100,
+    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6380', {
       enableReadyCheck: false,
       maxRetriesPerRequest: null,
     });

@@ -26,14 +26,11 @@ import {
 import { getDepth } from "@/utils/getDepth";
 import { getPoolTradingPair } from "@/utils/getPoolTradingPair";
 import { createLogger, safeStringify } from "@/utils/logger";
-import { pushExecutionReport } from "@/utils/pushExecutionReport";
-import { executeIfInSync, shouldEnableWebSocket } from "@/utils/syncState";
-import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "@/websocket/broadcaster";
+import { executeIfInSync } from "@/utils/syncState";
 import { getEventPublisher } from "@/events/index";
 import dotenv from "dotenv";
-import { and, desc, eq, gte } from "ponder";
+import { and, eq } from "ponder";
 import {
-  dailyBuckets,
   fiveMinuteBuckets,
   hourBuckets,
   minuteBuckets,
@@ -44,7 +41,7 @@ import {
 dotenv.config();
 
 // Helper function to publish events
-async function publishOrderEvent(order: any, symbol: string, timestamp: number, executionType: string, filledQuantity: bigint, executionPrice: bigint) {
+async function publishOrderEvent(order: any, symbol: string, timestamp: number, executionType: "new" | "trade" | "cancelled", filledQuantity: bigint, _executionPrice: bigint) {
   try {
     const eventPublisher = getEventPublisher();
     
@@ -74,7 +71,7 @@ async function publishOrderEvent(order: any, symbol: string, timestamp: number, 
       filledQuantity: filledQuantity.toString(),
       status: order.status.toLowerCase(),
       timestamp: timestamp.toString(),
-      executionType: executionType.toLowerCase()
+      executionType: executionType
     });
   } catch (error) {
     console.error('Failed to publish order event:', error);
@@ -91,7 +88,7 @@ async function publishTradeEvent(symbol: string, price: string, quantity: string
       quantity: quantity,
       timestamp: timestamp.toString(),
       userId: userId,
-      side: side.toLowerCase(),
+      side: side.toLowerCase() as "buy" | "sell",
       tradeId: tradeId,
       orderId: orderId,
       makerOrderId: makerOrderId
@@ -138,12 +135,8 @@ async function publishKlineEvent(symbol: string, interval: string, klinePayload:
 }
 
 export async function handleOrderPlaced({ event, context }: any) {
-  const shouldDebug = await shouldEnableWebSocket(Number(event.block.number), 'handleOrderPlaced');
+  const shouldDebug = (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true');
   const logger = createLogger('orderBookHandler.ts', 'handleOrderPlaced');
-
-  if (shouldDebug) {
-    console.log(logger.log(event, '=== DEBUG START ==='));
-  }
 
   try {
     if (shouldDebug) {
@@ -205,136 +198,74 @@ export async function handleOrderPlaced({ event, context }: any) {
     let side, status;
     try {
       side = getSide(args.side);
-      if (shouldDebug) {
-        console.log(`${logger.log(event, '5a. Side conversion successful')}: ${safeStringify({ rawSide: args.side, convertedSide: side })}`);
-      }
     } catch (error) {
       if (shouldDebug) {
-        console.error(`${logger.log(event, '5a. Side conversion failed')}: ${safeStringify({ rawSide: args.side, error: (error as Error).message })}`);
+        console.error(`${logger.log(event, 'Side conversion failed')}: ${safeStringify({ rawSide: args.side, error: (error as Error).message })}`);
       }
       throw new Error(`Failed to convert side: ${(error as Error).message}`);
     }
 
     try {
       status = ORDER_STATUS[Number(args.status)];
-      if (shouldDebug) {
-        console.log(`${logger.log(event, '5b. Status conversion successful')}: ${safeStringify({ rawStatus: args.status, convertedStatus: status })}`);
-      }
     } catch (error) {
       if (shouldDebug) {
-        console.error(`${logger.log(event, '5b. Status conversion failed')}: ${safeStringify({ rawStatus: args.status, error: (error as Error).message })}`);
+        console.error(`${logger.log(event, 'Status conversion failed')}: ${safeStringify({ rawStatus: args.status, error: (error as Error).message })}`);
       }
       throw new Error(`Failed to convert status: ${(error as Error).message}`);
     }
 
     const timestamp = Number(event.block.timestamp);
     if (shouldDebug) {
-      console.log(`${logger.log(event, '6. Timestamp conversion')}: ${safeStringify({ rawTimestamp: event.block.timestamp, convertedTimestamp: timestamp })}`);
+      console.log(`${logger.log(event, 'Timestamp conversion')}: ${safeStringify({ rawTimestamp: event.block.timestamp, convertedTimestamp: timestamp })}`);
     }
 
     if (shouldDebug) {
-      console.log(logger.log(event, '7. Creating order data...'));
+      console.log(logger.log(event, 'Creating order data...'));
     }
     let orderData;
     try {
       orderData = createOrderData(chainId, args, poolAddress, side, timestamp);
-      if (shouldDebug) {
-        console.log(`${logger.log(event, '8. Order data created successfully')}: ${safeStringify({ orderDataId: orderData.id })}`);
-      }
     } catch (error) {
-      if (shouldDebug) {
-        console.error(`${logger.log(event, '8. Order data creation failed')}:`, error);
-      }
       throw new Error(`Failed to create order data: ${(error as Error).message}`);
     }
 
-    if (shouldDebug) {
-      console.log(logger.log(event, '9. Inserting order into database...'));
-    }
     try {
       await insertOrder(db, orderData);
-      if (shouldDebug) {
-        console.log(logger.log(event, '9. Order inserted successfully'));
-      }
     } catch (error) {
-      if (shouldDebug) {
-        console.error(`${logger.log(event, '9. Order insertion failed')}:`, error);
-      }
+      console.error(`${logger.log(event, 'Order insertion failed')}:`, error);
       throw new Error(`Failed to insert order: ${(error as Error).message}`);
     }
 
-    if (shouldDebug) {
-      console.log(logger.log(event, '10. Creating order history...'));
-    }
     const historyId = createOrderHistoryId(chainId, txHash, filled, poolAddress, orderId.toString());
     const historyData = { id: historyId, chainId, orderId, poolId: poolAddress, timestamp, quantity, filled, status };
-    if (shouldDebug) {
-      console.log(`${logger.log(event, '10. History data created')}: ${safeStringify({ historyId, historyData })}`);
-    }
 
     try {
       await upsertOrderHistory(db, historyData);
-      if (shouldDebug) {
-        console.log(logger.log(event, '10. Order history upserted successfully'));
-      }
     } catch (error) {
-      if (shouldDebug) {
-        console.error(`${logger.log(event, '10. Order history upsert failed')}:`, error);
-      }
+      console.error(`${logger.log(event, 'Order history upsert failed')}:`, error);
       throw new Error(`Failed to upsert order history: ${(error as Error).message}`);
     }
 
-    if (shouldDebug) {
-      console.log(logger.log(event, '11. Creating order book depth...'));
-    }
     const depthId = `${poolAddress}-${side.toLowerCase()}-${price.toString()}`;
     let depthData;
     try {
       depthData = createDepthData(chainId, depthId, poolAddress, side, price, quantity, timestamp);
-      if (shouldDebug) {
-        console.log(`${logger.log(event, '11. Depth data created')}: ${safeStringify({ depthId })}`);
-      }
     } catch (error) {
-      if (shouldDebug) {
-        console.error(`${logger.log(event, '11. Depth data creation failed')}:`, error);
-      }
+      console.error(`${logger.log(event, 'Depth data creation failed')}:`, error);
       throw new Error(`Failed to create depth data: ${(error as Error).message}`);
     }
 
     try {
       await insertOrderBookDepth(db, depthData);
-      if (shouldDebug) {
-        console.log(logger.log(event, '11. Order book depth inserted successfully'));
-      }
     } catch (error) {
-      if (shouldDebug) {
-        console.error(`${logger.log(event, '11. Order book depth insertion failed')}:`, error);
-      }
+      console.error(`${logger.log(event, 'Order book depth insertion failed')}:`, error);
       throw new Error(`Failed to insert order book depth: ${(error as Error).message}`);
     }
 
-    if (shouldDebug) {
-      console.log(logger.log(event, '12. Starting executeIfInSync operation...'));
-    }
     try {
       await executeIfInSync(Number(event.block.number), async () => {
-        if (shouldDebug) {
-          console.log(logger.log(event, '12a. Inside executeIfInSync callback'));
-        }
-
         let symbol;
         try {
-          if (shouldDebug) {
-            console.log(`${logger.log(event, '12a1. Event log address debug')}: ${safeStringify({
-              address: event.log.address,
-              addressType: typeof event.log.address,
-              isUndefined: event.log.address === undefined,
-              isNull: event.log.address === null,
-              addressLength: event.log.address?.length,
-              eventLog: event.log
-            })}`);
-          }
-
           if (!event.log.address) {
             throw new Error(`Event log address is ${event.log.address} (${typeof event.log.address})`);
           }
@@ -348,51 +279,29 @@ export async function handleOrderPlaced({ event, context }: any) {
           }
 
           symbol = (await getPoolTradingPair(context, event.log.address, chainId, 'handleOrderPlaced', Number(event.block.number))).toUpperCase();
-          if (shouldDebug) {
-            console.log(`${logger.log(event, '12b. Trading pair retrieved')}: ${safeStringify({ symbol, poolAddress: event.log.address })}`);
-          }
         } catch (error) {
-          if (shouldDebug) {
-            console.error(`${logger.log(event, '12b. Failed to get trading pair')}: ${safeStringify(error)}`);
-          }
+          console.error(`${logger.log(event, 'Failed to get trading pair')}: ${safeStringify(error)}`);
           throw new Error(`Failed to get trading pair: ${(error as Error).message}`);
         }
 
         const id = createOrderId(chainId, args.orderId, poolAddress);
-        if (shouldDebug) {
-          console.log(`${logger.log(event, '12c. Order ID created for lookup')}: ${safeStringify({ id })}`);
-        }
-
         let order;
         try {
           order = await context.db.find(orders, { id: id });
-          if (shouldDebug) {
-            console.log(`${logger.log(event, '12d. Order found in database')}: ${safeStringify({ orderId: id, orderExists: !!order })}`);
-          }
           if (!order) {
             throw new Error(`Order not found in database with id: ${id}`);
           }
         } catch (error) {
-          if (shouldDebug) {
-            console.error(`${logger.log(event, '12d. Failed to find order')}: ${safeStringify(error)}`);
-          }
+          console.error(`${logger.log(event, 'Failed to find order')}: ${safeStringify(error)}`);
           throw new Error(`Failed to find order: ${(error as Error).message}`);
         }
 
         try {
           // Publish events
-          await publishOrderEvent(order, symbol, timestamp, "NEW", BigInt(0), BigInt(0));
-          
-          // Keep websocket for backward compatibility
-          pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
-          if (shouldDebug) {
-            console.log(logger.log(event, '12e. Execution report pushed successfully'));
-          }
+          await publishOrderEvent(order, symbol, timestamp, "new", BigInt(0), BigInt(0));
         } catch (error) {
-          if (shouldDebug) {
-            console.error(`${logger.log(event, '12e. Failed to push execution report')}: ${safeStringify(error)}`);
-          }
-          throw new Error(`Failed to push execution report: ${(error as Error).message}`);
+          console.error(`${logger.log(event, 'Failed to publish order event')}: ${safeStringify(error)}`);
+          throw new Error(`Failed to publish order event: ${(error as Error).message}`);
         }
 
         let latestDepth;
@@ -412,19 +321,10 @@ export async function handleOrderPlaced({ event, context }: any) {
         }
 
         try {
-          // Publish depth event
           await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
-          
-          // Keep websocket for backward compatibility
-          pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-          if (shouldDebug) {
-            console.log(logger.log(event, '12g. Depth pushed successfully'));
-          }
         } catch (error) {
-          if (shouldDebug) {
-            console.error(`${logger.log(event, '12g. Failed to push depth')}: ${safeStringify(error)}`);
-          }
-          throw new Error(`Failed to push depth: ${(error as Error).message}`);
+          console.error(`${logger.log(event, 'Failed to publish depth event')}: ${safeStringify(error)}`);
+          throw new Error(`Failed to publish depth event: ${(error as Error).message}`);
         }
 
         if (shouldDebug) {
@@ -501,13 +401,10 @@ export async function handleOrderMatched({ event, context }: any) {
 
   await executeIfInSync(Number(event.block.number), async () => {
     console.log(logger.log(event, '3. Starting executeIfInSync operation'))
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderMatched')).toUpperCase();
-    const symbolLower = symbol.toLowerCase();
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderMatched', Number(event.block.number))).toUpperCase();
     const txHash = event.transaction.hash;
     const price = event.args.executionPrice.toString();
     const quantity = event.args.executedQuantity.toString();
-    const isBuyerMaker = !!event.args.side;
-    const tradeTime = timestamp * 1000;
 
     const buyRow = await context.db.find(orders, {
       id: buyOrderId
@@ -519,27 +416,19 @@ export async function handleOrderMatched({ event, context }: any) {
 
     // Publish trade event
     await publishTradeEvent(symbol, price, quantity, event.args.user, getSide(event.args.side), txHash, event.args.buyOrderId.toString(), event.args.sellOrderId.toString(), timestamp);
-    
-    // Keep websocket for backward compatibility
-    pushTrade(symbolLower, txHash, price, quantity, isBuyerMaker, tradeTime);
 
     if (buyRow) {
-      await publishOrderEvent(buyRow, symbol, timestamp, "TRADE", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
-      pushExecutionReport(symbol.toLowerCase(), buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
+      await publishOrderEvent(buyRow, symbol, timestamp, "trade", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
     }
     
     if (sellRowById) {
-      await publishOrderEvent(sellRowById, symbol, timestamp, "TRADE", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
-      pushExecutionReport(symbol.toLowerCase(), sellRowById.user, sellRowById, "TRADE", sellRowById.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
+      await publishOrderEvent(sellRowById, symbol, timestamp, "trade", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
     }
 
     const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
     
     // Publish depth event
     await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
-    
-    // Keep websocket for backward compatibility
-    pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
 
     const timeIntervals = [
       { table: minuteBuckets, interval: '1m', seconds: TIME_INTERVALS.minute },
@@ -585,40 +474,10 @@ export async function handleOrderMatched({ event, context }: any) {
 
         // Publish kline event
         await publishKlineEvent(symbol, interval, klinePayload);
-        
-        // Keep websocket for backward compatibility
-        pushKline(symbol.toLowerCase(), interval, klinePayload);
       }
     }
 
-    const now = Math.floor(Date.now() / 1000);
-    const oneDayAgo = now - 86400;
-
-    const dailyStats = await context.db.sql
-      .select()
-      .from(dailyBuckets)
-      .where(
-        and(
-          eq(dailyBuckets.poolId, event.log.address!),
-          gte(dailyBuckets.openTime, oneDayAgo)
-        )
-      )
-      .orderBy(desc(dailyBuckets.openTime))
-      .limit(1)
-      .execute();
-
-    const closePrice = event.args.executionPrice.toString();
-    const highPrice = dailyStats.length > 0 ? dailyStats[0].high.toString() : closePrice;
-    const lowPrice = dailyStats.length > 0 ? dailyStats[0].low.toString() : closePrice;
-    const volume = dailyStats.length > 0 ? dailyStats[0].quoteVolume.toString() : (BigInt(event.args.executedQuantity) * BigInt(event.args.executionPrice)).toString();
-
-    pushMiniTicker(
-      symbol.toLowerCase(),
-      closePrice,
-      highPrice,
-      lowPrice,
-      volume
-    );
+    // Mini ticker is handled by the websocket service consuming Redis streams
 
     console.log(logger.log(event, '4. Websocket operations completed'))
     console.log(logger.log(event, '5. ======= ORDER MATCHED END ======='))
@@ -640,25 +499,17 @@ export async function handleOrderCancelled({ event, context }: any) {
 
     await upsertOrderBookDepthOnCancel(db, chainId, hashedOrderId, event, timestamp);
 
-    await executeIfInSync(Number(event.block.number), async () => {
-      const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled')).toUpperCase();
-      const row = await context.db.find(orders, { id: hashedOrderId });
+  await executeIfInSync(Number(event.block.number), async () => {
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled', Number(event.block.number))).toUpperCase();
+    const row = await context.db.find(orders, { id: hashedOrderId });
 
       if (!row) return;
 
-    // Publish order event
-    await publishOrderEvent(row, symbol, timestamp, "CANCELED", BigInt(0), BigInt(0));
-    
-    // Keep websocket for backward compatibility
-    pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
+    await publishOrderEvent(row, symbol, timestamp, "cancelled", BigInt(0), BigInt(0));
     
     const latestDepth = await getDepth(event.log.address!, context.db, chainId);
     
-    // Publish depth event
     await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
-    
-    // Keep websocket for backward compatibility
-    pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
   }, 'handleOrderCancelled');
 }
 
@@ -759,24 +610,82 @@ export async function handleUpdateOrder({ event, context }: any) {
     }, event);
     throw e;
   }
+
   await executeIfInSync(Number(event.block.number), async () => {
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder', Number(event.block.number))).toUpperCase();
     const row = await context.db.find(orders, { id: hashedOrderId });
 
     if (!row) return;
 
+    // Publish trade event for the fill
+    await publishTradeEvent(
+      symbol, 
+      row.price.toString(), 
+      event.args.filled.toString(), 
+      row.user, 
+      row.side, 
+      event.transaction.hash, 
+      row.id, 
+      row.id, 
+      timestamp
+    );
+
     // Publish order event
-    await publishOrderEvent(row, symbol, timestamp, "TRADE", BigInt(event.args.filled), row.price);
-    
-    // Keep websocket for backward compatibility
-    pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
+    await publishOrderEvent(row, symbol, timestamp, "trade", BigInt(event.args.filled), row.price);
     
     const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
     
     // Publish depth event
     await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
-    
-    // Keep websocket for backward compatibility
-    pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+
+    // Publish kline events for all intervals
+    const timeIntervals = [
+      { table: minuteBuckets, interval: '1m', seconds: TIME_INTERVALS.minute },
+      { table: fiveMinuteBuckets, interval: '5m', seconds: TIME_INTERVALS.fiveMinutes },
+      { table: thirtyMinuteBuckets, interval: '30m', seconds: TIME_INTERVALS.thirtyMinutes },
+      { table: hourBuckets, interval: '1h', seconds: TIME_INTERVALS.hour }
+    ];
+
+    const currentTimestamp = Number(event.block.timestamp);
+
+    for (const { table, interval, seconds } of timeIntervals) {
+      const openTime = Math.floor(currentTimestamp / seconds) * seconds;
+
+      const klineData = await context.db.sql
+        .select()
+        .from(table)
+        .where(
+          and(
+            eq(table.poolId, event.log.address!),
+            eq(table.openTime, openTime)
+          )
+        )
+        .execute();
+
+      if (klineData.length > 0) {
+        const kline = klineData[0];
+        const klinePayload = {
+          t: kline.openTime * 1000,
+          T: kline.closeTime * 1000,
+          s: symbol.toUpperCase(),
+          i: interval,
+          o: kline.open.toString(),
+          c: kline.close.toString(),
+          h: kline.high.toString(),
+          l: kline.low.toString(),
+          v: kline.volume.toString(),
+          n: kline.count,
+          x: false,
+          q: kline.quoteVolume.toString(),
+          V: kline.takerBuyBaseVolume.toString(),
+          Q: kline.takerBuyQuoteVolume.toString()
+        };
+
+        // Publish kline event
+        await publishKlineEvent(symbol, interval, klinePayload);
+      }
+    }
+
+    // Mini ticker is handled by the websocket service consuming Redis streams
   }, 'handleUpdateOrder');
 }

@@ -12,7 +12,22 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-COMPOSE_FILE="docker-compose.microservices.yml"
+# Detect if running from scripts directory or project root
+if [ -f "docker-compose.microservices.yml" ]; then
+    # Running from project root
+    COMPOSE_FILE="docker-compose.microservices.yml"
+    WEBSOCKET_SERVICE_DIR="websocket-service"
+    ANALYTICS_SERVICE_DIR="analytics-service"
+elif [ -f "../docker-compose.microservices.yml" ]; then
+    # Running from scripts directory
+    COMPOSE_FILE="../docker-compose.microservices.yml"
+    WEBSOCKET_SERVICE_DIR="../websocket-service"
+    ANALYTICS_SERVICE_DIR="../analytics-service"
+else
+    log_error "Could not find docker-compose.microservices.yml. Run from project root or scripts directory."
+    exit 1
+fi
+
 PROJECT_NAME="gtx-clob"
 
 # Helper functions
@@ -53,19 +68,22 @@ check_dependencies() {
 build_services() {
     log_info "Building microservices..."
     
+    # Store current directory to return to it later
+    ORIGINAL_DIR=$(pwd)
+    
     # Build WebSocket service
     log_info "Building WebSocket service..."
-    cd websocket-service
+    cd "$WEBSOCKET_SERVICE_DIR"
     npm install
     npm run build
-    cd ..
+    cd "$ORIGINAL_DIR"
     
     # Build Analytics service
     log_info "Building Analytics service..."
-    cd analytics-service
+    cd "$ANALYTICS_SERVICE_DIR"
     npm install
     npm run build
-    cd ..
+    cd "$ORIGINAL_DIR"
     
     log_success "Services built successfully"
 }
@@ -75,13 +93,13 @@ setup_env() {
     log_info "Setting up environment files..."
     
     # Copy example env files if they don't exist
-    if [ ! -f websocket-service/.env ]; then
-        cp websocket-service/.env.example websocket-service/.env
+    if [ ! -f "$WEBSOCKET_SERVICE_DIR/.env" ]; then
+        cp "$WEBSOCKET_SERVICE_DIR/.env.example" "$WEBSOCKET_SERVICE_DIR/.env"
         log_info "Created websocket-service/.env from example"
     fi
     
-    if [ ! -f analytics-service/.env ]; then
-        cp analytics-service/.env.example analytics-service/.env
+    if [ ! -f "$ANALYTICS_SERVICE_DIR/.env" ]; then
+        cp "$ANALYTICS_SERVICE_DIR/.env.example" "$ANALYTICS_SERVICE_DIR/.env"
         log_info "Created analytics-service/.env from example"
     fi
     

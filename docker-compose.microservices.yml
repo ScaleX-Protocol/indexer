@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - PONDER_DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://redis:6380
       - ENABLE_EVENT_PUBLISHING=true
       - ENABLE_WEBSOCKET=false  # Disabled in favor of separate websocket service
     depends_on:
@@ -23,14 +23,14 @@ services:
   websocket-service:
     build:
       context: ./websocket-service
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "42080:42080"  # WebSocket port
       - "8080:8080"    # Health check port
     environment:
       - PORT=42080
       - HEALTH_PORT=8080
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://redis:6380
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder
       - CONSUMER_GROUP=websocket-consumers
       - CONSUMER_ID=ws-consumer-1
@@ -49,12 +49,12 @@ services:
   analytics-service:
     build:
       context: ./analytics-service
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "3001:3001"
     environment:
       - PORT=3001
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://redis:6380
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder
       - CONSUMER_GROUP=analytics-consumers
       - CONSUMER_ID=analytics-consumer-1
@@ -91,7 +91,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379"  # Use port 6380 externally to avoid conflict
+      - "6380:6380"  # Use port 6380 externally to avoid conflict
     volumes:
       - redis_data:/data
     networks:
@@ -154,7 +154,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - REDIS_HOSTS=local:redis:6379
+      - REDIS_HOSTS=local:redis:6380
     depends_on:
       - redis
     networks:

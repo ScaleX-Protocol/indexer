@@ -226,7 +226,7 @@ npm run dev
 #### WebSocket Service
 ```bash
 PORT=42080
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://localhost:6380
 DATABASE_URL=postgresql://user:pass@localhost:5432/ponder
 CONSUMER_GROUP=websocket-consumers
 BATCH_SIZE=10
@@ -236,7 +236,7 @@ POLL_INTERVAL=1000
 #### Analytics Service
 ```bash
 PORT=3001
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://localhost:6380
 DATABASE_URL=postgresql://user:pass@localhost:5432/ponder
 CONSUMER_GROUP=analytics-consumers
 ANALYTICS_BATCH_SIZE=5

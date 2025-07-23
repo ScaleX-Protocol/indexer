@@ -10,7 +10,7 @@ import path from "path";
 
 dotenv.config();
 
-const { WebSocketServer } = require("ws");
+import { WebSocketServer } from "ws";
 
 const ENABLE_WEBSOCKET_LOG = process.env.ENABLE_WEBSOCKET_LOG === "true";
 

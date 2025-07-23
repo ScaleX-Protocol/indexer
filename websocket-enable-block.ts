@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { createPublicClient, http } from "viem";
-import { mainnet, sepolia, goerli, arbitrum, optimism, polygon, base } from "viem/chains";
+import { mainnet, sepolia, goerli, arbitrum, optimism, polygon, base, anvil } from "viem/chains";
 import { createClient, RedisClientType } from 'redis';
 
 // Custom RISE testnet chain definition
@@ -139,7 +139,8 @@ async function getCurrentBlockNumber(): Promise<number> {
       'arbitrum': arbitrum,
       'optimism': optimism,
       'polygon': polygon,
-      'base': base
+      'base': base,
+      'anvil': anvil
     };
 
     const chain = chainMap[networkName] || mainnet;

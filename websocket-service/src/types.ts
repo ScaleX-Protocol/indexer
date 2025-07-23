@@ -71,8 +71,8 @@ export interface OrderEventData {
 
 export interface DepthEventData {
   symbol: string;
-  bids: Array<[string, string]>;
-  asks: Array<[string, string]>;
+  bids: string; // JSON string of Array<[string, string]>
+  asks: string; // JSON string of Array<[string, string]>
   timestamp: string;
 }
 

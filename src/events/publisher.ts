@@ -19,115 +19,139 @@ export class EventPublisher {
   }
 
   async publishTrade(trade: TradeEvent): Promise<void> {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      console.log('Event publishing disabled - skipping trade event');
+      return;
+    }
 
     try {
-      await this.redis.xadd(EventStreams.TRADES, '*', {
-        symbol: trade.symbol,
-        price: trade.price,
-        quantity: trade.quantity,
-        timestamp: trade.timestamp,
-        userId: trade.userId,
-        side: trade.side,
-        tradeId: trade.tradeId,
-        orderId: trade.orderId,
-        makerOrderId: trade.makerOrderId
-      });
+      const messageId = await this.redis.xadd(EventStreams.TRADES, '*', 
+        'symbol', trade.symbol,
+        'price', trade.price,
+        'quantity', trade.quantity,
+        'timestamp', trade.timestamp,
+        'userId', trade.userId,
+        'side', trade.side,
+        'tradeId', trade.tradeId,
+        'orderId', trade.orderId,
+        'makerOrderId', trade.makerOrderId
+      );
+      console.log(`[REDIS STREAM] Published trade event: ${trade.symbol} ${trade.side} ${trade.quantity}@${trade.price} (ID: ${messageId})`);
     } catch (error) {
       console.error('Failed to publish trade event:', error);
     }
   }
 
   async publishBalanceUpdate(balance: BalanceUpdateEvent): Promise<void> {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      console.log('Event publishing disabled - skipping balance update event');
+      return;
+    }
 
     try {
-      await this.redis.xadd(EventStreams.BALANCES, '*', {
-        userId: balance.userId,
-        token: balance.token,
-        available: balance.available,
-        locked: balance.locked,
-        timestamp: balance.timestamp
-      });
+      const messageId = await this.redis.xadd(EventStreams.BALANCES, '*',
+        'userId', balance.userId,
+        'token', balance.token,
+        'available', balance.available,
+        'locked', balance.locked,
+        'timestamp', balance.timestamp
+      );
+      console.log(`[REDIS STREAM] Published balance update: ${balance.userId} ${balance.token} available=${balance.available} locked=${balance.locked} (ID: ${messageId})`);
     } catch (error) {
       console.error('Failed to publish balance update event:', error);
     }
   }
 
   async publishOrder(order: OrderEvent): Promise<void> {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      console.log('Event publishing disabled - skipping order event');
+      return;
+    }
 
     try {
-      await this.redis.xadd(EventStreams.ORDERS, '*', {
-        orderId: order.orderId,
-        userId: order.userId,
-        symbol: order.symbol,
-        side: order.side,
-        type: order.type,
-        price: order.price,
-        quantity: order.quantity,
-        filledQuantity: order.filledQuantity,
-        status: order.status,
-        timestamp: order.timestamp
-      });
+      const messageId = await this.redis.xadd(EventStreams.ORDERS, '*',
+        'orderId', order.orderId,
+        'userId', order.userId,
+        'symbol', order.symbol,
+        'side', order.side,
+        'type', order.type,
+        'price', order.price,
+        'quantity', order.quantity,
+        'filledQuantity', order.filledQuantity,
+        'status', order.status,
+        'timestamp', order.timestamp
+      );
+      console.log(`[REDIS STREAM] Published order event: ${order.symbol} ${order.side} ${order.status} ${order.orderId} (ID: ${messageId})`);
     } catch (error) {
       console.error('Failed to publish order event:', error);
     }
   }
 
   async publishDepth(depth: DepthEvent): Promise<void> {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      console.log('Event publishing disabled - skipping depth event');
+      return;
+    }
 
     try {
-      await this.redis.xadd(EventStreams.DEPTH, '*', {
-        symbol: depth.symbol,
-        bids: JSON.stringify(depth.bids),
-        asks: JSON.stringify(depth.asks),
-        timestamp: depth.timestamp
-      });
+      const messageId = await this.redis.xadd(EventStreams.DEPTH, '*',
+        'symbol', depth.symbol,
+        'bids', JSON.stringify(depth.bids),
+        'asks', JSON.stringify(depth.asks),
+        'timestamp', depth.timestamp
+      );
+      console.log(`[REDIS STREAM] Published depth event: ${depth.symbol} bids=${depth.bids.length} asks=${depth.asks.length} (ID: ${messageId})`);
     } catch (error) {
       console.error('Failed to publish depth event:', error);
     }
   }
 
   async publishKline(kline: KlineEvent): Promise<void> {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      console.log('Event publishing disabled - skipping kline event');
+      return;
+    }
 
     try {
-      await this.redis.xadd(EventStreams.KLINES, '*', {
-        symbol: kline.symbol,
-        interval: kline.interval,
-        openTime: kline.openTime,
-        closeTime: kline.closeTime,
-        open: kline.open,
-        high: kline.high,
-        low: kline.low,
-        close: kline.close,
-        volume: kline.volume,
-        trades: kline.trades
-      });
+      const messageId = await this.redis.xadd(EventStreams.KLINES, '*',
+        'symbol', kline.symbol,
+        'interval', kline.interval,
+        'openTime', kline.openTime,
+        'closeTime', kline.closeTime,
+        'open', kline.open,
+        'high', kline.high,
+        'low', kline.low,
+        'close', kline.close,
+        'volume', kline.volume,
+        'trades', kline.trades
+      );
+      console.log(`[REDIS STREAM] Published kline event: ${kline.symbol} ${kline.interval} close=${kline.close} (ID: ${messageId})`);
     } catch (error) {
       console.error('Failed to publish kline event:', error);
     }
   }
 
   async publishExecutionReport(report: ExecutionReportEvent): Promise<void> {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      console.log('Event publishing disabled - skipping execution report event');
+      return;
+    }
 
     try {
-      await this.redis.xadd(EventStreams.EXECUTION_REPORTS, '*', {
-        orderId: report.orderId,
-        userId: report.userId,
-        symbol: report.symbol,
-        side: report.side,
-        type: report.type,
-        price: report.price,
-        quantity: report.quantity,
-        filledQuantity: report.filledQuantity,
-        status: report.status,
-        timestamp: report.timestamp,
-        executionType: report.executionType
-      });
+      const messageId = await this.redis.xadd(EventStreams.EXECUTION_REPORTS, '*',
+        'orderId', report.orderId,
+        'userId', report.userId,
+        'symbol', report.symbol,
+        'side', report.side,
+        'type', report.type,
+        'price', report.price,
+        'quantity', report.quantity,
+        'filledQuantity', report.filledQuantity,
+        'status', report.status,
+        'timestamp', report.timestamp,
+        'executionType', report.executionType
+      );
+      console.log(`[REDIS STREAM] Published execution report: ${report.symbol} ${report.executionType} ${report.orderId} (ID: ${messageId})`);
     } catch (error) {
       console.error('Failed to publish execution report event:', error);
     }
@@ -144,18 +168,29 @@ export class EventPublisher {
     ];
 
     for (const { stream, groups: consumerGroups } of groups) {
-      for (const group of consumerGroups) {
-        try {
-          await this.redis.xgroup('CREATE', stream, group, '0', 'MKSTREAM');
-          console.log(`Created consumer group ${group} for stream ${stream}`);
-        } catch (error: any) {
-          if (error.message.includes('BUSYGROUP')) {
-            // Consumer group already exists
-            console.log(`Consumer group ${group} already exists for stream ${stream}`);
-          } else {
-            console.error(`Failed to create consumer group ${group} for stream ${stream}:`, error);
+      try {
+        // Only create consumer groups if stream exists
+        const exists = await this.redis.exists(stream);
+        if (!exists) {
+          console.log(`Stream ${stream} does not exist, skipping consumer group creation`);
+          continue;
+        }
+
+        for (const group of consumerGroups) {
+          try {
+            await this.redis.xgroup('CREATE', stream, group, '0');
+            console.log(`Created consumer group ${group} for stream ${stream}`);
+          } catch (error: any) {
+            if (error.message.includes('BUSYGROUP')) {
+              // Consumer group already exists
+              console.log(`Consumer group ${group} already exists for stream ${stream}`);
+            } else {
+              console.error(`Failed to create consumer group ${group} for stream ${stream}:`, error);
+            }
           }
         }
+      } catch (error) {
+        console.error(`Error processing stream ${stream}:`, error);
       }
     }
   }

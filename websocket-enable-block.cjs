@@ -34,6 +34,32 @@ const rise = {
   testnet: true,
 };
 
+const anvil = {
+  id: parseInt(process.env.CHAIN_ID || '31337'),
+  name: 'Anvil',
+  network: 'anvil',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
+      http: ['http://localhost:8545'],
+    },
+    public: {
+      http: ['http://localhost:8545'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Anvil',
+      url: 'http://localhost:8545',
+    },
+  },
+  testnet: true,
+};
+
 // Redis configuration
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '2147483647');
@@ -136,7 +162,8 @@ async function getCurrentBlockNumber() {
       'arbitrum': arbitrum,
       'optimism': optimism,
       'polygon': polygon,
-      'base': base
+      'base': base,
+      'anvil': anvil
     };
 
     const chain = chainMap[networkName] || mainnet;

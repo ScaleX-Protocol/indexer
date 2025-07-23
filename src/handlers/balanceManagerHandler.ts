@@ -2,15 +2,12 @@ import dotenv from "dotenv";
 import { balances } from "ponder:schema";
 import { createBalanceId } from "@/utils";
 import { getAddress } from "viem";
-import { pushBalanceUpdate } from "../websocket/broadcaster";
 import { executeIfInSync } from "../utils/syncState";
 import { getEventPublisher } from "@/events/index";
 
 dotenv.config();
 
-async function fetchAndPushBalance(context: any, balanceId: string, timestamp: number) {
-    const blockNumber = context.block?.number || 0;
-
+async function fetchAndPushBalance(context: any, balanceId: string, timestamp: number, blockNumber: number) {
     await executeIfInSync(blockNumber, async () => {
         const balance = await context.db.find(balances, { id: balanceId });
         if (balance) {
@@ -28,14 +25,6 @@ async function fetchAndPushBalance(context: any, balanceId: string, timestamp: n
                 console.error('Failed to publish balance update event:', error);
             }
             
-            // Keep websocket for backward compatibility
-            pushBalanceUpdate(balance.user, {
-                e: "balanceUpdate",
-                E: timestamp,
-                a: balance.currency,
-                b: balance.amount.toString(),
-                l: balance.lockedAmount.toString()
-            });
         }
     }, 'fetchAndPushBalance');
 }
@@ -66,7 +55,7 @@ export async function handleDeposit({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.amount),
 		}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleWithdrawal({ event, context }: any) {
@@ -80,7 +69,7 @@ export async function handleWithdrawal({ event, context }: any) {
 		amount: row.amount - BigInt(event.args.amount),
 	}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleTransferFrom({ event, context }: any) {
@@ -97,7 +86,7 @@ export async function handleTransferFrom({ event, context }: any) {
 		chainId: chainId,
 	}));
 
-    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert receiver balance
 	const receiverId = createBalanceId(chainId, currency, event.args.receiver);
@@ -116,7 +105,7 @@ export async function handleTransferFrom({ event, context }: any) {
 			amount: row.amount + netAmount,
 		}));
 
-    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// // Update or insert operator balance
 	const operatorId = createBalanceId(chainId, currency, event.args.operator);
@@ -134,7 +123,7 @@ export async function handleTransferFrom({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.feeAmount),
 		}));
 
-    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleTransferLockedFrom({ event, context }: any) {
@@ -151,7 +140,7 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 		chainId: chainId,
 	}));
 
-    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert receiver balance (unlocked)
 	const receiverId = createBalanceId(chainId, currency, event.args.receiver);
@@ -169,7 +158,7 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 			amount: row.amount + netAmount,
 		}));
 
-    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert operator balance (unlocked)
 	const operatorId = createBalanceId(chainId, currency, event.args.operator);
@@ -187,7 +176,7 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.feeAmount),
 		}));
 
-    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleLock({ event, context }: any) {
@@ -202,7 +191,7 @@ export async function handleLock({ event, context }: any) {
 		lockedAmount: row.lockedAmount + BigInt(event.args.amount),
 	}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleUnlock({ event, context }: any) {
@@ -217,5 +206,5 @@ export async function handleUnlock({ event, context }: any) {
 		amount: row.amount + BigInt(event.args.amount),
 	}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
