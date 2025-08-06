@@ -4,6 +4,8 @@ import { createLogger, safeStringify } from "./logger";
 import { createPoolCacheKey, getCachedData, setCachedData } from "./redis";
 import { validatePoolId } from "./validation";
 import { shouldEnableWebSocket } from "./syncState";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 type PoolData = {
   id: string;
@@ -20,70 +22,25 @@ type PoolData = {
   timestamp: number;
 };
 
-const STATIC_POOL_DATA = {
-    "data": {
-      "poolss": {
-        "items": [
-          {
-            "chainId": 11155931,
-            "id": "a8e602dc46351c604f988ea52ff319d45d07d892fdf2da4fac572e3eab48657f",
-            "coin": "MUSDC/mWBTC",
-            "orderBook": "0x0c7907a26424bae17908803d1045604e8c1bb19f",
-            "price": "10720688650000",
-            "quoteDecimals": 8,
-            "timestamp": 1751112787,
-            "volume": "26200000",
-            "volumeInQuote": "280960220318000",
-            "baseDecimals": 6,
-            "quoteCurrency": {
-              "address": "0xca1de9daf1d62d0e0e9cd1db7e3a31c61875a6c0",
-              "chainId": 11155931,
-              "id": "9752ff740daa0034507394c6fa8bebfa01cf4c152859cf7984064964f423108c",
-              "decimals": 8,
-              "name": "Mock WBTC",
-              "symbol": "mWBTC"
-            },
-            "baseCurrency": {
-              "symbol": "MUSDC",
-              "name": "MockUSDC",
-              "id": "79ddf016627fedccb8660681b22c6311d6d5b74996442bc33796a9ace66b0676",
-              "decimals": 6,
-              "chainId": 11155931,
-              "address": "0xa652aede05d70c1aff00249ac05a9d021f9d30c2"
-            }
-          },
-          {
-            "chainId": 11155931,
-            "id": "d751ecff384afb051fb9917e00fcfbceea1a7df23ce9a76d8cfc410a00b2fc97",
-            "coin": "MWETH/MUSDC",
-            "orderBook": "0x9ce34b49aee0bba07a34752a917189b34b54d433",
-            "price": "1980000000",
-            "quoteDecimals": 6,
-            "timestamp": 1751114691,
-            "volume": "112700000000000000000",
-            "volumeInQuote": "1291082012710019207999988",
-            "baseDecimals": 18,
-            "baseCurrency": {
-              "symbol": "MWETH",
-              "name": "MockWETH",
-              "id": "f7324016cb4804fcf77959766a4a0262b549ac07ad7972b802595b56f654286d",
-              "decimals": 18,
-              "chainId": 11155931,
-              "address": "0x05d889798a21c3838d7ff6f67cd46b576dab2174"
-            },
-            "quoteCurrency": {
-              "address": "0xa652aede05d70c1aff00249ac05a9d021f9d30c2",
-              "chainId": 11155931,
-              "id": "79ddf016627fedccb8660681b22c6311d6d5b74996442bc33796a9ace66b0676",
-              "decimals": 6,
-              "name": "MockUSDC",
-              "symbol": "MUSDC"
-            }
-          }
-        ]
+let STATIC_POOL_DATA: any = null;
+
+const loadStaticPoolData = () => {
+  if (STATIC_POOL_DATA === null) {
+    try {
+      const poolDataPath = path.join(process.cwd(), 'pool-data.json');
+      if (fs.existsSync(poolDataPath)) {
+        const fileContent = fs.readFileSync(poolDataPath, 'utf8');
+        STATIC_POOL_DATA = JSON.parse(fileContent);
+      } else {
+        STATIC_POOL_DATA = { data: { poolss: { items: [] } } };
       }
+    } catch (error) {
+      console.error('Error loading pool data from file:', error);
+      STATIC_POOL_DATA = { data: { poolss: { items: [] } } };
     }
-  };
+  }
+  return STATIC_POOL_DATA;
+};
 
 // Check if static data mode is enabled
 const USE_STATIC_DATA = process.env.USE_STATIC_POOL_DATA === 'true';
@@ -92,7 +49,8 @@ const USE_STATIC_DATA = process.env.USE_STATIC_POOL_DATA === 'true';
  * Get pool data from static configuration
  */
 const getStaticPoolData = (orderBook: string, chainId: number): PoolData | null => {
-  const pool = STATIC_POOL_DATA.data.poolss.items.find(
+  const poolData = loadStaticPoolData();
+  const pool = poolData.data.poolss.items.find(
     item => item.orderBook.toLowerCase() === orderBook.toLowerCase() && item.chainId === chainId
   );
   
@@ -349,7 +307,7 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
             })}`));
         }
         
-        await setCachedData(cacheKey, poolData, 3600, blockNumber || 0, callerFunction);
+        await setCachedData(cacheKey, poolData, parseInt(process.env.REDIS_CACHE_TTL || '2147483647'), blockNumber || 0, callerFunction);
         
         if (shouldDebug) {
             console.log(logger.logSimple(blockNumber, `${callerFunction} Data cached successfully`));

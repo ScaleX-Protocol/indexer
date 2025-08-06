@@ -36,3 +36,6 @@ yarn-error.log*
 
 # Claude
 .claude/
+
+# Pool data configuration
+pool-data.json

@@ -5,7 +5,7 @@ import { safeStringify, createLogger } from './logger';
 dotenv.config();
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '3600'); 
+const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '2147483647'); 
 
 let redisClient: ReturnType<typeof createClient> | null = null;
 

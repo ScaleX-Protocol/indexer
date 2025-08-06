@@ -33,7 +33,7 @@ const rise = {
 
 // Redis configuration
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '3600');
+const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '2147483647');
 
 let redisClient: RedisClientType | null = null;
 
@@ -175,7 +175,7 @@ async function setWebSocketEnableBlockNumber(): Promise<void> {
     }
 
     if (blockNumber > 0) {
-      await setCachedData('websocket:enable:block', blockNumber, 3600, blockNumber, 'setWebSocketEnableBlockNumber');
+      await setCachedData('websocket:enable:block', blockNumber, REDIS_CACHE_TTL, blockNumber, 'setWebSocketEnableBlockNumber');
       console.log(`WebSocket enable block number set to ${blockNumber}`);
     }
   } catch (error) {

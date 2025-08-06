@@ -10,7 +10,7 @@ import { createPoolCacheKey, setCachedData } from "../utils/redis";
 import { executeIfInSync } from "../utils/syncState";
 import { pushMiniTicker } from "../websocket/broadcaster";
 
-const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '3600');
+const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '2147483647');
 const USE_RAW_SQL = process.env.USE_RAW_SQL === 'true';
 
 dotenv.config();
