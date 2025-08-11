@@ -182,7 +182,7 @@ export async function insertOrderBookTrades(
 		transactionId: transactionHash,
 		side: getSide(side as number),
 		poolId,
-	});
+	}).onConflictDoNothing();
 }
 
 export async function updatePoolVolume(db: any, poolId: string, quantity: bigint, price: bigint, timestamp: number) {

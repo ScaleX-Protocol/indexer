@@ -268,7 +268,7 @@ export function bootstrapGateway(app: Hono) {
 		},
 		pushDepth: (sym: string, b: [string, string][], a: [string, string][]) => {
 			if (ENABLE_WEBSOCKET_LOG) {
-				console.log("pushDepth", `${sym}@depth`, b, a);
+				console.log("pushDepth", `${sym}@depth`);
 			}
 			const ob =
 				ORDER_BOOKS[sym] ||
