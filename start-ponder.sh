@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Usage: ./start-ponder.sh [--production|production]
+# - Default: Runs ponder in development mode (ponder dev)
+# - With --production or production: Runs ponder in production mode (ponder start)
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -130,20 +134,42 @@ start_pm2_process() {
         return 1
     fi
     
+    # Determine if we're in production mode
+    local is_production=false
+    for arg in "$@"; do
+        if [[ "$arg" == "--production" || "$arg" == "production" ]]; then
+            is_production=true
+            break
+        fi
+    done
+    
+    # Set command and process name based on mode
+    local ponder_command
+    local process_name
+    if [[ "$is_production" == true ]]; then
+        ponder_command="pnpm run start --config pg-ponder.config.ts --disable-ui"
+        process_name="ponder-prod"
+        echo -e "${GREEN}🏭 Running in PRODUCTION mode${NC}"
+    else
+        ponder_command="pnpm run dev --config pg-ponder.config.ts --disable-ui"
+        process_name="ponder-dev"
+        echo -e "${BLUE}🛠️  Running in DEVELOPMENT mode${NC}"
+    fi
+    
     # Stop existing process if running
-    pm2 delete ponder-dev 2>/dev/null || true
+    pm2 delete "$process_name" 2>/dev/null || true
     
     # Start the new process
-    pm2 start "pnpm run dev --config pg-ponder.config.ts --disable-ui" \
-        --name "ponder-dev" \
-        --log "ponder-dev.log" \
+    pm2 start "$ponder_command" \
+        --name "$process_name" \
+        --log "$process_name.log" \
         --time
     
     local exit_code=$?
     
     if [[ $exit_code -eq 0 ]]; then
-        echo -e "${GREEN}✅ PM2 process 'ponder-dev' started successfully${NC}"
-        echo -e "${BLUE}📊 View logs with: pm2 logs ponder-dev${NC}"
+        echo -e "${GREEN}✅ PM2 process '$process_name' started successfully${NC}"
+        echo -e "${BLUE}📊 View logs with: pm2 logs $process_name${NC}"
         echo -e "${BLUE}📊 View status with: pm2 status${NC}"
         return 0
     else
@@ -194,7 +220,7 @@ main() {
     fi
     
     # Start PM2 process
-    if start_pm2_process; then
+    if start_pm2_process "$@"; then
         echo -e "${GREEN}🎉 All done! Ponder is now running with PM2.${NC}"
         echo -e "${BLUE}💡 Use 'pm2 stop ponder-dev' to stop the process${NC}"
     else
