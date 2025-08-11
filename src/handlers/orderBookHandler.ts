@@ -74,12 +74,6 @@ export async function handleOrderPlaced({ event, context }: any) {
       })}`);
     }
 
-    // if (!args.orderId) throw new Error('Missing orderId in event args');
-    // if (!args.price) throw new Error('Missing price in event args');
-    // if (!args.quantity) throw new Error('Missing quantity in event args');
-    // if (args.side === undefined) throw new Error('Missing side in event args');
-    // if (args.status === undefined) throw new Error('Missing status in event args');
-
     const db = context.db;
     const chainId = context.network.chainId;
     const txHash = event.transaction.hash;
@@ -203,7 +197,7 @@ export async function handleOrderPlaced({ event, context }: any) {
     try {
       depthData = createDepthData(chainId, depthId, poolAddress, side, price, quantity, timestamp);
       if (shouldDebug) {
-        console.log(`${logger.log(event, '11. Depth data created')}: ${safeStringify({ depthId, depthData })}`);
+        console.log(`${logger.log(event, '11. Depth data created')}: ${safeStringify({ depthId })}`);
       }
     } catch (error) {
       if (shouldDebug) {

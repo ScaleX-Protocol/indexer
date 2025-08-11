@@ -29,7 +29,7 @@ check_redis() {
     if command -v redis-cli &> /dev/null; then
         redis-cli ping &> /dev/null
         return $?
-    else
+    elif command -v bun &> /dev/null; then
         # Try with bun and redis client
         bun -e "
         import { createClient } from 'redis';
@@ -46,6 +46,28 @@ check_redis() {
         }
         " &> /dev/null
         return $?
+    elif command -v node &> /dev/null; then
+        # Try with Node.js and redis client
+        node -e "
+        const { createClient } = require('redis');
+        const client = createClient({ url: '$redis_url' });
+        (async () => {
+          try {
+            await client.connect();
+            await client.ping();
+            await client.quit();
+            console.log('Redis connection successful');
+            process.exit(0);
+          } catch (error) {
+            console.error('Redis connection failed:', error.message);
+            process.exit(1);
+          }
+        })();
+        " &> /dev/null
+        return $?
+    else
+        echo -e "${RED}❌ No suitable runtime found (redis-cli, bun, or node)${NC}"
+        return 1
     fi
 }
 
@@ -60,7 +82,7 @@ check_websocket_block() {
             echo -e "${GREEN}✅ WebSocket enable block found in Redis: $result${NC}"
             return 0
         fi
-    else
+    elif command -v bun &> /dev/null; then
         # Try with bun and redis client
         local result=$(bun -e "
         import { createClient } from 'redis';
@@ -78,6 +100,32 @@ check_websocket_block() {
         } catch (error) {
             process.exit(1);
         }
+        " 2>/dev/null)
+        
+        if [[ $? -eq 0 && -n "$result" ]]; then
+            echo -e "${GREEN}✅ WebSocket enable block found in Redis: $result${NC}"
+            return 0
+        fi
+    elif command -v node &> /dev/null; then
+        # Try with Node.js and redis client
+        local result=$(node -e "
+        const { createClient } = require('redis');
+        const client = createClient({ url: '$redis_url' });
+        (async () => {
+          try {
+            await client.connect();
+            const value = await client.get('$REDIS_KEY');
+            await client.quit();
+            if (value) {
+                console.log(value);
+                process.exit(0);
+            } else {
+                process.exit(1);
+            }
+          } catch (error) {
+            process.exit(1);
+          }
+        })();
         " 2>/dev/null)
         
         if [[ $? -eq 0 && -n "$result" ]]; then
