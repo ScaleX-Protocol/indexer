@@ -147,9 +147,11 @@ start_pm2_process() {
     local ponder_command
     local process_name
     if [[ "$is_production" == true ]]; then
-        ponder_command="pnpm run start --config pg-ponder.config.ts --disable-ui"
+        # Use timestamp-based schema for production (similar to Dockerfile pattern)
+        local timestamp=$(date +%s)
+        ponder_command="pnpm run start --config pg-ponder.config.ts --schema public_${timestamp}"
         process_name="ponder-prod"
-        echo -e "${GREEN}🏭 Running in PRODUCTION mode${NC}"
+        echo -e "${GREEN}🏭 Running in PRODUCTION mode with schema: public_${timestamp}${NC}"
     else
         ponder_command="pnpm run dev --config pg-ponder.config.ts --disable-ui"
         process_name="ponder-dev"
