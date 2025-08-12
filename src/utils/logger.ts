@@ -1,4 +1,6 @@
 import dotenv from "dotenv";
+import { writeFileSync, existsSync, readFileSync } from "fs";
+import { join } from "path";
 
 dotenv.config();
 
@@ -97,12 +99,81 @@ export const safeStringify = (obj: any, space?: string | number): string => {
   }, space);
 };
 
+// Error logging interface
+export interface ErrorLogEntry {
+  timestamp: string;
+  functionName: string;
+  fileName: string;
+  error: {
+    message: string;
+    stack?: string;
+    name: string;
+  };
+  context: {
+    blockNumber?: number;
+    transactionHash?: string;
+    eventArgs?: any;
+    functionParameters?: any;
+  };
+}
+
+// Write error to log file
+export const writeErrorToFile = (
+  functionName: string,
+  fileName: string,
+  error: Error,
+  functionParameters: any = {},
+  event?: any
+) => {
+  const errorLogPath = join(process.cwd(), 'error-logs.json');
+  
+  const errorEntry: ErrorLogEntry = {
+    timestamp: new Date().toISOString(),
+    functionName,
+    fileName,
+    error: {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    },
+    context: {
+      blockNumber: event?.block?.number,
+      transactionHash: event?.transaction?.hash,
+      eventArgs: event ? safeStringify(event.args) : undefined,
+      functionParameters: safeStringify(functionParameters)
+    }
+  };
+
+  let existingLogs: ErrorLogEntry[] = [];
+  
+  if (existsSync(errorLogPath)) {
+    try {
+      const fileContent = readFileSync(errorLogPath, 'utf8');
+      existingLogs = JSON.parse(fileContent);
+    } catch (parseError) {
+      console.error('Failed to parse existing error log file:', parseError);
+      existingLogs = [];
+    }
+  }
+
+  existingLogs.push(errorEntry);
+  
+  try {
+    writeFileSync(errorLogPath, JSON.stringify(existingLogs, null, 2));
+  } catch (writeError) {
+    console.error('Failed to write error to log file:', writeError);
+  }
+};
+
 // Helper to create a log function for a specific file and function
 export const createLogger = (fileName: string, functionName: string) => {
   return {
     // For functions with event context
     log: (event: any, step: string) => formatLogPrefix(event, fileName, functionName, step),
     // For functions without event context
-    logSimple: (blockNumber: number | undefined, step: string) => formatLogPrefixSimple(blockNumber, fileName, functionName, step)
+    logSimple: (blockNumber: number | undefined, step: string) => formatLogPrefixSimple(blockNumber, fileName, functionName, step),
+    // For error logging
+    writeError: (error: Error, functionParameters: any = {}, event?: any) => 
+      writeErrorToFile(functionName, fileName, error, functionParameters, event)
   };
 };

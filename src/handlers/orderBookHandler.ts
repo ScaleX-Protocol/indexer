@@ -419,7 +419,7 @@ export async function handleOrderMatched({ event, context }: any) {
     if (buyRow) pushExecutionReport(symbol.toLowerCase(), buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
     if (sellRowById) pushExecutionReport(symbol.toLowerCase(), sellRowById.user, sellRowById, "TRADE", sellRowById.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
 
-    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
+    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
     pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
 
     const timeIntervals = [
@@ -505,27 +505,36 @@ export async function handleOrderMatched({ event, context }: any) {
 export async function handleOrderCancelled({ event, context }: any) {
   const logger = createLogger('orderBookHandler.ts', 'handleOrderCancelled');
   console.log(logger.log(event, '1. Starting OrderCancelled processing'));
-  
+
   const db = context.db;
   const chainId = context.network.chainId;
 
   const hashedOrderId = createOrderId(chainId, BigInt(event.args.orderId!), event.log.address!);
   const timestamp = Number(event.args.timestamp);
 
-  await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
+  try {
+    await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
 
-  await upsertOrderBookDepthOnCancel(db, chainId, hashedOrderId, event, timestamp);
+    await upsertOrderBookDepthOnCancel(db, chainId, hashedOrderId, event, timestamp);
 
-  await executeIfInSync(Number(event.block.number), async () => {
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled')).toUpperCase();
-    const row = await context.db.find(orders, { id: hashedOrderId });
+    await executeIfInSync(Number(event.block.number), async () => {
+      const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled')).toUpperCase();
+      const row = await context.db.find(orders, { id: hashedOrderId });
 
-    if (!row) return;
+      if (!row) return;
 
-    pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
-    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
-    pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-  }, 'handleOrderCancelled');
+      pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
+      const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+      pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+    }, 'handleOrderCancelled');
+  } catch (e) {
+    logger.writeError(e as Error, {
+      orderId: event.args.orderId,
+      poolAddress: event.log.address,
+      timestamp: event.args.timestamp
+    }, event);
+    throw e;
+  }
 }
 
 export async function handleUpdateOrder({ event, context }: any) {
@@ -534,7 +543,7 @@ export async function handleUpdateOrder({ event, context }: any) {
   const chainId = context.network.chainId;
 
   console.log(logger.log(event, '1. Starting UpdateOrder processing'));
-  
+
   // Validate required event args exist
   if (event.args.orderId === undefined || event.args.filled === undefined || event.args.status === undefined || event.args.timestamp === undefined) {
     console.error(`${logger.log(event, '2. UpdateOrder event missing required arguments')}: ${safeStringify(event.args)}`);
@@ -575,42 +584,54 @@ export async function handleUpdateOrder({ event, context }: any) {
     filled,
     status,
   };
-  await upsertOrderHistory(db, historyData);
 
-  await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
+  try {
+    await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
 
-  const isExpired = ORDER_STATUS[5];
+    await upsertOrderHistory(db, historyData);
 
-  if (event.args.status == isExpired) {
-    const order = await db.find(orders, { id: hashedOrderId });
-    if (order && order.side) {
-      console.log(`${logger.log(event, '4. UpdateOrder expiry processing')}: ${safeStringify({
-        orderId: hashedOrderId,
-        orderSide: order.side,
-        orderSideType: typeof order.side,
-        orderSideLength: order.side?.length
-      })}`);
-      const price = BigInt(order.price);
-      await upsertOrderBookDepth(
-        db,
-        chainId,
-        poolAddress,
-        order.side,
-        price,
-        BigInt(order.quantity),
-        timestamp,
-        false
-      );
+    const isExpired = ORDER_STATUS[5];
+
+    if (event.args.status == isExpired) {
+      const order = await db.find(orders, { id: hashedOrderId });
+      if (order && order.side) {
+        console.log(`${logger.log(event, '4. UpdateOrder expiry processing')}: ${safeStringify({
+          orderId: hashedOrderId,
+          orderSide: order.side,
+          orderSideType: typeof order.side,
+          orderSideLength: order.side?.length
+        })}`);
+        const price = BigInt(order.price);
+        await upsertOrderBookDepth(
+          db,
+          chainId,
+          poolAddress,
+          order.side,
+          price,
+          BigInt(order.quantity),
+          timestamp,
+          false
+        );
+      }
     }
+    await executeIfInSync(Number(event.block.number), async () => {
+      const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
+      const row = await context.db.find(orders, { id: hashedOrderId });
+
+      if (!row) return;
+
+      pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
+      const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+      pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+    }, 'handleUpdateOrder');
+  } catch (e) {
+    logger.writeError(e as Error, {
+      orderId: event.args.orderId,
+      filled: event.args.filled,
+      status: event.args.status,
+      timestamp: event.args.timestamp,
+      poolAddress: event.log.address
+    }, event);
+    throw e;
   }
-  await executeIfInSync(Number(event.block.number), async () => {
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
-    const row = await context.db.find(orders, { id: hashedOrderId });
-
-    if (!row) return;
-
-    pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
-    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
-    pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-  }, 'handleUpdateOrder');
 }
