@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { Hono } from "hono";
-import { and, client, desc, eq, graphql, gt, gte, lte, or, sql, asc } from "ponder";
+import { and, client, desc, eq, graphql, gt, gte, lte, or, sql, asc, inArray } from "ponder";
 import { db } from "ponder:api";
 import schema, {
 	balances,
@@ -317,37 +317,40 @@ app.get("/api/ticker/24hr", async c => {
 		const now = Math.floor(Date.now() / 1000);
 		const oneDayAgo = now - 86400;
 
-		const dailyStats = await db
-			.select()
-			.from(dailyBuckets)
-			.where(and(eq(dailyBuckets.poolId, poolId), gte(dailyBuckets.openTime, oneDayAgo)))
-			.orderBy(desc(dailyBuckets.openTime))
-			.limit(1)
-			.execute();
-
-		const latestTrade = await db
-			.select()
-			.from(orderBookTrades)
-			.where(eq(orderBookTrades.poolId, poolId))
-			.orderBy(desc(orderBookTrades.timestamp))
-			.limit(1)
-			.execute();
-
-		const bestBids = await db
-			.select()
-			.from(orderBookDepth)
-			.where(and(eq(orderBookDepth.poolId, poolId), eq(orderBookDepth.side, "Buy")))
-			.orderBy(desc(orderBookDepth.price))
-			.limit(1)
-			.execute();
-
-		const bestAsks = await db
-			.select()
-			.from(orderBookDepth)
-			.where(and(eq(orderBookDepth.poolId, poolId), eq(orderBookDepth.side, "Sell")))
-			.orderBy(orderBookDepth.price)
-			.limit(1)
-			.execute();
+		// Execute all queries in parallel for better performance
+		const [dailyStats, latestTrade, bestBids, bestAsks] = await Promise.all([
+			db
+				.select()
+				.from(dailyBuckets)
+				.where(and(eq(dailyBuckets.poolId, poolId), gte(dailyBuckets.openTime, oneDayAgo)))
+				.orderBy(desc(dailyBuckets.openTime))
+				.limit(1)
+				.execute(),
+			
+			db
+				.select()
+				.from(orderBookTrades)
+				.where(eq(orderBookTrades.poolId, poolId))
+				.orderBy(desc(orderBookTrades.timestamp))
+				.limit(1)
+				.execute(),
+			
+			db
+				.select()
+				.from(orderBookDepth)
+				.where(and(eq(orderBookDepth.poolId, poolId), eq(orderBookDepth.side, "Buy")))
+				.orderBy(desc(orderBookDepth.price))
+				.limit(1)
+				.execute(),
+			
+			db
+				.select()
+				.from(orderBookDepth)
+				.where(and(eq(orderBookDepth.poolId, poolId), eq(orderBookDepth.side, "Sell")))
+				.orderBy(asc(orderBookDepth.price))
+				.limit(1)
+				.execute()
+		]);
 
 		interface DailyStats {
 			open?: bigint | null;
@@ -482,46 +485,57 @@ app.get("/api/allOrders", async c => {
 
 		const userOrders = await query.orderBy(desc(orders.timestamp)).limit(limit).execute();
 
-		const formattedOrders = await Promise.all(
-			userOrders.map(async order => {
-				let decimals = 18;
+		// Collect all unique poolIds to avoid N+1 queries
+		const uniquePoolIds = [...new Set(userOrders.map(order => order.poolId).filter(Boolean))];
+		
+		// Fetch all pool data in a single query
+		const poolsData = await db
+			.select()
+			.from(pools)
+			.where(inArray(pools.orderBook, uniquePoolIds as `0x${string}`[]))
+			.execute();
+		
+		// Create a map for quick lookup
+		const poolsMap = new Map(poolsData.map(pool => [pool.orderBook, pool]));
 
-				if (order.poolId) {
-					const poolInfo = await db
-						.select()
-						.from(pools)
-						.where(eq(pools.orderBook, order.poolId as `0x${string}`))
-						.execute();
-					if (poolInfo.length > 0 && poolInfo[0]?.quoteDecimals) {
-						decimals = Number(poolInfo[0].quoteDecimals);
-					}
+		const formattedOrders = userOrders.map(order => {
+			let decimals = 18;
+			let orderSymbol = symbol || "UNKNOWN";
+
+			if (order.poolId && poolsMap.has(order.poolId as `0x${string}`)) {
+				const pool = poolsMap.get(order.poolId as `0x${string}`);
+				if (pool?.quoteDecimals) {
+					decimals = Number(pool.quoteDecimals);
 				}
+				if (!symbol && pool?.coin) {
+					orderSymbol = pool.coin;
+				}
+			}
 
-				return {
-					symbol: symbol || "UNKNOWN",
-					orderId: order.orderId.toString(),
-					orderListId: -1,
-					clientOrderId: order.id,
-					price: order.price.toString(),
-					origQty: order.quantity.toString(),
-					executedQty: order.filled.toString(),
-					cummulativeQuoteQty:
-						order.filled && order.price
-							? ((BigInt(order.filled) * BigInt(order.price)) / BigInt(10 ** decimals)).toString()
-							: "0",
-					status: order.status,
-					timeInForce: "GTC",
-					type: order.type,
-					side: order.side.toUpperCase(),
-					stopPrice: "0",
-					icebergQty: "0",
-					time: Number(order.timestamp) * 1000,
-					updateTime: Number(order.timestamp) * 1000,
-					isWorking: order.status === "NEW" || order.status === "PARTIALLY_FILLED",
-					origQuoteOrderQty: "0",
-				};
-			})
-		);
+			return {
+				symbol: orderSymbol,
+				orderId: order.orderId.toString(),
+				orderListId: -1,
+				clientOrderId: order.id,
+				price: order.price.toString(),
+				origQty: order.quantity.toString(),
+				executedQty: order.filled.toString(),
+				cummulativeQuoteQty:
+					order.filled && order.price
+						? ((BigInt(order.filled) * BigInt(order.price)) / BigInt(10 ** decimals)).toString()
+						: "0",
+				status: order.status,
+				timeInForce: "GTC",
+				type: order.type,
+				side: order.side.toUpperCase(),
+				stopPrice: "0",
+				icebergQty: "0",
+				time: Number(order.timestamp) * 1000,
+				updateTime: Number(order.timestamp) * 1000,
+				isWorking: order.status === "NEW" || order.status === "PARTIALLY_FILLED",
+				origQuoteOrderQty: "0",
+			};
+		});
 
 		return c.json(formattedOrders);
 	} catch (error) {
@@ -560,51 +574,56 @@ app.get("/api/openOrders", async c => {
 		}
 
 		const openOrders = await query.orderBy(desc(orders.timestamp)).execute();
+		
+		// Collect all unique poolIds to avoid N+1 queries
+		const uniquePoolIds = [...new Set(openOrders.map(order => order.poolId).filter(Boolean))];
+		
+		// Fetch all pool data in a single query
+		const poolsData = await db
+			.select()
+			.from(pools)
+			.where(inArray(pools.orderBook, uniquePoolIds as `0x${string}`[]))
+			.execute();
+		
+		// Create a map for quick lookup
+		const poolsMap = new Map(poolsData.map(pool => [pool.orderBook, pool]));
 
-		const formattedOrders = await Promise.all(
-			openOrders.map(async order => {
-				let orderSymbol = symbol;
-				let decimals = 18;
+		const formattedOrders = openOrders.map(order => {
+			let orderSymbol = symbol;
+			let decimals = 18;
 
-				if (order.poolId) {
-					const pool = await db
-						.select()
-						.from(pools)
-						.where(eq(pools.orderBook, order.poolId as `0x${string}`))
-						.execute();
-
-					orderSymbol = pool[0]?.coin || "UNKNOWN";
-
-					if (pool.length > 0 && pool[0]?.quoteDecimals) {
-						decimals = Number(pool[0].quoteDecimals);
-					}
+			if (order.poolId && poolsMap.has(order.poolId as `0x${string}`)) {
+				const pool = poolsMap.get(order.poolId as `0x${string}`);
+				orderSymbol = pool?.coin || "UNKNOWN";
+				if (pool?.quoteDecimals) {
+					decimals = Number(pool.quoteDecimals);
 				}
+			}
 
-				return {
-					symbol: orderSymbol,
-					orderId: order.orderId.toString(),
-					orderListId: -1,
-					clientOrderId: order.id,
-					price: order.price.toString(),
-					origQty: order.quantity.toString(),
-					executedQty: order.filled.toString(),
-					cummulativeQuoteQty:
-						order.filled && order.price
-							? ((BigInt(order.filled) * BigInt(order.price)) / BigInt(10 ** decimals)).toString()
-							: "0",
-					status: order.status,
-					timeInForce: "GTC",
-					type: order.type,
-					side: order.side.toUpperCase(),
-					stopPrice: "0",
-					icebergQty: "0",
-					time: Number(order.timestamp) * 1000,
-					updateTime: Number(order.timestamp) * 1000,
-					isWorking: true,
-					origQuoteOrderQty: "0",
-				};
-			})
-		);
+			return {
+				symbol: orderSymbol,
+				orderId: order.orderId.toString(),
+				orderListId: -1,
+				clientOrderId: order.id,
+				price: order.price.toString(),
+				origQty: order.quantity.toString(),
+				executedQty: order.filled.toString(),
+				cummulativeQuoteQty:
+					order.filled && order.price
+						? ((BigInt(order.filled) * BigInt(order.price)) / BigInt(10 ** decimals)).toString()
+						: "0",
+				status: order.status,
+				timeInForce: "GTC",
+				type: order.type,
+				side: order.side.toUpperCase(),
+				stopPrice: "0",
+				icebergQty: "0",
+				time: Number(order.timestamp) * 1000,
+				updateTime: Number(order.timestamp) * 1000,
+				isWorking: true,
+				origQuoteOrderQty: "0",
+			};
+		});
 
 		return c.json(formattedOrders);
 	} catch (error) {
