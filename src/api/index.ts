@@ -232,6 +232,7 @@ app.get("/api/trades", async c => {
 	const symbol = c.req.query("symbol");
 	const limit = parseInt(c.req.query("limit") || "500");
 	const user = c.req.query("user");
+	const orderBy = c.req.query("orderBy") || "desc"; // "asc" for FIFO, "desc" for recent first
 
 	if (!symbol) {
 		return c.json({ error: "Symbol parameter is required" }, 400);
@@ -286,7 +287,7 @@ app.get("/api/trades", async c => {
 				.select()
 				.from(orderBookTrades)
 				.where(eq(orderBookTrades.poolId, poolId))
-				.orderBy(desc(orderBookTrades.timestamp))
+				.orderBy(orderBy === "asc" ? asc(orderBookTrades.timestamp) : desc(orderBookTrades.timestamp))
 				.limit(limit)
 				.execute();
 		}
@@ -479,8 +480,7 @@ app.get("/api/allOrders", async c => {
 	}
 
 	try {
-		const baseQuery = db.select().from(orders);
-		let query = baseQuery.where(eq(orders.user, address as `0x${string}`));
+		let whereConditions = [eq(orders.user, address as `0x${string}`)];
 
 		if (symbol) {
 			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
@@ -570,13 +570,10 @@ app.get("/api/openOrders", async c => {
 	}
 
 	try {
-		const baseQuery = db.select().from(orders);
-		let query = baseQuery.where(
-			and(
-				eq(orders.user, address as `0x${string}`),
-				or(eq(orders.status, "NEW"), eq(orders.status, "PARTIALLY_FILLED"), eq(orders.status, "OPEN"))
-			)
-		);
+		let whereConditions = [
+			eq(orders.user, address as `0x${string}`),
+			or(eq(orders.status, "NEW"), eq(orders.status, "PARTIALLY_FILLED"), eq(orders.status, "OPEN"))
+		];
 
 		if (symbol) {
 			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
@@ -724,8 +721,8 @@ app.get("/api/account", async c => {
 			.execute();
 
 		const response = {
-			makerCommission: 0,
-			takerCommission: 0,
+			makerCommission: 10, // 0.1% = 10 basis points
+			takerCommission: 20, // 0.2% = 20 basis points
 			buyerCommission: 0,
 			sellerCommission: 0,
 			canTrade: true,

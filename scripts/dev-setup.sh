@@ -172,7 +172,7 @@ log_success "Scripts are now executable"
 
 # Step 5: Start infrastructure services
 log_info "Step 5: Starting infrastructure services (PostgreSQL, Redis)..."
-docker-compose -f docker-compose.microservices.yml up -d postgres redis
+docker-compose -f docker-compose.yml up -d postgres redis
 
 # Wait for services to be ready
 log_info "Waiting for databases to be ready..."
@@ -180,7 +180,7 @@ sleep 10
 
 # Check if PostgreSQL is ready
 log_info "Checking PostgreSQL..."
-until docker-compose -f docker-compose.microservices.yml exec -T postgres pg_isready > /dev/null 2>&1; do
+until docker-compose -f docker-compose.yml exec -T postgres pg_isready > /dev/null 2>&1; do
     log_info "Waiting for PostgreSQL..."
     sleep 2
 done
@@ -188,7 +188,7 @@ log_success "PostgreSQL is ready"
 
 # Check if Redis is ready
 log_info "Checking Redis..."
-until docker-compose -f docker-compose.microservices.yml exec -T redis redis-cli ping > /dev/null 2>&1; do
+until docker-compose -f docker-compose.yml exec -T redis redis-cli ping > /dev/null 2>&1; do
     log_info "Waiting for Redis..."
     sleep 2
 done

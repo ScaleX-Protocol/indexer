@@ -248,19 +248,19 @@ ANALYTICS_POLL_INTERVAL=5000
 ### Production Deployment
 ```bash
 # Production build
-docker-compose -f docker-compose.microservices.yml build
+docker-compose -f docker-compose.yml build
 
 # Deploy with resource limits
-docker-compose -f docker-compose.microservices.yml up -d
+docker-compose -f docker-compose.yml up -d
 ```
 
 ### Scaling Services
 ```bash
 # Scale WebSocket service
-docker-compose -f docker-compose.microservices.yml up -d --scale websocket-service=3
+docker-compose -f docker-compose.yml up -d --scale websocket-service=3
 
 # Scale Analytics service
-docker-compose -f docker-compose.microservices.yml up -d --scale analytics-service=2
+docker-compose -f docker-compose.yml up -d --scale analytics-service=2
 ```
 
 ## Troubleshooting
@@ -270,13 +270,13 @@ docker-compose -f docker-compose.microservices.yml up -d --scale analytics-servi
 1. **Redis Connection Issues**
    ```bash
    # Check Redis status
-   docker-compose -f docker-compose.microservices.yml exec redis redis-cli ping
+   docker-compose -f docker-compose.yml exec redis redis-cli ping
    ```
 
 2. **Database Connection Issues**
    ```bash
    # Check PostgreSQL status
-   docker-compose -f docker-compose.microservices.yml exec postgres pg_isready
+   docker-compose -f docker-compose.yml exec postgres pg_isready
    ```
 
 3. **Service Health Issues**
@@ -288,7 +288,7 @@ docker-compose -f docker-compose.microservices.yml up -d --scale analytics-servi
 4. **Event Processing Issues**
    ```bash
    # Check Redis Streams
-   docker-compose -f docker-compose.microservices.yml exec redis redis-cli XINFO GROUPS trades
+   docker-compose -f docker-compose.yml exec redis redis-cli XINFO GROUPS trades
    ```
 
 ### Log Analysis

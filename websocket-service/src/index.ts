@@ -118,7 +118,7 @@ class WebSocketService {
       }
     });
 
-    const healthPort = parseInt(process.env.HEALTH_PORT || '8080');
+    const healthPort = parseInt(process.env.HEALTH_PORT || '8082');
     healthServer.listen(healthPort, () => {
       console.log(`Health check endpoint available at http://localhost:${healthPort}/health`);
     });

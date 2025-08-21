@@ -13,18 +13,18 @@ NC='\033[0m' # No Color
 
 # Configuration
 # Detect if running from scripts directory or project root
-if [ -f "docker-compose.microservices.yml" ]; then
+if [ -f "docker-compose.yml" ]; then
     # Running from project root
-    COMPOSE_FILE="docker-compose.microservices.yml"
+    COMPOSE_FILE="docker-compose.yml"
     WEBSOCKET_SERVICE_DIR="websocket-service"
     ANALYTICS_SERVICE_DIR="analytics-service"
-elif [ -f "../docker-compose.microservices.yml" ]; then
+elif [ -f "../docker-compose.yml" ]; then
     # Running from scripts directory
-    COMPOSE_FILE="../docker-compose.microservices.yml"
+    COMPOSE_FILE="../docker-compose.yml"
     WEBSOCKET_SERVICE_DIR="../websocket-service"
     ANALYTICS_SERVICE_DIR="../analytics-service"
 else
-    log_error "Could not find docker-compose.microservices.yml. Run from project root or scripts directory."
+    log_error "Could not find docker-compose.yml. Run from project root or scripts directory."
     exit 1
 fi
 
@@ -111,11 +111,11 @@ start_services() {
     log_info "Starting microservices..."
     
     # Start core services first
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d postgres redis
+    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d postgres timescaledb redis
     
     # Wait for databases to be ready
     log_info "Waiting for databases to be ready..."
-    sleep 10
+    sleep 15
     
     # Start application services
     docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d clob-indexer websocket-service analytics-service
@@ -166,7 +166,7 @@ show_status() {
     fi
     
     # Check Analytics service
-    if curl -s http://localhost:3001/health > /dev/null; then
+    if curl -s http://localhost:42090/health > /dev/null; then
         log_success "Analytics service: healthy"
     else
         log_error "Analytics service: unhealthy"
@@ -184,6 +184,13 @@ show_status() {
         log_success "PostgreSQL: healthy"
     else
         log_error "PostgreSQL: unhealthy"
+    fi
+    
+    # Check TimescaleDB
+    if docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T timescaledb pg_isready > /dev/null 2>&1; then
+        log_success "TimescaleDB: healthy"
+    else
+        log_error "TimescaleDB: unhealthy"
     fi
 }
 
@@ -220,7 +227,9 @@ case "$1" in
         echo
         log_info "Services available at:"
         echo "  • WebSocket: ws://localhost:42080/ws"
-        echo "  • Analytics API: http://localhost:3001/api"
+        echo "  • Analytics API: http://localhost:42090/api"
+        echo "  • PostgreSQL: localhost:5433 (indexer data)"
+        echo "  • TimescaleDB: localhost:5434 (analytics data)"
         echo "  • Nginx Proxy: http://localhost:80"
         echo "  • Grafana: http://localhost:3000 (admin/admin)"
         echo "  • Prometheus: http://localhost:9090"

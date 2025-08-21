@@ -58,7 +58,8 @@ cd ..
 ```
 
 This will start:
-- PostgreSQL database
+- PostgreSQL database (indexer data)
+- TimescaleDB (analytics time-series data)
 - Redis message queue
 - CLOB Indexer (core service)
 - WebSocket Service
@@ -87,6 +88,8 @@ Once everything is running, you'll have access to:
 | **Analytics API** | `http://localhost:3001/api` | Portfolio & market APIs |
 | **WebSocket Health** | `http://localhost:8080/health` | WebSocket service health |
 | **Analytics Health** | `http://localhost:3001/health` | Analytics service health |
+| **PostgreSQL** | `localhost:5433` | Main indexer database |
+| **TimescaleDB** | `localhost:5434` | Analytics time-series database |
 | **Grafana** | `http://localhost:3000` | Monitoring dashboards (admin/admin) |
 | **Prometheus** | `http://localhost:9090` | Metrics collection |
 | **Redis Commander** | `http://localhost:8081` | Redis debugging |
@@ -112,7 +115,7 @@ Once everything is running, you'll have access to:
 Start infrastructure only:
 ```bash
 # Start only databases and supporting services
-docker-compose -f docker-compose.microservices.yml up -d postgres redis prometheus grafana redis-commander
+docker-compose -f docker-compose.yml up -d postgres timescaledb redis prometheus grafana redis-commander
 ```
 
 Then run services locally for faster development:
@@ -136,7 +139,7 @@ If you want to work on just one service:
 
 ```bash
 # Start infrastructure
-docker-compose -f docker-compose.microservices.yml up -d postgres redis
+docker-compose -f docker-compose.yml up -d postgres timescaledb redis
 
 # Start only the indexer (for event publishing)
 npm run dev
@@ -175,10 +178,15 @@ POLL_INTERVAL=1000
 PORT=3001
 REDIS_URL=redis://localhost:6380
 DATABASE_URL=postgresql://postgres:password@localhost:5433/ponder
+TIMESCALE_DATABASE_URL=postgresql://postgres:password@localhost:5434/analytics
 CONSUMER_GROUP=analytics-consumers
 CONSUMER_ID=analytics-consumer-dev-1
 ANALYTICS_BATCH_SIZE=5
 ANALYTICS_POLL_INTERVAL=5000
+CACHE_TTL=300
+ENABLE_DAILY_SNAPSHOTS=true
+ENABLE_HOURLY_AGGREGATION=true
+ENABLE_CACHE_REFRESH=true
 ```
 
 ## Testing the System
@@ -217,6 +225,12 @@ curl http://localhost:3001/api/market/overview
 # Test portfolio (replace with actual address)
 curl http://localhost:3001/api/portfolio/0x1234567890123456789012345678901234567890
 
+# Test analytics reports
+curl http://localhost:3001/api/reports/largest-trade-count
+curl http://localhost:3001/api/reports/largest-volume
+curl http://localhost:3001/api/analytics/cumulative-users
+curl http://localhost:3001/api/analytics/trades-count
+
 # Test health
 curl http://localhost:3001/health
 ```
@@ -232,7 +246,7 @@ curl http://localhost:3001/health
 
 ```bash
 # Access Redis CLI
-docker-compose -f docker-compose.microservices.yml exec redis redis-cli
+docker-compose -f docker-compose.yml exec redis redis-cli
 
 # Check stream info
 XINFO GROUPS trades
@@ -251,7 +265,7 @@ XREAD COUNT 5 STREAMS trades $
 open http://localhost:8081
 
 # Or use Redis CLI
-docker-compose -f docker-compose.microservices.yml exec redis redis-cli
+docker-compose -f docker-compose.yml exec redis redis-cli
 
 # Check consumer groups
 XINFO GROUPS trades
@@ -264,17 +278,36 @@ MONITOR
 ### Database Access
 
 ```bash
-# Access PostgreSQL
-docker-compose -f docker-compose.microservices.yml exec postgres psql -U postgres -d ponder
+# Access main PostgreSQL (indexer data)
+docker-compose -f docker-compose.yml exec postgres psql -U postgres -d ponder
 
-# View tables
+# View indexer tables
 \dt
 
 # Check recent orders
 SELECT * FROM orders ORDER BY timestamp DESC LIMIT 10;
 
-# Check recent trades
+# Check recent trades  
 SELECT * FROM order_book_trades ORDER BY timestamp DESC LIMIT 10;
+
+# Access TimescaleDB (analytics data)
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics
+
+# Switch to analytics schema
+\c analytics
+SET search_path TO analytics;
+
+# View analytics tables and hypertables
+\dt analytics.*
+
+# Check recent analytics trades
+SELECT * FROM analytics.trades ORDER BY timestamp DESC LIMIT 10;
+
+# Check continuous aggregates
+SELECT * FROM analytics.daily_trading_metrics ORDER BY bucket DESC LIMIT 5;
+
+# View hypertable info
+SELECT * FROM timescaledb_information.hypertables;
 ```
 
 ### Log Monitoring
@@ -284,8 +317,8 @@ SELECT * FROM order_book_trades ORDER BY timestamp DESC LIMIT 10;
 ./scripts/microservices.sh logs
 
 # Follow specific service logs
-docker-compose -f docker-compose.microservices.yml logs -f websocket-service
-docker-compose -f docker-compose.microservices.yml logs -f analytics-service
+docker-compose -f docker-compose.yml logs -f websocket-service
+docker-compose -f docker-compose.yml logs -f analytics-service
 
 # Grep for errors
 ./scripts/microservices.sh logs | grep ERROR
@@ -308,21 +341,25 @@ kill -9 <PID>
 
 ### 2. Database Connection Issues
 ```bash
-# Reset database
-docker-compose -f docker-compose.microservices.yml down -v
-docker-compose -f docker-compose.microservices.yml up -d postgres
+# Reset databases
+docker-compose -f docker-compose.yml down -v
+docker-compose -f docker-compose.yml up -d postgres timescaledb
 
-# Wait for database to be ready
-docker-compose -f docker-compose.microservices.yml exec postgres pg_isready
+# Wait for databases to be ready
+docker-compose -f docker-compose.yml exec postgres pg_isready
+docker-compose -f docker-compose.yml exec timescaledb pg_isready
+
+# Check TimescaleDB extension is loaded
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics -c "SELECT extname FROM pg_extension WHERE extname = 'timescaledb';"
 ```
 
 ### 3. Redis Connection Issues
 ```bash
 # Reset Redis
-docker-compose -f docker-compose.microservices.yml restart redis
+docker-compose -f docker-compose.yml restart redis
 
 # Check Redis is working
-docker-compose -f docker-compose.microservices.yml exec redis redis-cli ping
+docker-compose -f docker-compose.yml exec redis redis-cli ping
 ```
 
 ### 4. Service Not Receiving Events
@@ -331,10 +368,93 @@ docker-compose -f docker-compose.microservices.yml exec redis redis-cli ping
 ./scripts/microservices.sh logs clob-indexer | grep "publish"
 
 # Check Redis streams have data
-docker-compose -f docker-compose.microservices.yml exec redis redis-cli XLEN trades
+docker-compose -f docker-compose.yml exec redis redis-cli XLEN trades
 
 # Check consumer groups are created
-docker-compose -f docker-compose.microservices.yml exec redis redis-cli XINFO GROUPS trades
+docker-compose -f docker-compose.yml exec redis redis-cli XINFO GROUPS trades
+```
+
+## TimescaleDB Analytics Features
+
+### Analytics Database Schema
+
+The analytics service uses TimescaleDB for high-performance time-series analytics:
+
+**Hypertables (Time-Partitioned):**
+- `analytics.trades` - All trade events with FIFO PnL tracking
+- `analytics.balances` - User balance history 
+- `analytics.portfolio_snapshots` - Daily portfolio valuations
+- `analytics.market_metrics` - Hourly market statistics
+- `analytics.leaderboards` - User rankings over time
+
+**Continuous Aggregates (Auto-Updating Views):**
+- `hourly_trading_metrics` - Real-time hourly market data
+- `daily_trading_metrics` - Daily market summaries
+- `daily_user_activity` - User trading patterns
+- `hourly_pnl_metrics` - PnL calculations for leaderboards
+- `daily_new_users` - User growth tracking
+
+### Analytics API Endpoints
+
+```bash
+# User Analytics Reports
+curl http://localhost:3001/api/reports/largest-trade-count
+curl http://localhost:3001/api/reports/largest-volume  
+curl http://localhost:3001/api/reports/user-performance
+curl http://localhost:3001/api/reports/pnl-leaders
+
+# Growth Analytics
+curl http://localhost:3001/api/analytics/cumulative-users
+curl http://localhost:3001/api/analytics/trades-count
+curl http://localhost:3001/api/analytics/inflows
+curl http://localhost:3001/api/analytics/unique-traders
+curl http://localhost:3001/api/analytics/slippage
+
+# Leaderboards
+curl http://localhost:3001/api/leaderboard/pnl/24h
+curl http://localhost:3001/api/leaderboard/volume/7d
+```
+
+### TimescaleDB Performance Benefits
+
+- **10-100x faster** time-range queries vs regular PostgreSQL
+- **Automatic compression** reduces storage by 90%+ 
+- **Real-time aggregates** via continuous aggregates
+- **Retention policies** automatically manage data lifecycle
+- **Parallel query execution** for analytics workloads
+
+### Monitoring TimescaleDB
+
+```bash
+# Check hypertable stats
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics -c "
+SELECT 
+  schemaname, 
+  tablename, 
+  approximate_row_count, 
+  total_bytes 
+FROM timescaledb_information.hypertables 
+JOIN timescaledb_information.hypertable_approximate_row_count USING (hypertable_schema, hypertable_name)
+JOIN timescaledb_information.hypertable_size USING (hypertable_schema, hypertable_name);"
+
+# Check continuous aggregate refresh status
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics -c "
+SELECT 
+  user_view_name, 
+  completed_threshold, 
+  refresh_lag
+FROM timescaledb_information.continuous_aggregates;"
+
+# Check compression ratios
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics -c "
+SELECT 
+  schema_name, 
+  table_name, 
+  compression_enabled, 
+  uncompressed_bytes, 
+  compressed_bytes, 
+  compression_ratio
+FROM timescaledb_information.compression_stats;"
 ```
 
 ## Performance Tips for Development
@@ -390,9 +510,31 @@ Once your development environment is running:
 ## Troubleshooting Checklist
 
 - [ ] All services show as "healthy" in status check
-- [ ] PostgreSQL is accessible and has data
+- [ ] PostgreSQL (indexer) is accessible and has data
+- [ ] TimescaleDB (analytics) is accessible with TimescaleDB extension loaded
 - [ ] Redis is running and streams are being created
 - [ ] WebSocket accepts connections
 - [ ] Analytics API responds to requests
 - [ ] Events are flowing from indexer to consumers
+- [ ] TimescaleDB continuous aggregates are refreshing
 - [ ] No error messages in logs
+
+### Common TimescaleDB Issues
+
+```bash
+# 1. TimescaleDB extension not loaded
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+
+# 2. Analytics service can't connect to TimescaleDB
+# Check connection string in docker-compose.yml
+# Ensure TIMESCALE_DATABASE_URL points to timescaledb:5432
+
+# 3. Continuous aggregates not refreshing
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics -c "
+CALL refresh_continuous_aggregate('analytics.hourly_trading_metrics', NULL, NULL);
+CALL refresh_continuous_aggregate('analytics.daily_trading_metrics', NULL, NULL);"
+
+# 4. Check if data is being inserted
+docker-compose -f docker-compose.yml exec timescaledb psql -U postgres -d analytics -c "
+SELECT COUNT(*) as trade_count FROM analytics.trades WHERE timestamp >= NOW() - INTERVAL '1 hour';"
+```

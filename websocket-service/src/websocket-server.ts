@@ -155,6 +155,11 @@ export class WebSocketServer {
         if (stream.includes('@depth')) {
           await this.sendInitialDepthData(clientId, stream);
         }
+        
+        // Handle user-specific stream subscriptions
+        if (stream.startsWith('user@') && client.userId) {
+          await this.handleUserStreamSubscription(clientId, stream);
+        }
       }
     }
 
@@ -202,7 +207,10 @@ export class WebSocketServer {
       /^[a-zA-Z0-9/]+@trade$/,           // e.g., btcusdt@trade
       /^[a-zA-Z0-9/]+@depth$/,           // e.g., btcusdt@depth  
       /^[a-zA-Z0-9/]+@kline_\w+$/,       // e.g., btcusdt@kline_1m
-      /^[a-zA-Z0-9/]+@miniTicker$/       // e.g., btcusdt@miniTicker
+      /^[a-zA-Z0-9/]+@miniTicker$/,      // e.g., btcusdt@miniTicker
+      /^[a-zA-Z0-9/]+@ticker$/,          // e.g., btcusdt@ticker (24hr ticker)
+      /^user@(trades|orders|balance)$/,  // User-specific streams
+      /^user@executionReport$/           // User execution reports
     ];
 
     return patterns.some(pattern => pattern.test(stream));
@@ -228,6 +236,69 @@ export class WebSocketServer {
       }
     } catch (error) {
       console.error(`Error sending initial depth data for ${stream}:`, error);
+    }
+  }
+
+  private async handleUserStreamSubscription(clientId: string, stream: string) {
+    const client = this.clients.get(clientId);
+    if (!client || !client.userId) return;
+
+    try {
+      switch (stream) {
+        case 'user@balance':
+          // Send initial account balance
+          await this.sendInitialAccountData(clientId, client.userId);
+          break;
+        
+        case 'user@orders':
+          // Send initial open orders
+          await this.sendInitialOrderData(clientId, client.userId);
+          break;
+          
+        case 'user@trades':
+        case 'user@executionReport':
+          // These will be sent when events occur
+          this.sendToClient(clientId, { 
+            id: 0,
+            result: `Subscribed to ${stream} for user ${client.userId}`
+          });
+          break;
+      }
+    } catch (error) {
+      console.error(`Error handling user stream subscription ${stream}:`, error);
+    }
+  }
+
+  private async sendInitialAccountData(clientId: string, userId: string) {
+    try {
+      // This would typically fetch from your database
+      // For now, send a placeholder that matches Binance format
+      const accountPayload = {
+        e: 'outboundAccountPosition',
+        E: Date.now(),
+        u: Date.now(),
+        B: [] // Will be populated with actual balance data
+      };
+      
+      this.sendRawToClient(clientId, JSON.stringify(accountPayload));
+    } catch (error) {
+      console.error(`Error sending initial account data for user ${userId}:`, error);
+    }
+  }
+
+  private async sendInitialOrderData(clientId: string, userId: string) {
+    try {
+      // Send current open orders in Binance format
+      // This would query your orders table for open orders
+      const orderPayload = {
+        e: 'openOrders',
+        E: Date.now(),
+        orders: [] // Will be populated with actual order data
+      };
+      
+      this.sendRawToClient(clientId, JSON.stringify(orderPayload));
+    } catch (error) {
+      console.error(`Error sending initial order data for user ${userId}:`, error);
     }
   }
 

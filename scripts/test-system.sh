@@ -54,8 +54,8 @@ echo "🧪 GTX CLOB System Tests"
 echo "========================"
 
 # Test 1: Check if infrastructure is running
-run_test "PostgreSQL connection" "docker-compose -f docker-compose.microservices.yml exec -T postgres pg_isready"
-run_test "Redis connection" "docker-compose -f docker-compose.microservices.yml exec -T redis redis-cli ping"
+run_test "PostgreSQL connection" "docker-compose -f docker-compose.yml exec -T postgres pg_isready"
+run_test "Redis connection" "docker-compose -f docker-compose.yml exec -T redis redis-cli ping"
 
 # Test 2: Check if services are responding
 run_test "WebSocket service health" "curl -f http://localhost:8080/health"
@@ -69,14 +69,14 @@ run_test "Analytics health endpoint" "curl -f http://localhost:3001/health"
 run_test "WebSocket connection test" "timeout 5 bash -c '</dev/tcp/localhost/42080'"
 
 # Test 5: Check Redis streams
-if docker-compose -f docker-compose.microservices.yml exec -T redis redis-cli EXISTS trades > /dev/null 2>&1; then
-    run_test "Redis streams exist" "docker-compose -f docker-compose.microservices.yml exec -T redis redis-cli EXISTS trades"
+if docker-compose -f docker-compose.yml exec -T redis redis-cli EXISTS trades > /dev/null 2>&1; then
+    run_test "Redis streams exist" "docker-compose -f docker-compose.yml exec -T redis redis-cli EXISTS trades"
 else
     log_warning "Redis streams not found (normal if no events have been processed yet)"
 fi
 
 # Test 6: Check database tables
-run_test "Database tables exist" "docker-compose -f docker-compose.microservices.yml exec -T postgres psql -U postgres -d ponder -c '\dt' | grep -q orders"
+run_test "Database tables exist" "docker-compose -f docker-compose.yml exec -T postgres psql -U postgres -d ponder -c '\dt' | grep -q orders"
 
 echo
 echo "📊 Test Results"

@@ -25,7 +25,7 @@ export class EventPublisher {
     }
 
     try {
-      const messageId = await this.redis.xadd(EventStreams.TRADES, '*', 
+      const messageId = await this.redis.xadd(EventStreams.TRADES, 'MAXLEN', '~', '1000', '*', 
         'symbol', trade.symbol,
         'price', trade.price,
         'quantity', trade.quantity,
@@ -49,7 +49,7 @@ export class EventPublisher {
     }
 
     try {
-      const messageId = await this.redis.xadd(EventStreams.BALANCES, '*',
+      const messageId = await this.redis.xadd(EventStreams.BALANCES, 'MAXLEN', '~', '1000', '*',
         'userId', balance.userId,
         'token', balance.token,
         'available', balance.available,
@@ -69,7 +69,7 @@ export class EventPublisher {
     }
 
     try {
-      const messageId = await this.redis.xadd(EventStreams.ORDERS, '*',
+      const messageId = await this.redis.xadd(EventStreams.ORDERS, 'MAXLEN', '~', '1000', '*',
         'orderId', order.orderId,
         'userId', order.userId,
         'symbol', order.symbol,
@@ -94,7 +94,7 @@ export class EventPublisher {
     }
 
     try {
-      const messageId = await this.redis.xadd(EventStreams.DEPTH, '*',
+      const messageId = await this.redis.xadd(EventStreams.DEPTH, 'MAXLEN', '~', '500', '*',
         'symbol', depth.symbol,
         'bids', JSON.stringify(depth.bids),
         'asks', JSON.stringify(depth.asks),
@@ -113,7 +113,7 @@ export class EventPublisher {
     }
 
     try {
-      const messageId = await this.redis.xadd(EventStreams.KLINES, '*',
+      const messageId = await this.redis.xadd(EventStreams.KLINES, 'MAXLEN', '~', '1000', '*',
         'symbol', kline.symbol,
         'interval', kline.interval,
         'openTime', kline.openTime,
@@ -138,7 +138,7 @@ export class EventPublisher {
     }
 
     try {
-      const messageId = await this.redis.xadd(EventStreams.EXECUTION_REPORTS, '*',
+      const messageId = await this.redis.xadd(EventStreams.EXECUTION_REPORTS, 'MAXLEN', '~', '1000', '*',
         'orderId', report.orderId,
         'userId', report.userId,
         'symbol', report.symbol,

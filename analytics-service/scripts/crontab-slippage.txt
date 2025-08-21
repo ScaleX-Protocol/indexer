@@ -1,0 +1,41 @@
+# ==========================================
+# Slippage Analytics ETL Crontab Configuration
+# ==========================================
+# Hourly ETL for 200x API performance improvement
+# Based on ETL_OPTIMIZATION_ANALYSIS.md recommendations
+
+# Run slippage ETL every hour at minute 5 for clean hourly processing
+# This provides 1-hour data freshness while dramatically improving API performance
+5 * * * * cd /Users/renaka/gtx/clob-indexer/analytics-service && node scripts/slippage-etl.js >> logs/slippage-etl.log 2>&1
+
+# Alternative: Run every 30 minutes for higher frequency (uncomment if needed)
+# 5,35 * * * * cd /Users/renaka/gtx/clob-indexer/analytics-service && node scripts/slippage-etl.js >> logs/slippage-etl.log 2>&1
+
+# ==========================================
+# Installation Instructions:
+# ==========================================
+# 1. Make script executable:
+#    chmod +x scripts/slippage-etl.js
+#
+# 2. Create logs directory:
+#    mkdir -p logs
+#
+# 3. Install crontab (add to existing crontab):
+#    crontab -l > current_crontab.txt
+#    cat scripts/crontab-slippage.txt >> current_crontab.txt
+#    crontab current_crontab.txt
+#
+# 4. Verify crontab installation:
+#    crontab -l
+#
+# 5. Monitor ETL logs:
+#    tail -f logs/slippage-etl.log
+#
+# ==========================================
+# Performance Impact:
+# ==========================================
+# - API Response Time: 5-15 seconds → 50-100ms
+# - Performance Improvement: 200x faster
+# - Data Freshness: 1 hour (acceptable for slippage analysis)
+# - Database Load Reduction: 95%+ on complex slippage queries
+# ==========================================

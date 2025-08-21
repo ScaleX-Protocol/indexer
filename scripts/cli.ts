@@ -27,31 +27,31 @@ const menuCategories: MenuCategory[] = [
         name: 'Start Core Infrastructure',
         value: 'infra-core',
         description: 'Start PostgreSQL and Redis only (minimal setup)',
-        command: 'docker-compose -f ../docker-compose.microservices.yml up -d postgres redis'
+        command: 'docker-compose -f ../docker-compose.yml up -d postgres redis'
       },
       {
         name: 'Start Full Infrastructure',
         value: 'infra-full',
         description: 'Start databases + monitoring (Prometheus, Grafana, Redis Commander)',
-        command: 'docker-compose -f ../docker-compose.microservices.yml up -d postgres redis prometheus grafana redis-commander'
+        command: 'docker-compose -f ../docker-compose.yml up -d postgres redis prometheus grafana redis-commander'
       },
       {
         name: 'Stop Infrastructure',
         value: 'infra-stop',
         description: 'Stop all infrastructure containers',
-        command: 'docker-compose -f ../docker-compose.microservices.yml down'
+        command: 'docker-compose -f ../docker-compose.yml down'
       },
       {
         name: 'Infrastructure Status',
         value: 'infra-status',
         description: 'Check infrastructure container status',
-        command: 'docker-compose -f ../docker-compose.microservices.yml ps postgres redis prometheus grafana redis-commander'
+        command: 'docker-compose -f ../docker-compose.yml ps postgres redis prometheus grafana redis-commander'
       },
       {
         name: 'Reset Databases (Dangerous)',
         value: 'infra-reset',
         description: 'Stop infrastructure and remove all data volumes',
-        command: 'docker-compose -f ../docker-compose.microservices.yml down -v',
+        command: 'docker-compose -f ../docker-compose.yml down -v',
         dangerous: true
       }
     ]
@@ -263,13 +263,13 @@ const menuCategories: MenuCategory[] = [
         name: 'Redis CLI Access',
         value: 'redis-cli',
         description: 'Access Redis CLI for debugging',
-        command: 'docker-compose -f docker-compose.microservices.yml exec redis redis-cli'
+        command: 'docker-compose -f docker-compose.yml exec redis redis-cli'
       },
       {
         name: 'PostgreSQL CLI Access',
         value: 'postgres-cli',
         description: 'Access PostgreSQL CLI for database queries',
-        command: 'docker-compose -f docker-compose.microservices.yml exec postgres psql -U postgres -d ponder'
+        command: 'docker-compose -f docker-compose.yml exec postgres psql -U postgres -d ponder'
       }
     ]
   },
@@ -306,6 +306,66 @@ const menuCategories: MenuCategory[] = [
         value: 'test-all-analytics',
         description: 'Test all analytics API endpoints',
         command: 'echo "Testing all analytics endpoints..." && curl -s http://localhost:3001/api/market/overview | jq && curl -s http://localhost:3001/api/market/volume | jq && curl -s http://localhost:3001/api/market/liquidity | jq'
+      }
+    ]
+  },
+  {
+    title: 'Redis Streams Monitoring',
+    emoji: '🔄',
+    items: [
+      {
+        name: 'WebSocket Service Monitor',
+        value: 'websocket-monitor',
+        description: 'Monitor WebSocket service consumption only (websocket-consumers)',
+        command: 'npm run stream-monitor -- websocket'
+      },
+      {
+        name: 'Analytics Service Monitor',
+        value: 'analytics-monitor',
+        description: 'Monitor Analytics service consumption only (analytics-consumers)',
+        command: 'npm run stream-monitor -- analytics'
+      },
+      {
+        name: 'WebSocket Real-time Monitor',
+        value: 'websocket-watch',
+        description: 'Real-time WebSocket service monitoring with auto-refresh',
+        command: 'npm run stream-monitor -- websocket --watch'
+      },
+      {
+        name: 'Analytics Real-time Monitor',
+        value: 'analytics-watch',
+        description: 'Real-time Analytics service monitoring with auto-refresh',
+        command: 'npm run stream-monitor -- analytics --watch'
+      },
+      {
+        name: 'All Streams Overview',
+        value: 'streams-overview',
+        description: 'Show overview of all Redis streams (combined view)',
+        command: 'npm run stream-monitor -- overview'
+      },
+      {
+        name: 'All Streams Real-time',
+        value: 'streams-watch',
+        description: 'Real-time monitoring of all streams with auto-refresh',
+        command: 'npm run stream-monitor -- watch'
+      },
+      {
+        name: 'Stream Details',
+        value: 'stream-details',
+        description: 'Detailed information about a specific stream',
+        command: 'stream-monitor-details'
+      },
+      {
+        name: 'Consumer Analysis',
+        value: 'consumer-analysis',
+        description: 'Analyze consumer performance and health',
+        command: 'stream-monitor-consumers'
+      },
+      {
+        name: 'Pending Messages',
+        value: 'pending-messages',
+        description: 'View pending messages and identify bottlenecks',
+        command: 'stream-monitor-pending'
       }
     ]
   },
@@ -463,6 +523,13 @@ class CLI {
       return;
     }
 
+    // Special handling for stream monitoring commands
+    if (menuItem.value.startsWith('streams-') || menuItem.value.startsWith('stream-') || 
+        menuItem.value.startsWith('websocket-') || menuItem.value.startsWith('analytics-')) {
+      await this.executeStreamMonitorCommand(menuItem);
+      return;
+    }
+
     // Show confirmation for dangerous commands
     if (menuItem.dangerous) {
       console.log(chalk.red.bold('\n⚠️  WARNING: This is a destructive operation!'));
@@ -522,6 +589,239 @@ class CLI {
 
       child.on('error', (error) => {
         console.log(chalk.red(`❌ Error executing command: ${error.message}`));
+        resolve(this.showPostCommandMenu());
+      });
+    });
+  }
+
+  private async executeStreamMonitorCommand(menuItem: MenuItem): Promise<void> {
+    const streamNames = ['trades', 'balances', 'orders', 'depth', 'klines', 'execution_reports'];
+    const consumerGroups = ['websocket-consumers', 'analytics-consumers'];
+
+    switch (menuItem.value) {
+      case 'streams-overview':
+        console.log(chalk.blue(`\n🚀 Executing: ${chalk.white.bold(menuItem.command)}\n`));
+        break;
+
+      case 'websocket-monitor':
+        console.log(chalk.blue.bold('\n🔌 WebSocket Service Monitoring\n'));
+        console.log(chalk.cyan('Showing consumption metrics for websocket-consumers group only...\n'));
+        break;
+
+      case 'analytics-monitor':
+        console.log(chalk.blue.bold('\n📊 Analytics Service Monitoring\n'));
+        console.log(chalk.cyan('Showing consumption metrics for analytics-consumers group only...\n'));
+        break;
+
+      case 'websocket-watch':
+        console.log(chalk.blue.bold('\n🔌 WebSocket Service Real-time Monitoring\n'));
+        console.log(chalk.cyan('Starting real-time monitoring for websocket-consumers...\n'));
+        console.log(chalk.yellow('💡 Press Ctrl+C to stop monitoring\n'));
+        return this.executeWatchCommand(menuItem.command);
+
+      case 'analytics-watch':
+        console.log(chalk.blue.bold('\n📊 Analytics Service Real-time Monitoring\n'));
+        console.log(chalk.cyan('Starting real-time monitoring for analytics-consumers...\n'));
+        console.log(chalk.yellow('💡 Press Ctrl+C to stop monitoring\n'));
+        return this.executeWatchCommand(menuItem.command);
+
+      case 'streams-watch':
+        console.log(chalk.blue.bold('\n🔄 Real-time Stream Monitoring\n'));
+        
+        const { watchInterval } = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'watchInterval',
+            message: 'Update interval (seconds):',
+            default: '5',
+            validate: (input: string) => {
+              const num = parseInt(input);
+              if (isNaN(num) || num < 1) {
+                return 'Please enter a valid number greater than 0';
+              }
+              return true;
+            }
+          }
+        ]);
+
+        console.log(chalk.blue(`\n🚀 Starting real-time monitoring (${watchInterval}s intervals)\n`));
+        console.log(chalk.yellow('💡 Press Ctrl+C to stop monitoring\n'));
+
+        return this.executeWatchCommand(`npm run stream-monitor watch --interval ${watchInterval}`);
+
+      case 'stream-details':
+        console.log(chalk.blue.bold('\n📋 Stream Details Analysis\n'));
+        
+        const { selectedStream } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'selectedStream',
+            message: 'Select stream to analyze:',
+            choices: streamNames.map(name => ({
+              name: `${name} - ${this.getStreamDescription(name)}`,
+              value: name
+            }))
+          }
+        ]);
+
+        return this.executeStreamCommand(`npm run stream-monitor stream ${selectedStream}`);
+
+      case 'consumer-analysis':
+        console.log(chalk.blue.bold('\n👥 Consumer Analysis\n'));
+        
+        const consumerAnswers = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'stream',
+            message: 'Select stream:',
+            choices: streamNames
+          },
+          {
+            type: 'list',
+            name: 'group',
+            message: 'Select consumer group:',
+            choices: consumerGroups
+          }
+        ]);
+
+        return this.executeStreamCommand(`npm run stream-monitor consumers ${consumerAnswers.stream} ${consumerAnswers.group}`);
+
+      case 'pending-messages':
+        console.log(chalk.blue.bold('\n⏳ Pending Messages Analysis\n'));
+        
+        const pendingAnswers = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'stream',
+            message: 'Select stream:',
+            choices: streamNames
+          },
+          {
+            type: 'list',
+            name: 'group',
+            message: 'Select consumer group:',
+            choices: consumerGroups
+          },
+          {
+            type: 'confirm',
+            name: 'specificConsumer',
+            message: 'Filter by specific consumer?',
+            default: false
+          }
+        ]);
+
+        if (pendingAnswers.specificConsumer) {
+          const { consumerName } = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'consumerName',
+              message: 'Enter consumer name:',
+              validate: (input: string) => {
+                if (!input.trim()) {
+                  return 'Please enter a consumer name';
+                }
+                return true;
+              }
+            }
+          ]);
+
+          return this.executeStreamCommand(`npm run stream-monitor pending ${pendingAnswers.stream} ${pendingAnswers.group} --consumer ${consumerName}`);
+        } else {
+          return this.executeStreamCommand(`npm run stream-monitor pending ${pendingAnswers.stream} ${pendingAnswers.group}`);
+        }
+
+      case 'stream-health':
+        console.log(chalk.blue.bold('\n🏥 Stream Health Check\n'));
+        console.log(chalk.cyan('Running comprehensive health check on all streams...\n'));
+        
+        // Run overview first, then detailed checks
+        return this.executeStreamCommand('npm run stream-monitor overview');
+
+      default:
+        return this.executeStreamCommand(menuItem.command);
+    }
+
+    return this.executeStreamCommand(menuItem.command);
+  }
+
+  private getStreamDescription(streamName: string): string {
+    const descriptions: { [key: string]: string } = {
+      'trades': 'Trade execution events',
+      'balances': 'Balance update events',
+      'orders': 'Order lifecycle events',
+      'depth': 'Order book depth changes',
+      'klines': 'Candlestick data updates',
+      'execution_reports': 'User-specific execution reports'
+    };
+    return descriptions[streamName] || 'Stream data';
+  }
+
+  private async executeStreamCommand(command: string): Promise<void> {
+    const [cmd, ...args] = command.split(' ');
+    
+    return new Promise((resolve) => {
+      const child = spawn(cmd, args, {
+        stdio: 'inherit',
+        shell: true
+      });
+
+      child.on('close', (code) => {
+        console.log();
+        if (code === 0) {
+          console.log(chalk.green('✅ Stream monitoring completed successfully!'));
+        } else {
+          console.log(chalk.red(`❌ Stream monitoring failed with exit code ${code}`));
+        }
+        console.log();
+        resolve(this.showPostCommandMenu());
+      });
+
+      child.on('error', (error) => {
+        console.log(chalk.red(`❌ Error executing stream monitor: ${error.message}`));
+        resolve(this.showPostCommandMenu());
+      });
+    });
+  }
+
+  private async executeWatchCommand(command: string): Promise<void> {
+    const [cmd, ...args] = command.split(' ');
+    
+    return new Promise((resolve) => {
+      const child = spawn(cmd, args, {
+        stdio: 'inherit',
+        shell: true
+      });
+
+      // Handle Ctrl+C gracefully for watch commands
+      const handleExit = async () => {
+        console.log(chalk.yellow('\n\n👋 Stopping monitor...'));
+        child.kill('SIGTERM');
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill('SIGKILL');
+          }
+        }, 2000);
+        await this.showPostCommandMenu();
+        resolve();
+      };
+
+      process.on('SIGINT', handleExit);
+
+      child.on('close', (code) => {
+        process.removeListener('SIGINT', handleExit);
+        console.log();
+        if (code === 0) {
+          console.log(chalk.green('✅ Stream monitoring stopped successfully!'));
+        } else if (code !== null) {
+          console.log(chalk.yellow(`⚠️ Stream monitoring stopped with code ${code}`));
+        }
+        console.log();
+        resolve(this.showPostCommandMenu());
+      });
+
+      child.on('error', (error) => {
+        process.removeListener('SIGINT', handleExit);
+        console.log(chalk.red(`❌ Error executing stream monitor: ${error.message}`));
         resolve(this.showPostCommandMenu());
       });
     });

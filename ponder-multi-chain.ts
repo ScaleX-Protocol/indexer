@@ -3,6 +3,7 @@ import { Address, getAddress, http, parseAbiItem, webSocket } from "viem";
 import { OrderBookABI } from "./abis/OrderBook";
 import { PoolManagerABI } from "./abis/PoolManager";
 import { BalanceManagerABI } from "./abis/BalanceManager";
+import { ChainBalanceManagerABI } from "./abis/ChainBalanceManager";
 import { GTXRouterABI } from "./abis/GTXRouter";
 import deploymentsAnvil from "./deployments/31337.json";
 import deploymentsGTX from "./deployments/31338.json";
@@ -28,13 +29,14 @@ const enabledNetworks = {
 	riseSepolia: true,
 	pharosDevnet: false,
 	gtx: false,
-	anvil: false,
+	anvil: true,
 };
 
 const enabledContracts = {
 	OrderBook: true,
 	PoolManager: true,
 	BalanceManager: true,
+	ChainBalanceManager: true,
 	GTXRouter: true,
 };
 
@@ -161,6 +163,20 @@ export default createConfig({
 				},
 				anvil: {
 					address: deploymentsAnvil.PROXY_BALANCEMANAGER as Address,
+				},
+			},
+		},
+		ChainBalanceManager: {
+			abi: ChainBalanceManagerABI,
+			network: {
+				// Only include networks where ChainBalanceManager is actually deployed
+				// riseSepolia: placeholder address - will be enabled when deployed
+				// pharosDevnet: placeholder address - will be enabled when deployed  
+				// gtx: placeholder address - will be enabled when deployed
+				anvil: {
+					// ChainBalanceManager is deployed on anvil for testing
+					address: deploymentsAnvil.PROXY_CHAINBALANCEMANAGER as Address,
+					startBlock: undefined,
 				},
 			},
 		},

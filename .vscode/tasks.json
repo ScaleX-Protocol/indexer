@@ -4,7 +4,7 @@
     {
       "label": "Start Infrastructure",
       "type": "shell",
-      "command": "docker-compose -f docker-compose.microservices.yml up -d postgres redis",
+      "command": "docker-compose -f docker-compose.yml up -d postgres redis",
       "problemMatcher": [],
       "group": "build",
       "presentation": {
@@ -15,7 +15,7 @@
     {
       "label": "Start Full Infrastructure",
       "type": "shell",
-      "command": "docker-compose -f docker-compose.microservices.yml up -d postgres redis prometheus grafana redis-commander",
+      "command": "docker-compose -f docker-compose.yml up -d postgres redis prometheus grafana redis-commander",
       "problemMatcher": [],
       "group": "build",
       "presentation": {
@@ -26,7 +26,7 @@
     {
       "label": "Stop Infrastructure",
       "type": "shell",
-      "command": "docker-compose -f docker-compose.microservices.yml down",
+      "command": "docker-compose -f docker-compose.yml down",
       "problemMatcher": [],
       "group": "build",
       "presentation": {
@@ -49,7 +49,9 @@
       "label": "Build All Services",
       "type": "shell",
       "command": "npm run build && cd websocket-service && npm run build && cd ../analytics-service && npm run build",
-      "problemMatcher": ["$tsc"],
+      "problemMatcher": [
+        "$tsc"
+      ],
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -59,7 +61,7 @@
     {
       "label": "Watch Redis Streams",
       "type": "shell",
-      "command": "docker-compose -f docker-compose.microservices.yml exec redis redis-cli --csv MONITOR | grep -E 'X(ADD|READ|ACK)'",
+      "command": "docker-compose -f docker-compose.yml exec redis redis-cli --csv MONITOR | grep -E 'X(ADD|READ|ACK)'",
       "problemMatcher": [],
       "group": "none",
       "presentation": {
@@ -71,7 +73,7 @@
     {
       "label": "View PostgreSQL Logs",
       "type": "shell",
-      "command": "docker-compose -f docker-compose.microservices.yml logs -f postgres",
+      "command": "docker-compose -f docker-compose.yml logs -f postgres",
       "problemMatcher": [],
       "group": "none",
       "presentation": {

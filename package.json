@@ -18,7 +18,8 @@
     "monitor": "tsx ./scripts/run-system-monitor.ts",
     "ws-client": "tsx ./websocket-client/websocket-client.ts",
     "ws-stress-test": "tsx ./websocket-client/stress-test.ts",
-    "simulate-market": "tsx ./scripts/simulate-market-data.ts"
+    "simulate-market": "tsx ./scripts/simulate-market-data.ts",
+    "stream-monitor": "tsx ./cli/stream-monitor.ts"
   },
   "dependencies": {
     "@types/ws": "^8.18.1",
@@ -35,6 +36,8 @@
     "@types/inquirer": "^9.0.8",
     "@types/node": "^20.17.41",
     "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
     "concurrently": "^9.1.2",
     "eslint": "^8.57.1",
     "eslint-config-ponder": "^0.9.28",

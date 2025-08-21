@@ -131,7 +131,7 @@ async function simulateMarketData() {
       
       if (cycle < maxCycles) {
         console.log('⏳ Waiting 10 seconds before next cycle...');
-        await wait(10000);
+        await wait(20000);
       }
       
       cycle++;

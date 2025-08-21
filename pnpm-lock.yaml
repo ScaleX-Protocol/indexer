@@ -42,6 +42,13 @@ importers:
       chalk:
         specifier: ^5.4.1
         version: 5.5.0
+        version: 5.4.1
+      cli-table3:
+        specifier: ^0.6.5
+        version: 0.6.5
+      commander:
+        specifier: ^12.1.0
+        version: 12.1.0
       concurrently:
         specifier: ^9.1.2
         version: 9.2.0
@@ -86,6 +93,10 @@ packages:
   '@babel/helper-validator-identifier@7.27.1':
     resolution: {integrity: sha512-D2hP9eA+Sqx1kBZgzxZh0y1trbuU+JoDkiEwqhQ36nodYqJwyEIhPSdMNd7lOm/4io72luTPWH20Yda0xOuUow==}
     engines: {node: '>=6.9.0'}
+
+  '@colors/colors@1.5.0':
+    resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
+    engines: {node: '>=0.1.90'}
 
   '@commander-js/extra-typings@12.1.0':
     resolution: {integrity: sha512-wf/lwQvWAA0goIghcb91dQYpkLBcyhOhQNqG/VgWhnKzgt+UOMvra7EX/2fv70arm5RW+PUHoQHHDa6/p77Eqg==}
@@ -2411,6 +2422,9 @@ snapshots:
       picocolors: 1.1.1
 
   '@babel/helper-validator-identifier@7.27.1': {}
+
+  '@colors/colors@1.5.0':
+    optional: true
 
   '@commander-js/extra-typings@12.1.0(commander@12.1.0)':
     dependencies:

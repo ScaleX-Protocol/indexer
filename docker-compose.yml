@@ -1,52 +1,194 @@
+version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: ponder-postgres
+  # Core indexer service (existing)
+  clob-indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
-      POSTGRES_USER: ponder
-      POSTGRES_PASSWORD: ponder123
-      POSTGRES_DB: ponder_gtx
-    ports:
-      - "5435:5432"
+      - PONDER_DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder
+      - REDIS_URL=redis://redis:6379
+      - ENABLE_EVENT_PUBLISHING=true
+      - ENABLE_WEBSOCKET=false  # Disabled in favor of separate websocket service
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - gtx-network
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ponder -d ponder_gtx"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ./logs:/app/logs
+
+  # WebSocket service
+  websocket-service:
+    build:
+      context: ./websocket-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "42080:42080"  # WebSocket port
+      - "8080:8080"    # Health check port
+    environment:
+      - PORT=42080
+      - HEALTH_PORT=8080
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder
+      - CONSUMER_GROUP=websocket-consumers
+      - CONSUMER_ID=ws-consumer-1
+      - BATCH_SIZE=10
+      - POLL_INTERVAL=1000
+      - WS_PING_INTERVAL=30000
+      - MAX_CONNECTIONS=1000
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - gtx-network
     restart: unless-stopped
 
-  redis:
-    image: redis:latest
+  # Analytics service
+  analytics-service:
+    build:
+      context: ./analytics-service
+      dockerfile: Dockerfile.dev
     ports:
-      - "6379:6379"
-    restart: always
-  ponder:
-    build: .
-    env_file:
-      - .env
+      - "42090:42090"
+    environment:
+      - PORT=42090
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder
+      - TIMESCALE_DATABASE_URL=postgresql://postgres:password@timescaledb:5432/analytics
+      - CONSUMER_GROUP=analytics-consumers
+      - CONSUMER_ID=analytics-consumer-1
+      - ANALYTICS_BATCH_SIZE=5
+      - ANALYTICS_POLL_INTERVAL=5000
+      - CACHE_TTL=300
+      - ENABLE_DAILY_SNAPSHOTS=true
+      - ENABLE_HOURLY_AGGREGATION=true
+      - ENABLE_CACHE_REFRESH=true
+    depends_on:
+      - postgres
+      - timescaledb
+      - redis
+    networks:
+      - gtx-network
+    restart: unless-stopped
+
+  # PostgreSQL database (Main indexer DB)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=ponder
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"  # Use port 5433 externally to avoid conflict
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - gtx-network
+    restart: unless-stopped
+
+  # TimescaleDB for Analytics
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      - POSTGRES_DB=analytics
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5434:5432"  # Use port 5434 externally
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./analytics-service/init:/docker-entrypoint-initdb.d
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
+    networks:
+      - gtx-network
+    restart: unless-stopped
+
+  # Redis for caching and message queuing
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"  # Map external port 6380 to internal port 6379
+    volumes:
+      - redis_data:/data
+    networks:
+      - gtx-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - websocket-service
+      - analytics-service
+    networks:
+      - gtx-network
+    restart: unless-stopped
+
+  # Monitoring services
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - gtx-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - gtx-network
+    restart: unless-stopped
+
+  # Redis Commander for Redis management (dev only)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
     depends_on:
       - redis
-    ports:
-      - "42069:42069"
-      - "42080:42080"
-    restart: always
-
-  api:
-    build: 
-      context: ./api
-      dockerfile: Dockerfile
-    env_file:
-      - ./api/.env
-    ports:
-      - "3200:3000"
-    volumes:
-      - ../rds-combined-ca-bundle.pem:/rds-combined-ca-bundle.pem:ro
-    depends_on:
-      - ponder
-    restart: always
+    networks:
+      - gtx-network
+    profiles:
+      - dev
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  timescale_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  gtx-network:
+    driver: bridge

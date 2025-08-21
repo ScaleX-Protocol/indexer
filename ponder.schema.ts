@@ -99,25 +99,6 @@ export const orderBookDepth = onchainTable(
 	})
 );
 
-export const orderBookDepthSnapshots = onchainTable(
-	"order_book_depth_snapshots",
-	t => ({
-		id: t.text().primaryKey(),
-		chainId: t.integer().notNull(),
-		poolId: t.hex().notNull(),
-		timestamp: t.bigint().notNull(),
-		snapshotData: t.text().notNull(),
-		sequenceNumber: t.bigint().notNull(),
-		changeCount: t.integer().notNull(),
-	}),
-	table => ({
-		poolTimeIdx: index().on(table.poolId, table.timestamp),
-		chainIdIdx: index().on(table.chainId),
-		sequenceIdx: index().on(table.sequenceNumber),
-		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp),
-	})
-);
-
 export const ordersRelations = relations(orders, ({ many, one }) => ({
 	orderHistory: many(orderHistory),
 	pool: one(pools, {

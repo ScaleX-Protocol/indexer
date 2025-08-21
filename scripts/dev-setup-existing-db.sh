@@ -274,7 +274,7 @@ echo "   ${YELLOW}# Terminal 3 - Start Analytics service${NC}"
 echo "   cd analytics-service && npm run dev"
 echo
 echo "2. Or start additional monitoring services with Docker:"
-echo "   ${GREEN}docker-compose -f docker-compose.microservices.yml up -d prometheus grafana nginx${NC}"
+echo "   ${GREEN}docker-compose -f docker-compose.yml up -d prometheus grafana nginx${NC}"
 echo
 echo "3. Test the system:"
 echo "   ${GREEN}./scripts/test-system.sh${NC}"

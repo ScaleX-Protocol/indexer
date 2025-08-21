@@ -13,6 +13,21 @@ NC='\033[0m' # No Color
 
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load environment variables from .env files
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    echo -e "${YELLOW}📄 Loading environment variables from .env${NC}"
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
+if [[ -f "$SCRIPT_DIR/.env.timescale" ]]; then
+    echo -e "${YELLOW}📄 Loading environment variables from .env.timescale${NC}"
+    set -a
+    source "$SCRIPT_DIR/.env.timescale"
+    set +a
+fi
 WEBSOCKET_SCRIPT_TS="$SCRIPT_DIR/websocket-enable-block.ts"
 WEBSOCKET_SCRIPT_JS="$SCRIPT_DIR/websocket-enable-block.cjs"
 REDIS_KEY="websocket:enable:block"
@@ -23,19 +38,19 @@ echo -e "${BLUE}🚀 Starting Ponder with WebSocket block number initialization.
 
 # Function to check if Redis is available
 check_redis() {
-    local redis_url="${REDIS_URL:-redis://localhost:6380}"
+    local redis_url="${REDIS_URL:-redis://localhost:6379}"
     echo -e "${YELLOW}📡 Checking Redis connection...${NC}"
     
     if command -v redis-cli &> /dev/null; then
         # Extract host and port from Redis URL
         local redis_host="localhost"
-        local redis_port="6380"
+        local redis_port="6379"
         
         # Try to parse REDIS_URL if set
         if [[ -n "$REDIS_URL" ]]; then
-            # Extract port from URL like redis://localhost:6380
+            # Extract port from URL like redis://localhost:6379
             redis_port=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
-            redis_port=${redis_port:-6380}
+            redis_port=${redis_port:-6379}
         fi
         
         redis-cli -h "$redis_host" -p "$redis_port" ping &> /dev/null
@@ -85,19 +100,19 @@ check_redis() {
 
 # Function to check if the websocket enable block is set in Redis
 check_websocket_block() {
-    local redis_url="${REDIS_URL:-redis://localhost:6380}"
+    local redis_url="${REDIS_URL:-redis://localhost:6379}"
     echo -e "${YELLOW}🔍 Checking if WebSocket enable block is set in Redis...${NC}"
     
     if command -v redis-cli &> /dev/null; then
         # Extract host and port from Redis URL
         local redis_host="localhost"
-        local redis_port="6380"
+        local redis_port="6379"
         
         # Try to parse REDIS_URL if set
         if [[ -n "$REDIS_URL" ]]; then
-            # Extract port from URL like redis://localhost:6380
+            # Extract port from URL like redis://localhost:6379
             redis_port=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
-            redis_port=${redis_port:-6380}
+            redis_port=${redis_port:-6379}
         fi
         
         local result=$(redis-cli -h "$redis_host" -p "$redis_port" get "$REDIS_KEY" 2>/dev/null)

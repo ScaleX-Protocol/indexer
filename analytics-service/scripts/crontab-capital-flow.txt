@@ -1,0 +1,52 @@
+# ==========================================
+# Capital Flow Analytics ETL Crontab Configuration
+# ==========================================
+# Hourly ETL for capital flow insights and new functionality
+# Based on ETL_OPTIMIZATION_ANALYSIS.md recommendations
+
+# Run capital flow ETL every hour at minute 15 for comprehensive flow analysis
+# This provides 1-hour data freshness with deep capital flow insights
+15 * * * * cd /Users/renaka/gtx/clob-indexer/analytics-service && node scripts/capital-flow-etl.js >> logs/capital-flow-etl.log 2>&1
+
+# Alternative: Run every 2 hours for lighter processing (uncomment if preferred)
+# 15 */2 * * * cd /Users/renaka/gtx/clob-indexer/analytics-service && node scripts/capital-flow-etl.js >> logs/capital-flow-etl.log 2>&1
+
+# ==========================================
+# Installation Instructions:
+# ==========================================
+# 1. Make script executable:
+#    chmod +x scripts/capital-flow-etl.js
+#
+# 2. Create logs directory:
+#    mkdir -p logs
+#
+# 3. Install crontab (add to existing crontab):
+#    crontab -l > current_crontab.txt
+#    cat scripts/crontab-capital-flow.txt >> current_crontab.txt
+#    crontab current_crontab.txt
+#
+# 4. Verify crontab installation:
+#    crontab -l
+#
+# 5. Monitor ETL logs:
+#    tail -f logs/capital-flow-etl.log
+#
+# ==========================================
+# New Functionality Enabled:
+# ==========================================
+# - Smart Money Flow Tracking: Identify institutional and whale movements
+# - Capital Flow Alerts: Real-time detection of unusual money flows
+# - Flow Momentum Analysis: Bullish/bearish capital flow trends
+# - Retail vs Institutional Flow: Granular flow segmentation
+# - Flow Strength Assessment: Strong/medium/weak flow classification
+# - Market Dominance Scoring: Capital flow market share analysis
+# - Price-Flow Correlation: Relationship between capital and price movements
+# - Flow Concentration Analysis: Gini coefficient of flow distribution
+# ==========================================
+# 
+# Performance Benefits:
+# - Enables previously impossible analytics
+# - Real-time capital flow insights
+# - Advanced money flow alerting system
+# - Data freshness: 1 hour (optimal for flow analysis)
+# ==========================================

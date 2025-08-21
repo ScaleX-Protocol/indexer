@@ -27,32 +27,37 @@ export function createPonderHandler<T>(handler: (args: any) => Promise<void>): (
  * These are kept as constants for documentation and to avoid typos
  */
 export const PonderEvents = {
-	// Pool Manager Events
-	POOL_CREATED: ponderEvent("PoolManager:PoolCreated"),
-
-	// Balance Manager Events
-	DEPOSIT: ponderEvent("BalanceManager:Deposit"),
-	WITHDRAWAL: ponderEvent("BalanceManager:Withdrawal"),
-	TRANSFER_FROM: ponderEvent("BalanceManager:TransferFrom"),
-	TRANSFER_LOCKED_FROM: ponderEvent("BalanceManager:TransferLockedFrom"),
-	LOCK: ponderEvent("BalanceManager:Lock"),
-	UNLOCK: ponderEvent("BalanceManager:Unlock"),
-
-	// Order Book Events
-	ORDER_PLACED: ponderEvent("OrderBook:OrderPlaced"),
-	ORDER_MATCHED: ponderEvent("OrderBook:OrderMatched"),
-	ORDER_CANCELLED: ponderEvent("OrderBook:OrderCancelled"),
-	UPDATE_ORDER: ponderEvent("OrderBook:UpdateOrder"),
-
-	// Faucet Events
-	ADD_TOKEN: ponderEvent("Faucet:AddToken"),
-	REQUEST_TOKEN: ponderEvent("Faucet:RequestToken"),
-	DEPOSIT_TOKEN: ponderEvent("Faucet:DepositToken"),
-
-	// Cross-Chain Events
-	CHAIN_BALANCE_MANAGER_DEPOSIT: ponderEvent("ChainBalanceManager:Deposit"),
-	HYPERLANE_MAILBOX_DISPATCH_ID: ponderEvent("HyperlaneMailbox:DispatchId"),
-	HYPERLANE_MAILBOX_PROCESS_ID: ponderEvent("HyperlaneMailbox:ProcessId"),
+  // Pool Manager Events
+  POOL_CREATED: ponderEvent("PoolManager:PoolCreated"),
+  
+  // Balance Manager Events
+  DEPOSIT: ponderEvent("BalanceManager:Deposit"),
+  WITHDRAWAL: ponderEvent("BalanceManager:Withdrawal"),
+  TRANSFER_FROM: ponderEvent("BalanceManager:TransferFrom"),
+  TRANSFER_LOCKED_FROM: ponderEvent("BalanceManager:TransferLockedFrom"),
+  LOCK: ponderEvent("BalanceManager:Lock"),
+  UNLOCK: ponderEvent("BalanceManager:Unlock"),
+  
+  // Order Book Events
+  ORDER_PLACED: ponderEvent("OrderBook:OrderPlaced"),
+  ORDER_MATCHED: ponderEvent("OrderBook:OrderMatched"),
+  ORDER_CANCELLED: ponderEvent("OrderBook:OrderCancelled"),
+  UPDATE_ORDER: ponderEvent("OrderBook:UpdateOrder"),
+  
+  // Faucet Events
+  ADD_TOKEN: ponderEvent("Faucet:AddToken"),
+  REQUEST_TOKEN: ponderEvent("Faucet:RequestToken"),
+  DEPOSIT_TOKEN: ponderEvent("Faucet:DepositToken"),
+  
+  // ChainBalanceManager Events
+  CHAIN_BALANCE_DEPOSIT: ponderEvent("ChainBalanceManager:Deposit"),
+  CHAIN_BALANCE_WITHDRAW: ponderEvent("ChainBalanceManager:Withdraw"),
+  CHAIN_BALANCE_UNLOCK: ponderEvent("ChainBalanceManager:Unlock"),
+  CHAIN_BALANCE_CLAIM: ponderEvent("ChainBalanceManager:Claim"),
+  CHAIN_BALANCE_TOKEN_WHITELISTED: ponderEvent("ChainBalanceManager:TokenWhitelisted"),
+  CHAIN_BALANCE_TOKEN_REMOVED: ponderEvent("ChainBalanceManager:TokenRemoved"),
+  CHAIN_BALANCE_OWNERSHIP_TRANSFERRED: ponderEvent("ChainBalanceManager:OwnershipTransferred"),
+  CHAIN_BALANCE_INITIALIZED: ponderEvent("ChainBalanceManager:Initialized")
 };
 
 /**

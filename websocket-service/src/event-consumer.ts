@@ -196,6 +196,29 @@ export class EventConsumer {
 
     // Broadcast to public trade stream
     this.wsServer.broadcastToStream(`${data.symbol}@trade`, tradePayload);
+
+    // Send user-specific trade execution to the trader
+    if (data.userId) {
+      const userTradePayload = {
+        e: 'userTrade',
+        E: parseInt(data.timestamp) * 1000,
+        s: data.symbol.toUpperCase(),
+        t: data.tradeId,
+        o: data.orderId,
+        p: data.price,
+        q: data.quantity,
+        T: parseInt(data.timestamp) * 1000,
+        S: data.side.toUpperCase(),
+        // Calculate commission (0.1% maker, 0.2% taker)
+        // For now, assume taker (we can enhance this later with actual maker/taker info)
+        n: (parseFloat(data.price) * parseFloat(data.quantity) * 0.002).toString(),
+        N: data.symbol.split('/')[1] || 'USDT', // commission asset (quote currency)
+        m: false, // isMaker - default to false (taker)
+        isBuyer: data.side === 'buy'
+      };
+
+      this.wsServer.sendToUser(data.userId, userTradePayload);
+    }
   }
 
   private async handleBalanceUpdateEvent(data: BalanceUpdateEventData) {
@@ -258,10 +281,18 @@ export class EventConsumer {
   }
 
   private async handleExecutionReportEvent(data: ExecutionReportEventData) {
+    // Calculate commission based on DEX rates (0.1% maker, 0.2% taker)
+    const isMaker = false; // Default to taker for now - can be enhanced with actual maker/taker detection
+    const commissionRate = isMaker ? 0.001 : 0.002;
+    const quoteQuantity = parseFloat(data.filledQuantity) * parseFloat(data.price);
+    const commission = (quoteQuantity * commissionRate).toString();
+    const commissionAsset = data.symbol.split('/')[1] || 'USDT';
+
     const executionPayload = {
       e: 'executionReport',
       E: parseInt(data.timestamp) * 1000,
       s: data.symbol.toUpperCase(),
+      c: data.orderId, // clientOrderId
       S: data.side.toUpperCase(),
       o: data.type.toUpperCase(),
       f: 'GTC', // timeInForce
@@ -270,28 +301,33 @@ export class EventConsumer {
       P: '0', // stopPrice
       F: '0', // icebergQty
       g: -1,  // orderListId
-      C: data.orderId, // clientOrderId
-      x: data.executionType.toUpperCase(),
-      X: data.status.toUpperCase(),
+      C: '', // originalClientOrderId
+      x: data.executionType.toUpperCase(), // currentExecutionType
+      X: data.status.toUpperCase(), // currentOrderStatus
       r: 'NONE', // rejectReason
-      i: data.orderId,
-      l: data.filledQuantity,
-      z: data.filledQuantity, // cumulative filled quantity
-      L: data.price, // last executed price
-      n: '0', // commission
-      N: null, // commission asset
-      T: parseInt(data.timestamp) * 1000,
-      t: -1, // tradeId
-      I: data.orderId,
-      w: true, // isWorking
-      m: false, // isMaker
+      i: data.orderId, // orderId
+      l: data.filledQuantity, // lastExecutedQuantity
+      z: data.filledQuantity, // cumulativeFilledQuantity
+      L: data.price, // lastExecutedPrice
+      n: commission, // commissionAmount
+      N: commissionAsset, // commissionAsset
+      T: parseInt(data.timestamp) * 1000, // transactionTime
+      t: parseInt(data.timestamp), // tradeId (using timestamp as placeholder)
+      I: parseInt(data.orderId), // ignore
+      w: data.status === 'NEW' || data.status === 'PARTIALLY_FILLED', // isWorking
+      m: isMaker, // isMaker
       M: false, // ignore
-      O: parseInt(data.timestamp) * 1000, // order creation time
-      Z: (parseFloat(data.filledQuantity) * parseFloat(data.price)).toString() // cumulative quote qty
+      O: parseInt(data.timestamp) * 1000, // orderCreationTime
+      Z: quoteQuantity.toString(), // cumulativeQuoteQty
+      Y: quoteQuantity.toString(), // lastQuoteQty
+      Q: '0' // quoteOrderQty
     };
 
     // Send to specific user
     this.wsServer.sendToUser(data.userId, executionPayload);
+
+    // Also send to user@executionReport stream subscribers
+    this.wsServer.broadcastToStream('user@executionReport', executionPayload);
   }
 
   async stop() {
