@@ -34,6 +34,10 @@ yarn-error.log*
 # Scripts
 /scripts/development
 
+# Temporary
+/tmp
+
+
 # Claude
 .claude/
 

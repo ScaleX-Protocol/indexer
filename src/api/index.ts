@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { Hono } from "hono";
-import { and, client, desc, eq, graphql, gt, gte, lte, or, sql, asc, inArray } from "ponder";
+import { and, asc, client, desc, eq, graphql, gt, gte, lte, or, sql, inArray } from "ponder";
 import { db } from "ponder:api";
 import schema, {
 	balances,
@@ -19,7 +19,6 @@ import { createPublicClient, defineChain, http } from "viem";
 import { arbitrum, base, goerli, mainnet, optimism, polygon, sepolia } from "viem/chains";
 import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
-import {getDepth} from "@/utils/getDepth";
 
 export const rise = defineChain({
 	id: parseInt(process.env.CHAIN_ID || '11155931'),
@@ -218,14 +217,12 @@ app.get("/api/depth", async c => {
 			.execute();
 
 		const response = {
+			lastUpdateId: Date.now(),
 			bids: bids.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()]),
 			asks: asks.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()])
 		};
 
-		return c.json({
-			lastUpdateId: Date.now(),
-			...response
-		});
+		return c.json(response);
 	} catch (error) {
 		return c.json({ error: `Failed to fetch depth data: ${error}` }, 500);
 	}
@@ -256,19 +253,34 @@ app.get("/api/trades", async c => {
 		let recentTrades;
 
 		if (user) {
-			const userTrades = await db
-				.select({
-					trade: orderBookTrades,
-					order: orders,
-				})
-				.from(orderBookTrades)
-				.innerJoin(orders, eq(orderBookTrades.poolId, orders.poolId))
-				.where(and(eq(orderBookTrades.poolId, poolId), eq(orders.user, user.toLowerCase())))
-				.orderBy(desc(orderBookTrades.timestamp))
-				.limit(limit)
-				.execute();
+			const timeoutPromise = new Promise((_, reject) => 
+				setTimeout(() => reject(new Error('Query timeout')), 10000) 
+			);
 
-			recentTrades = userTrades.map(result => result.trade);
+			try {
+				const userTradesPromise = db
+					.select({
+						trade: orderBookTrades,
+						order: orders,
+					})
+					.from(orderBookTrades)
+					.innerJoin(orders, eq(orderBookTrades.poolId, orders.poolId))
+					.where(and(
+						eq(orderBookTrades.poolId, poolId), 
+						eq(orders.user, user.toLowerCase())
+					))
+					.orderBy(desc(orderBookTrades.timestamp))
+					.limit(Math.min(limit, 100))
+					.execute();
+
+				const userTrades = await Promise.race([userTradesPromise, timeoutPromise]);
+				recentTrades = (userTrades as any).map((result: any) => result.trade);
+			} catch (error: any) {
+				if (error?.message === 'Query timeout') {
+					return c.json({ error: "Query took too long, try reducing limit or use general trades endpoint" }, 408);
+				}
+				throw error;
+			}
 		} else {
 			recentTrades = await db
 				.select()
@@ -279,7 +291,7 @@ app.get("/api/trades", async c => {
 				.execute();
 		}
 
-		const formattedTrades = recentTrades.map(trade => ({
+		const formattedTrades = recentTrades.map((trade: any) => ({
 			id: trade.id || "",
 			price: trade.price ? trade.price.toString() : "0",
 			qty: trade.quantity ? trade.quantity.toString() : "0",
@@ -483,11 +495,13 @@ app.get("/api/allOrders", async c => {
 			}
 		}
 
-		const userOrders = await query.orderBy(desc(orders.timestamp)).limit(limit).execute();
+		const effectiveLimit = Math.min(limit, 1000);
+		const userOrders = await query.orderBy(desc(orders.timestamp)).limit(effectiveLimit).execute();
 
 		// Collect all unique poolIds to avoid N+1 queries
 		const uniquePoolIds = [...new Set(userOrders.map(order => order.poolId).filter(Boolean))];
-		
+						let symbol = "";
+
 		// Fetch all pool data in a single query
 		const poolsData = await db
 			.select()
@@ -510,6 +524,7 @@ app.get("/api/allOrders", async c => {
 				if (!symbol && pool?.coin) {
 					orderSymbol = pool.coin;
 				}
+					symbol = poolInfo[0]?.coin || "UNKNOWN";
 			}
 
 			return {
@@ -573,7 +588,7 @@ app.get("/api/openOrders", async c => {
 			}
 		}
 
-		const openOrders = await query.orderBy(desc(orders.timestamp)).execute();
+		const openOrders = await query.orderBy(desc(orders.timestamp)).limit(500).execute();
 		
 		// Collect all unique poolIds to avoid N+1 queries
 		const uniquePoolIds = [...new Set(openOrders.map(order => order.poolId).filter(Boolean))];

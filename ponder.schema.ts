@@ -42,19 +42,16 @@ export const orders = onchainTable(
 		expiry: t.integer(),
 	}),
 	(table: any) => ({
-		orderIdx: index().on(table.orderId),
-		userIdx: index().on(table.user),
-		sideIdx: index().on(table.side),
-		statusIdx: index().on(table.status),
-		poolIdx: index().on(table.poolId),
-		chainIdIdx: index().on(table.chainId),
-		priceIdx: index().on(table.price),
-		orderIdChainIdx: index().on(table.orderId, table.chainId),
-		poolChainStatusIdx: index().on(table.poolId, table.chainId, table.status),
-		poolChainSideIdx: index().on(table.poolId, table.chainId, table.side),
-		poolStatusSideIdx: index().on(table.poolId, table.status, table.side),
-		userPoolIdx: index().on(table.user, table.poolId),
-		timestampIdx: index().on(table.timestamp),
+		orderIdChainIdx: index().on(table.orderId, table.chainId), 
+		poolChainStatusIdx: index().on(table.poolId, table.chainId, table.status), 
+		poolStatusSideIdx: index().on(table.poolId, table.status, table.side), 		
+		depthOptimizedIdx: index().on(table.poolId, table.status, table.side, table.price), 
+		userTimestampIdx: index().on(table.user, table.timestamp), 
+		userStatusTimestampIdx: index().on(table.user, table.status, table.timestamp), 
+		poolIdx: index().on(table.poolId), 
+		statusIdx: index().on(table.status), 
+		timestampIdx: index().on(table.timestamp), 
+		userIdx: index().on(table.user), 
 	})
 );
 
@@ -97,7 +94,7 @@ export const orderBookDepth = onchainTable(
 		chainIdIdx: index().on(table.chainId),
 		lastUpdatedIdx: index().on(table.lastUpdated),
 		poolChainSideIdx: index().on(table.poolId, table.chainId, table.side),
-		poolChainSidePriceIdx: index().on(table.poolId, table.chainId, table.side, table.price), // Complete depth query coverage
+		poolChainSidePriceIdx: index().on(table.poolId, table.chainId, table.side, table.price),
 		quantityIdx: index().on(table.quantity),
 	})
 );
@@ -170,6 +167,7 @@ export const trades = onchainTable(
 		orderIdIdx: index().on(table.orderId),
 		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp),
 		timestampIdx: index().on(table.timestamp),
+		timestampDescIdx: index().on(table.timestamp, table.id),
 	})
 );
 
@@ -253,6 +251,7 @@ export const balances = onchainTable(
 		chainIdIdx: index().on(table.chainId),
 		userCurrencyIdx: index().on(table.user, table.currency),
 		userChainIdx: index().on(table.user, table.chainId),
+		userCurrencyChainIdx: index().on(table.user, table.currency, table.chainId),
 	})
 );
 
@@ -310,8 +309,6 @@ export const votes = onchainTable(
 	}),
 	table => ({
 		chainIdIdx: index().on(table.chainId),
-
-		// NEW: Additional indexes for vote queries
 		userIdx: index().on(table.user),
 		poolIdx: index().on(table.poolId),
 		userPoolIdx: index().on(table.user, table.poolId),
@@ -335,6 +332,7 @@ export const currencies = onchainTable(
 		addressIdx: index().on(table.address),
 		addressChainIdx: index().on(table.address, table.chainId),
 		symbolIdx: index().on(table.symbol),
+		addressChainSymbolIdx: index().on(table.address, table.chainId, table.symbol),
 	})
 );
 
