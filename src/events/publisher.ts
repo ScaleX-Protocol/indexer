@@ -182,7 +182,6 @@ export class EventPublisher {
             console.log(`Created consumer group ${group} for stream ${stream}`);
           } catch (error: any) {
             if (error.message.includes('BUSYGROUP')) {
-              // Consumer group already exists
               console.log(`Consumer group ${group} already exists for stream ${stream}`);
             } else {
               console.error(`Failed to create consumer group ${group} for stream ${stream}:`, error);

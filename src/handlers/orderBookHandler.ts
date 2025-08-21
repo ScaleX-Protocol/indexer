@@ -496,21 +496,28 @@ export async function handleOrderCancelled({ event, context }: any) {
 
   try {
     await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
-
     await upsertOrderBookDepthOnCancel(db, chainId, hashedOrderId, event, timestamp);
 
-  await executeIfInSync(Number(event.block.number), async () => {
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled', Number(event.block.number))).toUpperCase();
-    const row = await context.db.find(orders, { id: hashedOrderId });
+    await executeIfInSync(Number(event.block.number), async () => {
+      const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled')).toUpperCase();
+      const row = await context.db.find(orders, { id: hashedOrderId });
 
       if (!row) return;
 
-    await publishOrderEvent(row, symbol, timestamp, "cancelled", BigInt(0), BigInt(0));
-    
-    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
-    
-    await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
-  }, 'handleOrderCancelled');
+      await publishOrderEvent(row, symbol, timestamp, "cancelled", BigInt(0), BigInt(0));
+
+      const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+
+      await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
+    }, 'handleOrderCancelled');
+  } catch (e) {
+    logger.writeError(e as Error, {
+      orderId: event.args.orderId,
+      poolAddress: event.log.address,
+      timestamp: event.args.timestamp
+    }, event);
+    throw e;
+  }
 }
 
 export async function handleUpdateOrder({ event, context }: any) {
@@ -562,44 +569,48 @@ export async function handleUpdateOrder({ event, context }: any) {
   };
 
   try {
-    await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
-
     await upsertOrderHistory(db, historyData);
 
-    const isExpired = ORDER_STATUS[5];
+  await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
 
-    if (event.args.status == isExpired) {
-      const order = await db.find(orders, { id: hashedOrderId });
-      if (order && order.side) {
-        console.log(`${logger.log(event, '4. UpdateOrder expiry processing')}: ${safeStringify({
-          orderId: hashedOrderId,
-          orderSide: order.side,
-          orderSideType: typeof order.side,
-          orderSideLength: order.side?.length
-        })}`);
-        const price = BigInt(order.price);
-        await upsertOrderBookDepth(
-          db,
-          chainId,
-          poolAddress,
-          order.side,
-          price,
-          BigInt(order.quantity),
-          timestamp,
-          false
-        );
-      }
+  const isExpired = ORDER_STATUS[5];
+
+  if (event.args.status == isExpired) {
+    const order = await db.find(orders, { id: hashedOrderId });
+    if (order && order.side) {
+      console.log(`${logger.log(event, '4. UpdateOrder expiry processing')}: ${safeStringify({
+        orderId: hashedOrderId,
+        orderSide: order.side,
+        orderSideType: typeof order.side,
+        orderSideLength: order.side?.length
+      })}`);
+      const price = BigInt(order.price);
+      await upsertOrderBookDepth(
+        db,
+        chainId,
+        poolAddress,
+        order.side,
+        price,
+        BigInt(order.quantity),
+        timestamp,
+        false
+      );
     }
-    await executeIfInSync(Number(event.block.number), async () => {
-      const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
-      const row = await context.db.find(orders, { id: hashedOrderId });
+  }
+  await executeIfInSync(Number(event.block.number), async () => {
+    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
+    const row = await context.db.find(orders, { id: hashedOrderId });
 
-      if (!row) return;
+    if (!row) return;
 
-      pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
-      const latestDepth = await getDepth(event.log.address!, context.db, chainId);
-      pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-    }, 'handleUpdateOrder');
+    // Publish order event
+    await publishOrderEvent(row, symbol, timestamp, "trade", BigInt(event.args.filled), row.price);
+    
+    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
+    
+    // Publish depth event
+    await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
+  }, 'handleUpdateOrder');
   } catch (e) {
     logger.writeError(e as Error, {
       orderId: event.args.orderId,

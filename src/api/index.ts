@@ -1,3 +1,5 @@
+import { initializeEventPublisher } from "@/events";
+import { initIORedisClient } from "@/utils/redis";
 import dotenv from "dotenv";
 import { Hono } from "hono";
 import { and, asc, client, desc, eq, graphql, gt, gte, lte, or, sql, inArray } from "ponder";
@@ -15,10 +17,8 @@ import schema, {
 	pools,
 	thirtyMinuteBuckets,
 } from "ponder:schema";
-import { createPublicClient, defineChain, http } from "viem";
-import { arbitrum, base, goerli, mainnet, optimism, polygon, sepolia } from "viem/chains";
+import { defineChain } from "viem";
 import { systemMonitor } from "../utils/systemMonitor";
-import { bootstrapGateway } from "../websocket/websocket-server";
 
 export const rise = defineChain({
 	id: parseInt(process.env.CHAIN_ID || '11155931'),
