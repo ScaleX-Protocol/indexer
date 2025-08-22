@@ -1,6 +1,15 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '../schema';
+import * as fs from 'fs';
+
+// SSL configuration
+const sslConfig = process.env.DB_CA_CERT_PATH ? {
+  ssl: {
+    rejectUnauthorized: true,
+    ca: fs.readFileSync(process.env.DB_CA_CERT_PATH).toString(),
+  }
+} : {};
 
 // Option 1: Using Pool with schema in options
 const pool = new Pool({
@@ -10,6 +19,7 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_NAME || 'gtx_api',
   options: process.env.DB_SCHEMA ? `-c search_path=${process.env.DB_SCHEMA}` : undefined,
+  ...sslConfig,
 });
 
 // Option 2: Using connection string (alternative approach)

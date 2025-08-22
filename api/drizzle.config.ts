@@ -1,4 +1,12 @@
 import { defineConfig } from 'drizzle-kit';
+import * as fs from 'fs';
+
+const sslConfig = process.env.DB_CA_CERT_PATH ? {
+  ssl: {
+    rejectUnauthorized: true,
+    ca: fs.readFileSync(process.env.DB_CA_CERT_PATH).toString(),
+  }
+} : {};
 
 export default defineConfig({
   dialect: 'postgresql',
@@ -10,5 +18,6 @@ export default defineConfig({
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || 'password',
     database: process.env.DB_NAME || 'gtx_api',
+    ...sslConfig,
   },
 });
