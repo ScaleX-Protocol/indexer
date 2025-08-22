@@ -1,0 +1,33 @@
+import { pgTable, varchar, integer, bigint, text, index } from 'drizzle-orm/pg-core';
+
+export const orders = pgTable(
+  'orders',
+  {
+    id: text('id').primaryKey(),
+    chainId: integer('chain_id').notNull(),
+    poolId: varchar('pool_id').notNull(),
+    orderId: bigint('order_id', { mode: 'bigint' }).notNull(),
+    transactionId: text('transaction_id'),
+    user: varchar('user'),
+    side: varchar('side'),
+    timestamp: integer('timestamp'),
+    price: bigint('price', { mode: 'bigint' }),
+    quantity: bigint('quantity', { mode: 'bigint' }),
+    filled: bigint('filled', { mode: 'bigint' }),
+    type: varchar('type'),
+    status: varchar('status'),
+    expiry: integer('expiry'),
+  },
+  (table) => ({
+    orderIdChainIdx: index('orders_order_id_chain_idx').on(table.orderId, table.chainId),
+    poolChainStatusIdx: index('orders_pool_chain_status_idx').on(table.poolId, table.chainId, table.status),
+    poolStatusSideIdx: index('orders_pool_status_side_idx').on(table.poolId, table.status, table.side),
+    depthOptimizedIdx: index('orders_depth_optimized_idx').on(table.poolId, table.status, table.side, table.price),
+    userTimestampIdx: index('orders_user_timestamp_idx').on(table.user, table.timestamp),
+    userStatusTimestampIdx: index('orders_user_status_timestamp_idx').on(table.user, table.status, table.timestamp),
+    poolIdx: index('orders_pool_idx').on(table.poolId),
+    statusIdx: index('orders_status_idx').on(table.status),
+    timestampIdx: index('orders_timestamp_idx').on(table.timestamp),
+    userIdx: index('orders_user_idx').on(table.user),
+  })
+);

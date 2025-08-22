@@ -24,7 +24,7 @@ EXPOSE 54321
 CMD while true; do \
         pnpm ponder db prune \
         TIMESTAMP=$(date +%s); \
-        pnpm ponder start --schema public_$TIMESTAMP; \
+        pnpm ponder start --schema public; \
         echo "Ponder crashed. Restarting in 5 seconds..."; \
         sleep 5; \
     done
