@@ -13,6 +13,7 @@ services:
       - redis
     ports:
       - "42069:42069"
+      - "42080:42080"
     restart: always
 
   api:
