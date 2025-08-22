@@ -17,11 +17,15 @@ services:
     restart: always
 
   api:
-    build: ./api
+    build: 
+      context: ./api
+      dockerfile: Dockerfile
     env_file:
       - ./api/.env
     ports:
-      - "3100:3000"
+      - "3200:3000"
+    volumes:
+      - ../rds-combined-ca-bundle.pem:/rds-combined-ca-bundle.pem:ro
     depends_on:
       - ponder
     restart: always
