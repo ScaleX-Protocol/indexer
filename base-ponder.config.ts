@@ -128,7 +128,7 @@ const contracts: any = {
 };
 
 export function getBaseConfig() {
-	return {
+	const config = {
 		networks: {
 			// Rari Testnet (Destination/Host Chain)
 			rariTestnet: {
@@ -160,7 +160,15 @@ export function getBaseConfig() {
 				pollingInterval: Number(process.env.POLLING_INTERVAL) || 100,
 				maxRequestsPerSecond: Number(process.env.MAX_REQUESTS_PER_SECOND) || 250,
 			},
+			"faucet-network": {
+				chainId: Number(process.env.FAUCET_CHAIN_ID) || Number(process.env.CHAIN_ID) || 4661,
+				transport: http(process.env.FAUCET_RPC_URL || process.env.PONDER_RPC_URL || '/api/rpc/appchain-testnet'),
+				pollingInterval: Number(process.env.FAUCET_POLLING_INTERVAL) || Number(process.env.POLLING_INTERVAL) || 100,
+				maxRequestsPerSecond: Number(process.env.FAUCET_MAX_REQUESTS_PER_SECOND) || Number(process.env.MAX_REQUESTS_PER_SECOND) || 250,
+			},
 		},
 		contracts: contracts,
 	};
+
+	return config;
 }
