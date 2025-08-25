@@ -308,22 +308,36 @@ app.get("/api/trades", async c => {
 
 app.get("/api/ticker/24hr", async c => {
 	const symbol = c.req.query("symbol");
+	const poolid = c.req.query("poolid");
 
-	if (!symbol) {
-		return c.json({ error: "Symbol parameter is required" }, 400);
+	if (!symbol && !poolid) {
+		return c.json({ error: "Symbol or poolid parameter is required" }, 400);
 	}
 
 	try {
-		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+		let poolId: string;
+		let symbolName = symbol;
 
-		if (!queriedPools || queriedPools.length === 0) {
-			return c.json({ error: "Pool not found" }, 404);
-		}
+		if (poolid) {
+			// Use poolId directly when provided
+			poolId = poolid;
+			// Get symbol name for response if not provided
+			if (!symbol) {
+				const poolInfo = await db.select().from(pools).where(eq(pools.orderBook, poolid as `0x${string}`)).limit(1).execute();
+				symbolName = poolInfo[0]?.coin || "UNKNOWN";
+			}
+		} else {
+			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
 
-		const poolId = queriedPools[0]!.orderBook;
+			if (!queriedPools || queriedPools.length === 0) {
+				return c.json({ error: "Pool not found" }, 404);
+			}
 
-		if (!poolId) {
-			return c.json({ error: "Pool order book address not found" }, 404);
+			poolId = queriedPools[0]!.orderBook;
+
+			if (!poolId) {
+				return c.json({ error: "Pool order book address not found" }, 404);
+			}
 		}
 
 		const now = Math.floor(Date.now() / 1000);
@@ -396,7 +410,7 @@ app.get("/api/ticker/24hr", async c => {
 				: "0.00";
 
 		const response = {
-			symbol: symbol,
+			symbol: symbolName,
 			priceChange: priceChange,
 			priceChangePercent: priceChangePercent,
 			weightedAvgPrice: averageValue,
@@ -425,22 +439,36 @@ app.get("/api/ticker/24hr", async c => {
 
 app.get("/api/ticker/price", async c => {
 	const symbol = c.req.query("symbol");
+	const poolid = c.req.query("poolid");
 
-	if (!symbol) {
-		return c.json({ error: "Symbol parameter is required" }, 400);
+	if (!symbol && !poolid) {
+		return c.json({ error: "Symbol or poolid parameter is required" }, 400);
 	}
 
 	try {
-		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+		let poolId: string;
+		let symbolName = symbol;
 
-		if (!queriedPools || queriedPools.length === 0) {
-			return c.json({ error: "Pool not found" }, 404);
-		}
+		if (poolid) {
+			// Use poolId directly when provided
+			poolId = poolid;
+			// Get symbol name for response if not provided
+			if (!symbol) {
+				const poolInfo = await db.select().from(pools).where(eq(pools.orderBook, poolid as `0x${string}`)).limit(1).execute();
+				symbolName = poolInfo[0]?.coin || "UNKNOWN";
+			}
+		} else {
+			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
 
-		const poolId = queriedPools[0]!.orderBook;
+			if (!queriedPools || queriedPools.length === 0) {
+				return c.json({ error: "Pool not found" }, 404);
+			}
 
-		if (!poolId) {
-			return c.json({ error: "Pool order book address not found" }, 404);
+			poolId = queriedPools[0]!.orderBook;
+
+			if (!poolId) {
+				return c.json({ error: "Pool order book address not found" }, 404);
+			}
 		}
 
 		const latestTrade = await db
@@ -454,12 +482,16 @@ app.get("/api/ticker/price", async c => {
 		let price = "0";
 		if (latestTrade.length > 0 && latestTrade[0]?.price) {
 			price = latestTrade[0].price.toString();
-		} else if (queriedPools[0]?.price) {
-			price = queriedPools[0].price.toString();
+		} else if (!poolid) {
+			// Only access queriedPools if we used symbol lookup
+			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol!)).execute();
+			if (queriedPools[0]?.price) {
+				price = queriedPools[0].price.toString();
+			}
 		}
 
 		const response = {
-			symbol: symbol,
+			symbol: symbolName,
 			price: price,
 		};
 
@@ -471,6 +503,7 @@ app.get("/api/ticker/price", async c => {
 
 app.get("/api/allOrders", async c => {
 	const symbol = c.req.query("symbol");
+	const poolid = c.req.query("poolid");
 	const limit = parseInt(c.req.query("limit") || "500");
 	const address = c.req.query("address");
 
@@ -482,7 +515,10 @@ app.get("/api/allOrders", async c => {
 		const baseQuery = db.select().from(orders);
 		let query = baseQuery.where(eq(orders.user, address as `0x${string}`));
 
-		if (symbol) {
+		if (poolid) {
+			// Use poolId directly when provided
+			query = query.where(eq(orders.poolId, poolid as `0x${string}`));
+		} else if (symbol) {
 			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
 
 			if (!queriedPools || queriedPools.length === 0) {
@@ -500,7 +536,6 @@ app.get("/api/allOrders", async c => {
 
 		// Collect all unique poolIds to avoid N+1 queries
 		const uniquePoolIds = [...new Set(userOrders.map(order => order.poolId).filter(Boolean))];
-						let symbol = "";
 
 		// Fetch all pool data in a single query
 		const poolsData = await db
@@ -524,7 +559,6 @@ app.get("/api/allOrders", async c => {
 				if (!symbol && pool?.coin) {
 					orderSymbol = pool.coin;
 				}
-					symbol = poolInfo[0]?.coin || "UNKNOWN";
 			}
 
 			return {
@@ -560,6 +594,7 @@ app.get("/api/allOrders", async c => {
 
 app.get("/api/openOrders", async c => {
 	const symbol = c.req.query("symbol");
+	const poolid = c.req.query("poolid");
 	const address = c.req.query("address");
 
 	if (!address) {
@@ -575,7 +610,10 @@ app.get("/api/openOrders", async c => {
 			)
 		);
 
-		if (symbol) {
+		if (poolid) {
+			// Use poolId directly when provided
+			query = query.where(eq(orders.poolId, poolid as `0x${string}`));
+		} else if (symbol) {
 			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
 
 			if (!queriedPools || queriedPools.length === 0) {
