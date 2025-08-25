@@ -111,7 +111,7 @@ app.get("/api/kline", async c => {
 		return c.json({ error: "Symbol parameter is required" }, 400);
 	}
 
-	const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+	const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
 
 	if (!queriedPools || queriedPools.length === 0) {
 		return c.json({ error: "Pool not found" }, 404);
@@ -161,7 +161,7 @@ app.get("/api/depth", async c => {
 	}
 
 	try {
-		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
 
 		if (!queriedPools || queriedPools.length === 0) {
 			return c.json({ error: "Pool not found" }, 404);
@@ -238,7 +238,7 @@ app.get("/api/trades", async c => {
 	}
 
 	try {
-		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
 
 		if (!queriedPools || queriedPools.length === 0) {
 			return c.json({ error: "Pool not found" }, 404);
@@ -315,8 +315,7 @@ app.get("/api/ticker/24hr", async c => {
 	}
 
 	try {
-		let poolId: string;
-		let symbolName = symbol;
+		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
 
 		if (poolid) {
 			// Use poolId directly when provided
@@ -446,8 +445,7 @@ app.get("/api/ticker/price", async c => {
 	}
 
 	try {
-		let poolId: string;
-		let symbolName = symbol;
+		const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
 
 		if (poolid) {
 			// Use poolId directly when provided
@@ -515,11 +513,8 @@ app.get("/api/allOrders", async c => {
 		const baseQuery = db.select().from(orders);
 		let query = baseQuery.where(eq(orders.user, address as `0x${string}`));
 
-		if (poolid) {
-			// Use poolId directly when provided
-			query = query.where(eq(orders.poolId, poolid as `0x${string}`));
-		} else if (symbol) {
-			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+		if (symbol) {
+			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
 
 			if (!queriedPools || queriedPools.length === 0) {
 				return c.json({ error: "Pool not found" }, 404);
@@ -610,11 +605,8 @@ app.get("/api/openOrders", async c => {
 			)
 		);
 
-		if (poolid) {
-			// Use poolId directly when provided
-			query = query.where(eq(orders.poolId, poolid as `0x${string}`));
-		} else if (symbol) {
-			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+		if (symbol) {
+			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
 
 			if (!queriedPools || queriedPools.length === 0) {
 				return c.json({ error: "Pool not found" }, 404);
