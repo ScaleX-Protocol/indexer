@@ -1,6 +1,6 @@
 // base-ponder.config.ts
 import { factory, loadBalance, rateLimit } from "ponder";
-import { getAddress, http, parseAbiItem } from "viem";
+import { fallback, getAddress, http, parseAbiItem } from "viem";
 import { BalanceManagerABI } from "./abis/BalanceManager";
 import { GTXRouterABI } from "./abis/GTXRouter";
 import { OrderBookABI } from "./abis/OrderBook";
@@ -140,7 +140,10 @@ export function getBaseConfig() {
 			// Arbitrum Sepolia (Source Chain)
 			arbitrumSepolia: {
 				chainId: 421614,
-				transport: http(process.env.ARBITRUM_SEPOLIA_ENDPOINT),
+				transport: fallback([
+					http(process.env.ARBITRUM_SEPOLIA_ENDPOINT),
+					http(process.env.ARBITRUM_SEPOLIA_ENDPOINT_2),
+				]),
 				pollingInterval: Number(process.env.POLLING_INTERVAL) || 100,
 				maxRequestsPerSecond: Number(process.env.MAX_REQUESTS_PER_SECOND) || 250,
 			},

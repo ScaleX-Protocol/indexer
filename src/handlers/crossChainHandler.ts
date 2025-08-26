@@ -1,28 +1,10 @@
 import { crossChainTransfers, hyperlaneMessages } from "ponder:schema";
 
 // Get chain name helper function
-// const getChainName = (chainId: number) => {
-// 	switch (chainId) {
-// 		case 4661:
-// 			return "appchain-testnet";
-// 		case 11155931:
-// 			return "rise-sepolia";
-// 		case 421614:
-// 			return "arbitrum-sepolia";
-// 		case 1918988905:
-// 			return "rari-testnet";
-// 		default:
-// 			return "unknown";
-// 	}
-// };
 
 // ChainBalanceManager handlers (only on source chains: appchain, rise, arbitrum)
 export async function handleChainBalanceManagerDeposit({ event, context }: any) {
 	const { db } = context;
-	console.log(`=== ChainBalanceManager Deposit event.args:`, event.args);
-	console.log(
-		`=== Extracted values: depositor=${event.args.depositor}, recipient=${event.args.recipient}, token=${event.args.token}, amount=${event.args.amount}, txHash=${event.transaction.hash} ===`
-	);
 
 	// Use transaction hash as the primary ID for the entire transfer lifecycle
 	const transferId = `transfer-${event.transaction.hash}`;
@@ -86,9 +68,7 @@ export async function handleChainBalanceManagerDeposit({ event, context }: any) 
 export async function handleHyperlaneMailboxDispatchId({ event, context }: any) {
 	const { db } = context;
 
-	console.log(
-		`=== DispatchId event: messageId=${event.args.messageId}, txHash=${event.transaction.hash}, chainId=${context.network.chainId} ===`
-	);
+	console.log();
 
 	// Store the Hyperlane DISPATCH message
 	const dispatchId = `${event.args.messageId}-DISPATCH`;
@@ -115,10 +95,6 @@ export async function handleHyperlaneMailboxDispatchId({ event, context }: any) 
 
 export async function handleHyperlaneMailboxProcessId({ event, context }: any) {
 	const { db } = context;
-
-	console.log(
-		`=== ProcessId event: messageId=${event.args.messageId}, txHash=${event.transaction.hash}, chainId=${context.network.chainId} ===`
-	);
 
 	// Store the Hyperlane PROCESS message
 	const processId = `${event.args.messageId}-PROCESS`;
