@@ -411,3 +411,107 @@ export const faucetTokens = onchainTable(
 		timestampIdx: index().on(table.timestamp),
 	})
 );
+<<<<<<< Updated upstream
+=======
+
+export const crossChainTransfers = onchainTable(
+	"cross_chain_transfers",
+	t => ({
+		id: t.text().primaryKey(),
+		sourceChainId: t.integer().notNull(), // Source chain (where deposit originated)
+		destinationChainId: t.integer(), // Destination chain (where funds will be credited) - nullable initially
+		sender: t.hex().notNull(),
+		recipient: t.hex().notNull(),
+		sourceToken: t.hex().notNull(), // Original token address on source chain
+		destinationToken: t.hex(), // Synthetic token address on destination chain
+		amount: t.bigint().notNull(),
+		messageId: t.hex(),
+		sourceTransactionHash: t.text().notNull(), // Source chain TX hash
+		destinationTransactionHash: t.text(), // Destination chain TX hash (when processed)
+		sourceBlockNumber: t.bigint().notNull(),
+		destinationBlockNumber: t.bigint(), // When processed on destination
+		timestamp: t.integer().notNull(),
+		destinationTimestamp: t.integer(), // When processed on destination
+		status: t.varchar().notNull(), // "SENT", "RELAYED", "COMPLETED"
+		direction: t.varchar().notNull(), // "DEPOSIT" or "WITHDRAWAL"
+	}),
+	table => ({
+		senderIdx: index().on(table.sender),
+		recipientIdx: index().on(table.recipient),
+		sourceTokenIdx: index().on(table.sourceToken),
+		destinationTokenIdx: index().on(table.destinationToken),
+		messageIdIdx: index().on(table.messageId),
+		sourceChainIdIdx: index().on(table.sourceChainId),
+		destinationChainIdIdx: index().on(table.destinationChainId),
+		timestampIdx: index().on(table.timestamp),
+		statusIdx: index().on(table.status),
+		directionIdx: index().on(table.direction),
+		sourceTransactionHashIdx: index().on(table.sourceTransactionHash),
+		destinationTransactionHashIdx: index().on(table.destinationTransactionHash),
+		// Composite indexes for common queries
+		sourceChainDirectionIdx: index().on(table.sourceChainId, table.direction),
+		destinationChainDirectionIdx: index().on(table.destinationChainId, table.direction),
+		userDirectionIdx: index().on(table.sender, table.direction),
+	})
+);
+
+export const hyperlaneMessages = onchainTable(
+	"hyperlane_messages",
+	t => ({
+		id: t.text().primaryKey(), // Use compound key: messageId-type
+		chainId: t.integer().notNull(),
+		sender: t.hex().notNull(),
+		messageId: t.hex().notNull(),
+		type: t.varchar().notNull(), // "DISPATCH" or "PROCESS"
+		transactionHash: t.text().notNull(),
+		blockNumber: t.bigint().notNull(),
+		timestamp: t.integer().notNull(),
+	}),
+	table => ({
+		senderIdx: index().on(table.sender),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+		transactionHashIdx: index().on(table.transactionHash),
+		messageIdIdx: index().on(table.messageId),
+		typeIdx: index().on(table.type),
+		messageIdTypeIdx: index().on(table.messageId, table.type),
+	})
+);
+
+// Relations for cross-chain transfers
+export const crossChainTransfersRelations = relations(crossChainTransfers, ({ one }) => ({
+	// Link to the source hyperlane DISPATCH message via sourceTransactionHash
+	dispatchMessage: one(hyperlaneMessages, {
+		fields: [crossChainTransfers.sourceTransactionHash],
+		references: [hyperlaneMessages.transactionHash],
+		relationName: "sourceDispatch",
+	}),
+	// Link to destination hyperlane PROCESS message via messageId  
+	processMessage: one(hyperlaneMessages, {
+		fields: [crossChainTransfers.messageId],
+		references: [hyperlaneMessages.messageId],
+		relationName: "destinationProcess",
+	}),
+}));
+
+// Relations for hyperlane messages
+export const hyperlaneMessagesRelations = relations(hyperlaneMessages, ({ one, many }) => ({
+	// For DISPATCH messages: link to cross-chain transfers that originated from this
+	sourceTransfers: many(crossChainTransfers, {
+		relationName: "sourceDispatch",
+	}),
+	// For PROCESS messages: link to cross-chain transfers completed by this
+	destinationTransfers: many(crossChainTransfers, {
+		relationName: "destinationProcess", 
+	}),
+	// Link DISPATCH and PROCESS messages with same messageId
+	pairedMessage: one(hyperlaneMessages, {
+		fields: [hyperlaneMessages.messageId],
+		references: [hyperlaneMessages.messageId],
+		relationName: "messagePair",
+	}),
+	pairedMessages: many(hyperlaneMessages, {
+		relationName: "messagePair",
+	}),
+}));
+>>>>>>> Stashed changes

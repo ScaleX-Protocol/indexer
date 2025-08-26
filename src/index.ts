@@ -26,3 +26,8 @@ ponder.on(PonderEvents.UPDATE_ORDER, orderBookHandler.handleUpdateOrder);
 ponder.on(PonderEvents.ADD_TOKEN, faucetHandler.handleAddToken);
 ponder.on(PonderEvents.REQUEST_TOKEN, faucetHandler.handleRequestToken);
 ponder.on(PonderEvents.DEPOSIT_TOKEN, faucetHandler.handleDepositToken);
+
+// Cross-Chain Events
+ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_DEPOSIT, crossChainHandler.handleChainBalanceManagerDeposit);
+ponder.on(PonderEvents.HYPERLANE_MAILBOX_DISPATCH_ID, crossChainHandler.handleHyperlaneMailboxDispatchId);
+ponder.on(PonderEvents.HYPERLANE_MAILBOX_PROCESS_ID, crossChainHandler.handleHyperlaneMailboxProcessId);

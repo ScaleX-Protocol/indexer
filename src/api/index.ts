@@ -810,7 +810,10 @@ async function getCurrentBlockNumber(): Promise<number> {
   }
 }
 
-bootstrapGateway(app);
+// Only start WebSocket gateway if enabled
+if (process.env.ENABLE_WEBSOCKET === 'true') {
+  bootstrapGateway(app);
+}
 
 // Start system monitor for metrics collection (configurable)
 const ENABLE_SYSTEM_MONITOR = process.env.ENABLE_SYSTEM_MONITOR === 'true';

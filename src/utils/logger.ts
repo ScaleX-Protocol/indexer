@@ -159,7 +159,14 @@ export const writeErrorToFile = (
   existingLogs.push(errorEntry);
   
   try {
-    writeFileSync(errorLogPath, JSON.stringify(existingLogs, null, 2));
+    // Use a custom replacer function to handle BigInt serialization
+    const jsonString = JSON.stringify(existingLogs, (key, value) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      return value;
+    }, 2);
+    writeFileSync(errorLogPath, jsonString);
   } catch (writeError) {
     console.error('Failed to write error to log file:', writeError);
   }

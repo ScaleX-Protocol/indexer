@@ -1,5 +1,23 @@
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ponder-postgres
+    environment:
+      POSTGRES_USER: ponder
+      POSTGRES_PASSWORD: ponder123
+      POSTGRES_DB: ponder_gtx
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ponder -d ponder_gtx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:latest
     ports:
@@ -29,3 +47,6 @@ services:
     depends_on:
       - ponder
     restart: always
+
+volumes:
+  postgres_data:
