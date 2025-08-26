@@ -42,16 +42,16 @@ export const orders = onchainTable(
 		expiry: t.integer(),
 	}),
 	(table: any) => ({
-		orderIdChainIdx: index().on(table.orderId, table.chainId), 
-		poolChainStatusIdx: index().on(table.poolId, table.chainId, table.status), 
-		poolStatusSideIdx: index().on(table.poolId, table.status, table.side), 		
-		depthOptimizedIdx: index().on(table.poolId, table.status, table.side, table.price), 
-		userTimestampIdx: index().on(table.user, table.timestamp), 
-		userStatusTimestampIdx: index().on(table.user, table.status, table.timestamp), 
-		poolIdx: index().on(table.poolId), 
-		statusIdx: index().on(table.status), 
-		timestampIdx: index().on(table.timestamp), 
-		userIdx: index().on(table.user), 
+		orderIdChainIdx: index().on(table.orderId, table.chainId),
+		poolChainStatusIdx: index().on(table.poolId, table.chainId, table.status),
+		poolStatusSideIdx: index().on(table.poolId, table.status, table.side),
+		depthOptimizedIdx: index().on(table.poolId, table.status, table.side, table.price),
+		userTimestampIdx: index().on(table.user, table.timestamp),
+		userStatusTimestampIdx: index().on(table.user, table.status, table.timestamp),
+		poolIdx: index().on(table.poolId),
+		statusIdx: index().on(table.status),
+		timestampIdx: index().on(table.timestamp),
+		userIdx: index().on(table.user),
 	})
 );
 
@@ -221,14 +221,15 @@ const createBucketTable = (tableName: string) =>
 			average: t.real().notNull(),
 			poolId: t.hex().notNull(),
 		}),
-		(table) => ({
+		table => ({
 			openTimeIdx: index().on(table.openTime),
 			poolIdx: index().on(table.poolId),
 			chainIdIdx: index().on(table.chainId),
 			poolOpenTimeIdx: index().on(table.poolId, table.openTime),
 			poolChainOpenTimeIdx: index().on(table.poolId, table.chainId, table.openTime),
 			closeTimeIdx: index().on(table.closeTime),
-		}));
+		})
+	);
 
 export const minuteBuckets = createBucketTable("minute_buckets");
 export const fiveMinuteBuckets = createBucketTable("five_minute_buckets");
@@ -411,8 +412,6 @@ export const faucetTokens = onchainTable(
 		timestampIdx: index().on(table.timestamp),
 	})
 );
-<<<<<<< Updated upstream
-=======
 
 export const crossChainTransfers = onchainTable(
 	"cross_chain_transfers",
@@ -486,7 +485,7 @@ export const crossChainTransfersRelations = relations(crossChainTransfers, ({ on
 		references: [hyperlaneMessages.transactionHash],
 		relationName: "sourceDispatch",
 	}),
-	// Link to destination hyperlane PROCESS message via messageId  
+	// Link to destination hyperlane PROCESS message via messageId
 	processMessage: one(hyperlaneMessages, {
 		fields: [crossChainTransfers.messageId],
 		references: [hyperlaneMessages.messageId],
@@ -502,7 +501,7 @@ export const hyperlaneMessagesRelations = relations(hyperlaneMessages, ({ one, m
 	}),
 	// For PROCESS messages: link to cross-chain transfers completed by this
 	destinationTransfers: many(crossChainTransfers, {
-		relationName: "destinationProcess", 
+		relationName: "destinationProcess",
 	}),
 	// Link DISPATCH and PROCESS messages with same messageId
 	pairedMessage: one(hyperlaneMessages, {
@@ -514,4 +513,3 @@ export const hyperlaneMessagesRelations = relations(hyperlaneMessages, ({ one, m
 		relationName: "messagePair",
 	}),
 }));
->>>>>>> Stashed changes

@@ -5,7 +5,7 @@ import { BalanceManagerABI } from "./abis/BalanceManager";
 import { GTXRouterABI } from "./abis/GTXRouter";
 import { OrderBookABI } from "./abis/OrderBook";
 import { PoolManagerABI } from "./abis/PoolManager";
-import { FaucetABI } from "./abis/FaucetABI";
+import { FaucetABI } from "./abis/Faucet";
 import { MailboxABI } from "./abis/Mailbox";
 import { ChainBalanceManagerABI } from "abis";
 import dotenv from "dotenv";
