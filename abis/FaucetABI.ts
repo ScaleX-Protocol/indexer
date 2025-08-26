@@ -1,4 +1,4 @@
-export const FaucetABI = [
+export const FaucetABI: any[] = [
 	{ type: "constructor", inputs: [], stateMutability: "nonpayable" },
 	{
 		type: "function",

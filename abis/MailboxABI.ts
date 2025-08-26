@@ -1,4 +1,4 @@
-export const MailboxABI = [
+export const MailboxABI: any[] = [
 	{
 		anonymous: false,
 		inputs: [
