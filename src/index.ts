@@ -3,6 +3,7 @@ import * as orderBookHandler from "./handlers/orderBookHandler";
 import * as balanceManagerHandler from "./handlers/balanceManagerHandler";
 import * as poolManagerHandler from "./handlers/poolManagerHandler";
 import * as faucetHandler from "./handlers/faucetHandler";
+import * as crossChainHandler from "./handlers/crossChainHandler";
 import { PonderEvents } from "./types/ponder";
 
 // Pool Manager Events

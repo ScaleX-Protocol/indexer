@@ -1,20 +1,20 @@
 import { crossChainTransfers, hyperlaneMessages } from "ponder:schema";
 
 // Get chain name helper function
-const getChainName = (chainId: number) => {
-	switch (chainId) {
-		case 4661:
-			return "appchain-testnet";
-		case 11155931:
-			return "rise-sepolia";
-		case 421614:
-			return "arbitrum-sepolia";
-		case 1918988905:
-			return "rari-testnet";
-		default:
-			return "unknown";
-	}
-};
+// const getChainName = (chainId: number) => {
+// 	switch (chainId) {
+// 		case 4661:
+// 			return "appchain-testnet";
+// 		case 11155931:
+// 			return "rise-sepolia";
+// 		case 421614:
+// 			return "arbitrum-sepolia";
+// 		case 1918988905:
+// 			return "rari-testnet";
+// 		default:
+// 			return "unknown";
+// 	}
+// };
 
 // ChainBalanceManager handlers (only on source chains: appchain, rise, arbitrum)
 export async function handleChainBalanceManagerDeposit({ event, context }: any) {
