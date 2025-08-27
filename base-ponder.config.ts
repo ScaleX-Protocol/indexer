@@ -1,14 +1,14 @@
 // base-ponder.config.ts
-import { factory, loadBalance, rateLimit } from "ponder";
-import { fallback, getAddress, http, parseAbiItem } from "viem";
-import { BalanceManagerABI } from "./abis/BalanceManager";
-import { GTXRouterABI } from "./abis/GTXRouter";
-import { OrderBookABI } from "./abis/OrderBook";
-import { PoolManagerABI } from "./abis/PoolManager";
-import { FaucetABI } from "./abis/Faucet";
-import { MailboxABI } from "./abis/Mailbox";
 import { ChainBalanceManagerABI } from "abis";
 import dotenv from "dotenv";
+import { factory } from "ponder";
+import { fallback, getAddress, http, parseAbiItem } from "viem";
+import { BalanceManagerABI } from "./abis/BalanceManager";
+import { FaucetABI } from "./abis/Faucet";
+import { GTXRouterABI } from "./abis/GTXRouter";
+import { MailboxABI } from "./abis/Mailbox";
+import { OrderBookABI } from "./abis/OrderBook";
+import { PoolManagerABI } from "./abis/PoolManager";
 
 dotenv.config();
 
@@ -22,6 +22,7 @@ const contracts: any = {
 			rariTestnet: {
 				address: getAddress((process.env.BALANCE_MANAGER_CONTRACT_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.RARI_START_BLOCK) || undefined,
+				endBlock: Number(process.env.RARI_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -50,18 +51,22 @@ const contracts: any = {
 			rariTestnet: {
 				address: getAddress((process.env.MAILBOX_RARI_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.RARI_START_BLOCK) || undefined,
+				endBlock: Number(process.env.RARI_END_BLOCK) || undefined,
 			},
 			appchainTestnet: {
 				address: getAddress((process.env.MAILBOX_APPCHAIN_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.APPCHAIN_START_BLOCK) || undefined,
+				endBlock: Number(process.env.APPCHAIN_END_BLOCK) || undefined,
 			},
 			risesSpolia: {
 				address: getAddress((process.env.MAILBOX_RISE_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.RISE_START_BLOCK) || undefined,
+				endBlock: Number(process.env.RISE_END_BLOCK) || undefined,
 			},
 			arbitrumSepolia: {
 				address: getAddress((process.env.MAILBOX_ARBITRUM_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.ARBITRUM_START_BLOCK) || undefined,
+				endBlock: Number(process.env.ARBITRUM_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -70,8 +75,9 @@ const contracts: any = {
 		abi: PoolManagerABI || [],
 		network: {
 			rariTestnet: {
-				address: getAddress((process.env.POOLMANAGER_RARI_ADDRESS as `0x${string}`) || default_address),
+				address: getAddress((process.env.POOLMANAGER_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.RARI_START_BLOCK) || undefined,
+				endBlock: Number(process.env.RARI_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -88,6 +94,7 @@ const contracts: any = {
 					parameter: "orderBook",
 				}),
 				startBlock: Number(process.env.RARI_START_BLOCK) || undefined,
+				endBlock: Number(process.env.RARI_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -98,6 +105,7 @@ const contracts: any = {
 			rariTestnet: {
 				address: getAddress((process.env.GTXROUTER_CONTRACT_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.RARI_START_BLOCK) || undefined,
+				endBlock: Number(process.env.RARI_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -108,6 +116,7 @@ const contracts: any = {
 			appchainTestnet: {
 				address: getAddress((process.env.FAUCET_CONTRACT_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.FAUCET_START_BLOCK) || undefined,
+				endBlock: Number(process.env.FAUCET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -142,7 +151,6 @@ export function getBaseConfig() {
 				chainId: 421614,
 				transport: fallback([
 					http(process.env.ARBITRUM_SEPOLIA_ENDPOINT),
-					http(process.env.ARBITRUM_SEPOLIA_ENDPOINT_2),
 				]),
 				pollingInterval: Number(process.env.POLLING_INTERVAL) || 100,
 				maxRequestsPerSecond: Number(process.env.MAX_REQUESTS_PER_SECOND) || 250,
