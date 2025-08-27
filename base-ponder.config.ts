@@ -20,7 +20,7 @@ const contracts: any = {
 		abi: BalanceManagerABI || [],
 		network: {
 			rariTestnet: {
-				address: getAddress((process.env.BALANCE_MANAGER_CONTRACT_ADDRESS as `0x${string}`) || default_address),
+				address: getAddress((process.env.BALANCEMANAGER_CONTRACT_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.RARI_START_BLOCK) || undefined,
 				endBlock: Number(process.env.RARI_END_BLOCK) || undefined,
 			},
@@ -87,7 +87,7 @@ const contracts: any = {
 		network: {
 			rariTestnet: {
 				address: factory({
-					address: getAddress((process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) || default_address),
+					address: getAddress((process.env.POOLMANAGER_ADDRESS as `0x${string}`) || default_address),
 					event: parseAbiItem(
 						"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency)"
 					),
@@ -109,14 +109,19 @@ const contracts: any = {
 			},
 		},
 	},
-	// Faucet exists on Appchain
+	// Faucet exists on Appchain and Arbitrum Sepolia
 	Faucet: {
 		abi: FaucetABI || [],
 		network: {
 			appchainTestnet: {
-				address: getAddress((process.env.FAUCET_CONTRACT_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.FAUCET_START_BLOCK) || undefined,
-				endBlock: Number(process.env.FAUCET_END_BLOCK) || undefined,
+				address: getAddress((process.env.FAUCET_APPCHAIN_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.APPCHAIN_START_BLOCK) || undefined,
+				endBlock: Number(process.env.APPCHAIN_END_BLOCK) || undefined,
+			},
+			arbitrumSepolia: {
+				address: getAddress((process.env.FAUCET_ARBITRUM_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.ARBITRUM_START_BLOCK) || undefined,
+				endBlock: Number(process.env.ARBITRUM_END_BLOCK) || undefined,
 			},
 		},
 	},
