@@ -1,5 +1,5 @@
+import { and, asc, eq, gt, or, sql } from "ponder";
 import { orders } from "../../ponder.schema";
-import {eq, and, or, desc, asc, sql, gt} from "ponder";
 
 export async function getDepth(pool: `0x${string}`, db: any, limit: number) {
     // Bids: Buy, OPEN or PARTIALLY_FILLED, price desc

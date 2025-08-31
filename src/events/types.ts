@@ -18,6 +18,17 @@ export interface BalanceUpdateEvent {
   timestamp: string;
 }
 
+export interface ChainBalanceEvent {
+  eventType: 'deposit' | 'withdraw' | 'unlock' | 'claim';
+  userId: string;
+  token: string;
+  amount: string;
+  chainId: string;
+  timestamp: string;
+  transactionId: string;
+  blockNumber: string;
+}
+
 export interface OrderEvent {
   orderId: string;
   userId: string;
@@ -71,7 +82,8 @@ export enum EventStreams {
   ORDERS = 'orders',
   DEPTH = 'depth',
   KLINES = 'klines',
-  EXECUTION_REPORTS = 'execution_reports'
+  EXECUTION_REPORTS = 'execution_reports',
+  CHAIN_BALANCES = 'chain_balances'
 }
 
 export interface StreamMessage {

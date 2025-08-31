@@ -1,8 +1,9 @@
 import { initializeEventPublisher } from "@/events";
 import { initIORedisClient } from "@/utils/redis";
+import { bootstrapGateway } from "@/websocket/websocket-server";
 import dotenv from "dotenv";
 import { Hono } from "hono";
-import { and, asc, client, desc, eq, graphql, gt, gte, lte, or, sql, inArray } from "ponder";
+import { and, asc, client, desc, eq, graphql, gt, gte, inArray, lte, or, sql } from "ponder";
 import { db } from "ponder:api";
 import schema, {
 	balances,
@@ -17,44 +18,7 @@ import schema, {
 	pools,
 	thirtyMinuteBuckets,
 } from "ponder:schema";
-import { defineChain } from "viem";
 import { systemMonitor } from "../utils/systemMonitor";
-
-export const rise = defineChain({
-	id: parseInt(process.env.CHAIN_ID || '11155931'),
-	name: process.env.CHAIN_NAME || 'RISE Testnet',
-	nativeCurrency: { 
-		name: process.env.NATIVE_CURRENCY_NAME || 'Ether', 
-		symbol: process.env.NATIVE_CURRENCY_SYMBOL || 'ETH', 
-		decimals: parseInt(process.env.NATIVE_CURRENCY_DECIMALS || '18') 
-	},
-	rpcUrls: {
-		default: {
-			http: [process.env.PONDER_RPC_URL || 'https://testnet.riselabs.xyz'],
-			webSocket: [process.env.WS_RPC_URL || 'wss://testnet.riselabs.xyz/ws']
-		},
-	},
-	blockExplorers: {
-		default: {
-			name: process.env.BLOCK_EXPLORER_NAME || 'RISE Explorer',
-			url: process.env.BLOCK_EXPLORER_URL || 'https://testnet.explorer.riselabs.xyz',
-		},
-	},
-	contracts: {
-		multicall3: {
-			address: (process.env.MULTICALL3_ADDRESS || '0x4200000000000000000000000000000000000013') as `0x${string}`,
-			blockCreated: parseInt(process.env.MULTICALL3_BLOCK_CREATED || '0'),
-		},
-		l2StandardBridge: {
-			address: (process.env.L2_STANDARD_BRIDGE_ADDRESS || '0x4200000000000000000000000000000000000010') as `0x${string}`,
-		},
-		l2CrossDomainMessenger: {
-			address: (process.env.L2_CROSS_DOMAIN_MESSENGER_ADDRESS || '0x4200000000000000000000000000000000000007') as `0x${string}`,
-		},
-	},
-	testnet: process.env.IS_TESTNET === 'true' || true
-})
-
 
 dotenv.config();
 
@@ -469,7 +433,6 @@ app.get("/api/ticker/price", async c => {
 		return c.json({ error: `Failed to fetch price data: ${error}` }, 500);
 	}
 });
-
 app.get("/api/allOrders", async c => {
 	const symbol = c.req.query("symbol");
 	const limit = parseInt(c.req.query("limit") || "500");
@@ -480,7 +443,8 @@ app.get("/api/allOrders", async c => {
 	}
 
 	try {
-		let whereConditions = [eq(orders.user, address as `0x${string}`)];
+		const baseQuery = db.select().from(orders);
+		let query = baseQuery.where(eq(orders.user, address as `0x${string}`));
 
 		if (symbol) {
 			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
@@ -570,10 +534,13 @@ app.get("/api/openOrders", async c => {
 	}
 
 	try {
-		let whereConditions = [
-			eq(orders.user, address as `0x${string}`),
-			or(eq(orders.status, "NEW"), eq(orders.status, "PARTIALLY_FILLED"), eq(orders.status, "OPEN"))
-		];
+		const baseQuery = db.select().from(orders);
+		let query = baseQuery.where(
+			and(
+				eq(orders.user, address as `0x${string}`),
+				or(eq(orders.status, "NEW"), eq(orders.status, "PARTIALLY_FILLED"), eq(orders.status, "OPEN"))
+			)
+		);
 
 		if (symbol) {
 			const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol)).orderBy(desc(pools.timestamp));
@@ -667,6 +634,58 @@ app.get("/api/pairs", async c => {
 				poolId: pool.id,
 				baseDecimals: pool.baseDecimals,
 				quoteDecimals: pool.quoteDecimals,
+			};
+		});
+
+		return c.json(pairs);
+	} catch (error) {
+		return c.json({ error: `Failed to fetch pairs data: ${error}` }, 500);
+	}
+});
+
+
+app.get("/api/pairs", async c => {
+	try {
+		const allPools = await db.select().from(pools).execute();
+
+		const pairs = allPools.map(pool => {
+			const symbol = pool.coin || "";
+			const symbolParts = symbol.split("/");
+			
+			return {
+				symbol: symbol.replace("/", ""),
+				baseAsset: symbolParts[0] || symbol,
+				quoteAsset: symbolParts[1] || "USDT",
+				poolId: pool.id,
+				baseDecimals: pool.baseDecimals,
+				quoteDecimals: pool.quoteDecimals,
+			};
+		});
+
+		return c.json(pairs);
+	} catch (error) {
+		return c.json({ error: `Failed to fetch pairs data: ${error}` }, 500);
+	}
+});
+
+app.get("/api/markets", async c => {
+	try {
+		const allPools = await db.select().from(pools).execute();
+
+		const pairs = allPools.map(pool => {
+			const symbol = pool.coin || "";
+			const symbolParts = symbol.split("/");
+			
+			return {
+				symbol: symbol.replace("/", ""),
+				baseAsset: symbolParts[0] || symbol,
+				quoteAsset: symbolParts[1] || "USDT",
+				poolId: pool.id,
+				baseDecimals: pool.baseDecimals,
+				quoteDecimals: pool.quoteDecimals,
+				volume: pool.volume?.toString() || "0",
+				volumeInQuote: pool.volumeInQuote?.toString() || "0",
+				latestPrice: pool.price?.toString() || "0",
 			};
 		});
 
@@ -772,39 +791,6 @@ function formatKlineData(bucket: BucketData): BinanceKlineData {
 		bucket.takerBuyQuoteVolume.toString(),
 		"0",
 	];
-}
-
-async function getCurrentBlockNumber(): Promise<number> {
-  try {
-    const networkName = process.env.NETWORK?.toLowerCase() || 'mainnet';
-
-    const chainMap: Record<string, any> = {
-      'rise': rise,
-      'mainnet': mainnet,
-      'sepolia': sepolia,
-      'goerli': goerli,
-      'arbitrum': arbitrum,
-      'optimism': optimism,
-      'polygon': polygon,
-      'base': base
-    };
-
-    const chain = chainMap[networkName] || mainnet;
-    console.log(`Using ${networkName} network`);
-
-    const client = createPublicClient({
-      chain,
-      transport: http()
-    });
-
-    const blockNumber = await client.getBlockNumber();
-    console.log(`Current block number: ${blockNumber}`);
-
-    return Number(blockNumber);
-  } catch (error) {
-    console.error('Error getting current block number:', error);
-    return 0;
-  }
 }
 
 // Only start WebSocket gateway if enabled

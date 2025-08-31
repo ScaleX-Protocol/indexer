@@ -383,6 +383,8 @@ export const faucetTokens = onchainTable(
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		token: t.hex().notNull(),
+		symbol: t.varchar(),
+		decimals: t.integer(),
 		timestamp: t.integer(),
 		transactionId: t.text(),
 		blockNumber: t.text(),
@@ -428,7 +430,6 @@ export const crossChainTransfers = onchainTable(
 		directionIdx: index().on(table.direction),
 		sourceTransactionHashIdx: index().on(table.sourceTransactionHash),
 		destinationTransactionHashIdx: index().on(table.destinationTransactionHash),
-		// Composite indexes for common queries
 		sourceChainDirectionIdx: index().on(table.sourceChainId, table.direction),
 		destinationChainDirectionIdx: index().on(table.destinationChainId, table.direction),
 		userDirectionIdx: index().on(table.sender, table.direction),
@@ -494,3 +495,130 @@ export const hyperlaneMessagesRelations = relations(hyperlaneMessages, ({ one, m
 		relationName: "messagePair",
 	}),
 }));
+
+export const chainBalanceDeposits = onchainTable(
+	"chain_balance_deposits",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		depositor: t.hex().notNull(),
+		recipient: t.hex().notNull(),
+		token: t.hex().notNull(),
+		amount: t.bigint().notNull(),
+		timestamp: t.integer().notNull(),
+		transactionId: t.text().notNull(),
+		blockNumber: t.text().notNull(),
+	}),
+	table => ({
+		depositorIdx: index().on(table.depositor),
+		recipientIdx: index().on(table.recipient),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+		depositorTokenIdx: index().on(table.depositor, table.token),
+		depositorChainIdx: index().on(table.depositor, table.chainId),
+		recipientTokenIdx: index().on(table.recipient, table.token),
+		recipientChainIdx: index().on(table.recipient, table.chainId),
+		tokenChainIdx: index().on(table.token, table.chainId),
+		depositorTokenChainIdx: index().on(table.depositor, table.token, table.chainId),
+		recipientTokenChainIdx: index().on(table.recipient, table.token, table.chainId),
+	})
+);
+
+export const chainBalanceWithdrawals = onchainTable(
+	"chain_balance_withdrawals",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		user: t.hex().notNull(),
+		token: t.hex().notNull(),
+		amount: t.bigint().notNull(),
+		timestamp: t.integer().notNull(),
+		transactionId: t.text().notNull(),
+		blockNumber: t.text().notNull(),
+		withdrawalType: t.varchar().notNull(),
+	}),
+	table => ({
+		userIdx: index().on(table.user),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+		withdrawalTypeIdx: index().on(table.withdrawalType),
+		userTokenIdx: index().on(table.user, table.token),
+		userChainIdx: index().on(table.user, table.chainId),
+		tokenChainIdx: index().on(table.token, table.chainId),
+		userTokenChainIdx: index().on(table.user, table.token, table.chainId),
+	})
+);
+
+export const chainBalanceUnlocks = onchainTable(
+	"chain_balance_unlocks",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		user: t.hex().notNull(),
+		token: t.hex().notNull(),
+		amount: t.bigint().notNull(),
+		timestamp: t.integer().notNull(),
+		transactionId: t.text().notNull(),
+		blockNumber: t.text().notNull(),
+	}),
+	table => ({
+		userIdx: index().on(table.user),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+		userTokenIdx: index().on(table.user, table.token),
+		userChainIdx: index().on(table.user, table.chainId),
+		tokenChainIdx: index().on(table.token, table.chainId),
+		userTokenChainIdx: index().on(table.user, table.token, table.chainId),
+	})
+);
+
+export const chainBalanceTokenWhitelist = onchainTable(
+	"chain_balance_token_whitelist",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		token: t.hex().notNull(),
+		isWhitelisted: t.boolean().notNull(),
+		timestamp: t.integer().notNull(),
+		transactionId: t.text().notNull(),
+		blockNumber: t.text().notNull(),
+		action: t.varchar().notNull(), 
+	}),
+	table => ({
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+		isWhitelistedIdx: index().on(table.isWhitelisted),
+		actionIdx: index().on(table.action),
+		tokenChainIdx: index().on(table.token, table.chainId),
+		tokenWhitelistedIdx: index().on(table.token, table.isWhitelisted),
+	})
+);
+
+export const chainBalanceStates = onchainTable(
+	"chain_balance_states",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		user: t.hex().notNull(),
+		token: t.hex().notNull(),
+		balance: t.bigint().notNull(),
+		unlockedBalance: t.bigint().notNull(),
+		lastUpdated: t.integer().notNull(),
+	}),
+	table => ({
+		userIdx: index().on(table.user),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		lastUpdatedIdx: index().on(table.lastUpdated),
+		userTokenIdx: index().on(table.user, table.token),
+		userChainIdx: index().on(table.user, table.chainId),
+		tokenChainIdx: index().on(table.token, table.chainId),
+		userTokenChainIdx: index().on(table.user, table.token, table.chainId),
+		balanceIdx: index().on(table.balance),
+		unlockedBalanceIdx: index().on(table.unlockedBalance),
+	})
+);

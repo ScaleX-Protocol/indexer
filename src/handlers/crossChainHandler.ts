@@ -1,69 +1,9 @@
 import { crossChainTransfers, hyperlaneMessages } from "ponder:schema";
 
-// Get chain name helper function
+// ChainBalanceManager deposit handling has been moved to chainBalanceManagerHandler.ts
+// This file now only handles Hyperlane mailbox events
 
-// ChainBalanceManager handlers (only on source chains: appchain, rise, arbitrum)
-export async function handleChainBalanceManagerDeposit({ event, context }: any) {
-	const { db } = context;
-
-	// Use transaction hash as the primary ID for the entire transfer lifecycle
-	const transferId = `transfer-${event.transaction.hash}`;
-
-	const depositData = {
-		id: transferId,
-		sourceChainId: context.network.chainId,
-		destinationChainId: 1918988905, // Always Rari for deposits
-		sender: event.args.depositor || event.transaction.from,
-		recipient: event.args.recipient || event.args.depositor || event.transaction.from,
-		sourceToken: event.args.token,
-		amount: BigInt(event.args.amount),
-		sourceTransactionHash: event.transaction.hash,
-		sourceBlockNumber: BigInt(event.block.number),
-		timestamp: Number(event.block.timestamp),
-		status: "SENT",
-		direction: "DEPOSIT",
-		// These will be filled by DispatchId and ProcessId events
-		messageId: null,
-		destinationTransactionHash: null,
-		destinationBlockNumber: null,
-		destinationTimestamp: null,
-	};
-
-	console.log(`💡 Creating/updating deposit record: ${transferId}`);
-
-	try {
-		// Use Ponder's built-in upsert with conflict resolution
-		await db
-			.insert(crossChainTransfers)
-			.values(depositData)
-			.onConflictDoUpdate(row => ({
-				// Update existing record (from DispatchId) with accurate deposit data
-				sender: depositData.sender,
-				recipient: depositData.recipient,
-				sourceToken: depositData.sourceToken,
-				amount: depositData.amount,
-				sourceChainId: depositData.sourceChainId,
-				destinationChainId: depositData.destinationChainId,
-				sourceTransactionHash: depositData.sourceTransactionHash,
-				sourceBlockNumber: depositData.sourceBlockNumber,
-				timestamp: depositData.timestamp,
-				direction: depositData.direction,
-				// Keep messageId and status from DispatchId if they exist
-				messageId: row.messageId || depositData.messageId,
-				status: row.status || depositData.status,
-				// Keep destination fields if ProcessId already updated them
-				destinationTransactionHash: row.destinationTransactionHash || depositData.destinationTransactionHash,
-				destinationBlockNumber: row.destinationBlockNumber || depositData.destinationBlockNumber,
-				destinationTimestamp: row.destinationTimestamp || depositData.destinationTimestamp,
-			}));
-
-		console.log(`✅ Upserted deposit record: ${transferId}`);
-	} catch (error) {
-		console.log(`❌ Error upserting deposit: ${error}`);
-	}
-}
-
-// Hyperlane Mailbox handlers (on all chains: appchain, rise, arbitrum, rari)
+// Hyperlane Mailbox handlers (on all chains: appchain, rise, arbitrumSepolia, rari)
 
 export async function handleHyperlaneMailboxDispatchId({ event, context }: any) {
 	const { db } = context;

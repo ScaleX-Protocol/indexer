@@ -136,7 +136,7 @@ async function getCurrentBlockNumber(): Promise<number> {
       'mainnet': mainnet,
       'sepolia': sepolia,
       'goerli': goerli,
-      'arbitrum': arbitrum,
+      'arbitrumsepolia': arbitrum,
       'optimism': optimism,
       'polygon': polygon,
       'base': base,

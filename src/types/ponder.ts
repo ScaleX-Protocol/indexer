@@ -50,14 +50,16 @@ export const PonderEvents = {
   DEPOSIT_TOKEN: ponderEvent("Faucet:DepositToken"),
   
   // ChainBalanceManager Events
-  CHAIN_BALANCE_DEPOSIT: ponderEvent("ChainBalanceManager:Deposit"),
-  CHAIN_BALANCE_WITHDRAW: ponderEvent("ChainBalanceManager:Withdraw"),
-  CHAIN_BALANCE_UNLOCK: ponderEvent("ChainBalanceManager:Unlock"),
-  CHAIN_BALANCE_CLAIM: ponderEvent("ChainBalanceManager:Claim"),
-  CHAIN_BALANCE_TOKEN_WHITELISTED: ponderEvent("ChainBalanceManager:TokenWhitelisted"),
-  CHAIN_BALANCE_TOKEN_REMOVED: ponderEvent("ChainBalanceManager:TokenRemoved"),
-  CHAIN_BALANCE_OWNERSHIP_TRANSFERRED: ponderEvent("ChainBalanceManager:OwnershipTransferred"),
-  CHAIN_BALANCE_INITIALIZED: ponderEvent("ChainBalanceManager:Initialized")
+  CHAIN_BALANCE_MANAGER_DEPOSIT: ponderEvent("ChainBalanceManager:Deposit"),
+  CHAIN_BALANCE_MANAGER_WITHDRAW: ponderEvent("ChainBalanceManager:Withdraw"),
+  CHAIN_BALANCE_MANAGER_UNLOCK: ponderEvent("ChainBalanceManager:Unlock"),
+  CHAIN_BALANCE_MANAGER_CLAIM: ponderEvent("ChainBalanceManager:Claim"),
+  CHAIN_BALANCE_MANAGER_TOKEN_WHITELISTED: ponderEvent("ChainBalanceManager:TokenWhitelisted"),
+  CHAIN_BALANCE_MANAGER_TOKEN_REMOVED: ponderEvent("ChainBalanceManager:TokenRemoved"),
+  CHAIN_BALANCE_MANAGER_OWNERSHIP_TRANSFERRED: ponderEvent("ChainBalanceManager:OwnershipTransferred"),
+  CHAIN_BALANCE_MANAGER_INITIALIZED: ponderEvent("ChainBalanceManager:Initialized"),
+  HYPERLANE_MAILBOX_DISPATCH_ID: ponderEvent("HyperlaneMailbox:DispatchId"),
+  HYPERLANE_MAILBOX_PROCESS_ID: ponderEvent("HyperlaneMailbox:ProcessId"),
 };
 
 /**

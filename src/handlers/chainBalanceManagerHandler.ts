@@ -1,245 +1,497 @@
-import { ponder } from "ponder:registry";
-import { 
-  chainBalanceDeposits, 
-  chainBalanceWithdrawals, 
-  chainBalanceUnlocks,
+import { getEventPublisher } from "@/events/index";
+import dotenv from "dotenv";
+import {
+  chainBalanceDeposits,
+  chainBalanceStates,
   chainBalanceTokenWhitelist,
-  chainBalanceStates
-} from "../../ponder.schema";
+  chainBalanceUnlocks,
+  chainBalanceWithdrawals,
+  crossChainTransfers
+} from "ponder:schema";
 
-// Deposit event handler
-ponder.on("ChainBalanceManager:Deposit", async ({ event, context }) => {
-  const { user, token, amount } = event.args;
-  const { chainId, block, transaction } = context;
+dotenv.config();
 
-  const id = `${chainId}-${transaction.hash}-${event.logIndex}`;
-
-  // Store deposit record
-  await context.db.insert(chainBalanceDeposits).values({
-    id,
-    chainId: Number(chainId),
-    user: user.toLowerCase(),
-    token: token.toLowerCase(),
-    amount: amount,
-    timestamp: Number(block.timestamp),
-    transactionId: transaction.hash,
-    blockNumber: block.number.toString(),
-  });
-
-  // Update or create balance state
-  const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
-  
+// Helper function to publish chain balance events
+async function publishChainBalanceEvent(
+  eventType: 'deposit' | 'withdraw' | 'unlock' | 'claim',
+  user: string,
+  token: string,
+  amount: bigint,
+  chainId: number,
+  timestamp: number,
+  transactionId: string,
+  blockNumber: string
+) {
   try {
-    // Try to get existing state
-    const existingState = await context.db
-      .select()
-      .from(chainBalanceStates)
-      .where(({ id: stateId_ }) => stateId_.equals(stateId))
-      .limit(1);
+    const eventPublisher = getEventPublisher();
+    
+    await eventPublisher.publishChainBalanceUpdate({
+      eventType,
+      userId: user.toLowerCase(),
+      token: token.toLowerCase(),
+      amount: amount.toString(),
+      chainId: chainId.toString(),
+      timestamp: timestamp.toString(),
+      transactionId,
+      blockNumber
+    });
+  } catch (error) {
+    console.error('Failed to publish chain balance event:', error);
+  }
+}
 
-    if (existingState.length > 0) {
-      // Update existing state
-      await context.db
-        .update(chainBalanceStates, { id: stateId })
-        .set({
-          balance: existingState[0].balance + amount,
-          lastUpdated: Number(block.timestamp),
+export async function handleDeposit({ event, context }: any) {
+  try {
+    const { depositor, recipient, token, amount } = event.args;
+    const chainId = context.network.chainId;
+    const db = context.db;
+    const timestamp = Number(event.block.timestamp);
+
+    if (!db) throw new Error('Database context is null or undefined');
+    if (!chainId) throw new Error('Chain ID is missing from context');
+    if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+    const id = `${chainId}-${event.transaction.hash}-${event.logIndex}`;
+
+    try {
+      // Store deposit record
+      await db.insert(chainBalanceDeposits).values({
+        id,
+        chainId: Number(chainId),
+        depositor: depositor.toLowerCase(),
+        recipient: recipient.toLowerCase(),
+        token: token.toLowerCase(),
+        amount: amount,
+        timestamp,
+        transactionId: event.transaction.hash,
+        blockNumber: event.block.number.toString(),
+      });
+    } catch (error) {
+      console.error('Deposit insertion failed:', error);
+      throw new Error(`Failed to insert deposit: ${(error as Error).message}`);
+    }
+
+    // Handle cross-chain transfer tracking
+    try {
+      const transferId = `transfer-${event.transaction.hash}`;
+
+      const crossChainData = {
+        id: transferId,
+        sourceChainId: Number(chainId),
+        destinationChainId: 1918988905, // Always Rari for deposits
+        sender: depositor,
+        recipient: recipient,
+        sourceToken: token,
+        amount: BigInt(amount),
+        sourceTransactionHash: event.transaction.hash,
+        sourceBlockNumber: BigInt(event.block.number),
+        timestamp: timestamp,
+        status: "SENT",
+        direction: "DEPOSIT",
+        messageId: null,
+        destinationTransactionHash: null,
+        destinationBlockNumber: null,
+        destinationTimestamp: null,
+      };
+
+      console.log(`💡 Creating/updating deposit record: ${transferId}`);
+
+      // Use Ponder's built-in upsert with conflict resolution
+      await db
+        .insert(crossChainTransfers)
+        .values(crossChainData)
+        .onConflictDoUpdate((row: any) => ({
+          // Update existing record (from DispatchId) with accurate deposit data
+          sender: crossChainData.sender,
+          recipient: crossChainData.recipient,
+          sourceToken: crossChainData.sourceToken,
+          amount: crossChainData.amount,
+          sourceChainId: crossChainData.sourceChainId,
+          destinationChainId: crossChainData.destinationChainId,
+          sourceTransactionHash: crossChainData.sourceTransactionHash,
+          sourceBlockNumber: crossChainData.sourceBlockNumber,
+          timestamp: crossChainData.timestamp,
+          direction: crossChainData.direction,
+          // Keep messageId and status from DispatchId if they exist
+          messageId: row.messageId || crossChainData.messageId,
+          status: row.status || crossChainData.status,
+          // Keep destination fields if ProcessId already updated them
+          destinationTransactionHash: row.destinationTransactionHash || crossChainData.destinationTransactionHash,
+          destinationBlockNumber: row.destinationBlockNumber || crossChainData.destinationBlockNumber,
+          destinationTimestamp: row.destinationTimestamp || crossChainData.destinationTimestamp,
+        }));
+
+      console.log(`✅ Upserted deposit record: ${transferId}`);
+    } catch (error) {
+      console.error('Cross-chain transfer insertion failed:', error);
+      throw new Error(`Failed to insert cross-chain transfer: ${(error as Error).message}`);
+    }
+
+    // Update or create balance state
+    const stateId = `${chainId}-${recipient.toLowerCase()}-${token.toLowerCase()}`;
+    
+    try {
+      // Try to get existing state
+      const existingState = await db.find(chainBalanceStates, {
+        id: stateId
+      });
+
+      if (existingState) {
+        // Update existing state
+        await db
+          .update(chainBalanceStates, { id: stateId })
+          .set({
+            balance: existingState.balance + amount,
+            lastUpdated: timestamp,
+          });
+      } else {
+        // Create new state
+        await db.insert(chainBalanceStates).values({
+          id: stateId,
+          chainId: Number(chainId),
+          user: recipient.toLowerCase(),
+          token: token.toLowerCase(),
+          balance: amount,
+          unlockedBalance: 0n,
+          lastUpdated: timestamp,
         });
-    } else {
-      // Create new state
-      await context.db.insert(chainBalanceStates).values({
-        id: stateId,
+      }
+    } catch (error) {
+      console.error('Balance state update failed:', error);
+      throw new Error(`Failed to update balance state for deposit: ${(error as Error).message}`);
+    }
+
+    // Publish chain balance event
+    try {
+      await publishChainBalanceEvent(
+        'deposit',
+        recipient,
+        token,
+        amount,
+        Number(chainId),
+        timestamp,
+        event.transaction.hash,
+        event.block.number.toString()
+      );
+    } catch (error) {
+      console.error('Failed to publish deposit event:', error);
+    }
+  } catch (error) {
+    console.error('Deposit handler error:', error);
+    throw error;
+  }
+}
+
+export async function handleWithdraw({ event, context }: any) {
+  try {
+    const { user, token, amount } = event.args;
+    const chainId = context.network.chainId;
+    const { block } = context;
+    const db = context.db;
+    const timestamp = Number(block.timestamp);
+
+    if (!db) throw new Error('Database context is null or undefined');
+    if (!chainId) throw new Error('Chain ID is missing from context');
+    if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+    const id = `${chainId}-${event.transaction.hash}-${event.logIndex}`;
+
+    try {
+      // Store withdrawal record
+      await db.insert(chainBalanceWithdrawals).values({
+        id,
         chainId: Number(chainId),
         user: user.toLowerCase(),
         token: token.toLowerCase(),
-        balance: amount,
-        unlockedBalance: 0n,
-        lastUpdated: Number(block.timestamp),
+        amount: amount,
+        timestamp,
+        transactionId: event.transaction.hash,
+        blockNumber: block.number.toString(),
+        withdrawalType: 'withdraw', // Traditional seamless withdrawal
       });
+    } catch (error) {
+      console.error('Withdrawal insertion failed:', error);
+      throw new Error(`Failed to insert withdrawal: ${(error as Error).message}`);
+    }
+
+    // Update balance state
+    const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
+    
+    try {
+      const existingState = await db.find(chainBalanceStates, {
+        id: stateId
+      });
+
+      if (existingState) {
+        await db
+          .update(chainBalanceStates, { id: stateId })
+          .set({
+            balance: existingState.balance - amount,
+            lastUpdated: timestamp,
+          });
+      }
+    } catch (error) {
+      console.error('Balance state update failed:', error);
+      throw new Error(`Failed to update balance state for withdraw: ${(error as Error).message}`);
+    }
+
+    // Publish chain balance event
+    try {
+      await publishChainBalanceEvent(
+        'withdraw',
+        user,
+        token,
+        amount,
+        Number(chainId),
+        timestamp,
+        event.transaction.hash,
+        block.number.toString()
+      );
+    } catch (error) {
+      console.error('Failed to publish withdraw event:', error);
     }
   } catch (error) {
-    console.error(`Error updating balance state for deposit: ${error}`);
+    console.error('Withdraw handler error:', error);
+    throw error;
   }
-});
+}
 
-// Traditional withdraw event handler
-ponder.on("ChainBalanceManager:Withdraw", async ({ event, context }) => {
-  const { user, token, amount } = event.args;
-  const { chainId, block, transaction } = context;
-
-  const id = `${chainId}-${transaction.hash}-${event.logIndex}`;
-
-  // Store withdrawal record
-  await context.db.insert(chainBalanceWithdrawals).values({
-    id,
-    chainId: Number(chainId),
-    user: user.toLowerCase(),
-    token: token.toLowerCase(),
-    amount: amount,
-    timestamp: Number(block.timestamp),
-    transactionId: transaction.hash,
-    blockNumber: block.number.toString(),
-    withdrawalType: 'withdraw', // Traditional seamless withdrawal
-  });
-
-  // Update balance state
-  const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
-  
+export async function handleUnlock({ event, context }: any) {
   try {
-    const existingState = await context.db
-      .select()
-      .from(chainBalanceStates)
-      .where(({ id: stateId_ }) => stateId_.equals(stateId))
-      .limit(1);
+    const { user, token, amount } = event.args;
+    const chainId = context.network.chainId;
+    const { block } = context;
+    const db = context.db;
+    const timestamp = Number(block.timestamp);
 
-    if (existingState.length > 0) {
-      await context.db
-        .update(chainBalanceStates, { id: stateId })
-        .set({
-          balance: existingState[0].balance - amount,
-          lastUpdated: Number(block.timestamp),
-        });
+    if (!db) throw new Error('Database context is null or undefined');
+    if (!chainId) throw new Error('Chain ID is missing from context');
+    if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+    const id = `${chainId}-${event.transaction.hash}-${event.logIndex}`;
+
+    try {
+      // Store unlock record
+      await db.insert(chainBalanceUnlocks).values({
+        id,
+        chainId: Number(chainId),
+        user: user.toLowerCase(),
+        token: token.toLowerCase(),
+        amount: amount,
+        timestamp,
+        transactionId: event.transaction.hash,
+        blockNumber: block.number.toString(),
+      });
+    } catch (error) {
+      console.error('Unlock insertion failed:', error);
+      throw new Error(`Failed to insert unlock: ${(error as Error).message}`);
+    }
+
+    // Update balance state (move from balance to unlockedBalance)
+    const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
+    
+    try {
+      const existingState = await db.find(chainBalanceStates, {
+        id: stateId
+      });
+
+      if (existingState) {
+        await db
+          .update(chainBalanceStates, { id: stateId })
+          .set({
+            balance: existingState.balance - amount,
+            unlockedBalance: existingState.unlockedBalance + amount,
+            lastUpdated: timestamp,
+          });
+      }
+    } catch (error) {
+      console.error('Balance state update failed:', error);
+      throw new Error(`Failed to update balance state for unlock: ${(error as Error).message}`);
+    }
+
+    // Publish chain balance event
+    try {
+      await publishChainBalanceEvent(
+        'unlock',
+        user,
+        token,
+        amount,
+        Number(chainId),
+        timestamp,
+        event.transaction.hash,
+        block.number.toString()
+      );
+    } catch (error) {
+      console.error('Failed to publish unlock event:', error);
     }
   } catch (error) {
-    console.error(`Error updating balance state for withdraw: ${error}`);
+    console.error('Unlock handler error:', error);
+    throw error;
   }
-});
+}
 
-// Unlock event handler
-ponder.on("ChainBalanceManager:Unlock", async ({ event, context }) => {
-  const { user, token, amount } = event.args;
-  const { chainId, block, transaction } = context;
-
-  const id = `${chainId}-${transaction.hash}-${event.logIndex}`;
-
-  // Store unlock record
-  await context.db.insert(chainBalanceUnlocks).values({
-    id,
-    chainId: Number(chainId),
-    user: user.toLowerCase(),
-    token: token.toLowerCase(),
-    amount: amount,
-    timestamp: Number(block.timestamp),
-    transactionId: transaction.hash,
-    blockNumber: block.number.toString(),
-  });
-
-  // Update balance state (move from balance to unlockedBalance)
-  const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
-  
+export async function handleClaim({ event, context }: any) {
   try {
-    const existingState = await context.db
-      .select()
-      .from(chainBalanceStates)
-      .where(({ id: stateId_ }) => stateId_.equals(stateId))
-      .limit(1);
+    const { user, token, amount } = event.args;
+    const chainId = context.network.chainId;
+    const { block } = context;
+    const db = context.db;
+    const timestamp = Number(block.timestamp);
 
-    if (existingState.length > 0) {
-      await context.db
-        .update(chainBalanceStates, { id: stateId })
-        .set({
-          balance: existingState[0].balance - amount,
-          unlockedBalance: existingState[0].unlockedBalance + amount,
-          lastUpdated: Number(block.timestamp),
-        });
+    if (!db) throw new Error('Database context is null or undefined');
+    if (!chainId) throw new Error('Chain ID is missing from context');
+    if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+    const id = `${chainId}-${event.transaction.hash}-${event.logIndex}`;
+
+    try {
+      // Store claim record as a withdrawal
+      await db.insert(chainBalanceWithdrawals).values({
+        id,
+        chainId: Number(chainId),
+        user: user.toLowerCase(),
+        token: token.toLowerCase(),
+        amount: amount,
+        timestamp,
+        transactionId: event.transaction.hash,
+        blockNumber: block.number.toString(),
+        withdrawalType: 'claim', // User-initiated claim
+      });
+    } catch (error) {
+      console.error('Claim insertion failed:', error);
+      throw new Error(`Failed to insert claim: ${(error as Error).message}`);
+    }
+
+    // Update balance state (reduce unlockedBalance)
+    const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
+    
+    try {
+      const existingState = await db.find(chainBalanceStates, {
+        id: stateId
+      });
+
+      if (existingState) {
+        await db
+          .update(chainBalanceStates, { id: stateId })
+          .set({
+            unlockedBalance: existingState.unlockedBalance - amount,
+            lastUpdated: timestamp,
+          });
+      }
+    } catch (error) {
+      console.error('Balance state update failed:', error);
+      throw new Error(`Failed to update balance state for claim: ${(error as Error).message}`);
+    }
+
+    // Publish chain balance event
+    try {
+      await publishChainBalanceEvent(
+        'claim',
+        user,
+        token,
+        amount,
+        Number(chainId),
+        timestamp,
+        event.transaction.hash,
+        block.number.toString()
+      );
+    } catch (error) {
+      console.error('Failed to publish claim event:', error);
     }
   } catch (error) {
-    console.error(`Error updating balance state for unlock: ${error}`);
+    console.error('Claim handler error:', error);
+    throw error;
   }
-});
+}
 
-// Claim event handler
-ponder.on("ChainBalanceManager:Claim", async ({ event, context }) => {
-  const { user, token, amount } = event.args;
-  const { chainId, block, transaction } = context;
-
-  const id = `${chainId}-${transaction.hash}-${event.logIndex}`;
-
-  // Store claim record as a withdrawal
-  await context.db.insert(chainBalanceWithdrawals).values({
-    id,
-    chainId: Number(chainId),
-    user: user.toLowerCase(),
-    token: token.toLowerCase(),
-    amount: amount,
-    timestamp: Number(block.timestamp),
-    transactionId: transaction.hash,
-    blockNumber: block.number.toString(),
-    withdrawalType: 'claim', // User-initiated claim
-  });
-
-  // Update balance state (reduce unlockedBalance)
-  const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
-  
+export async function handleTokenWhitelisted({ event, context }: any) {
   try {
-    const existingState = await context.db
-      .select()
-      .from(chainBalanceStates)
-      .where(({ id: stateId_ }) => stateId_.equals(stateId))
-      .limit(1);
+    const { token } = event.args;
+    const chainId = context.network.chainId;
+    const db = context.db;
+    const timestamp = Number(event.block.timestamp);
 
-    if (existingState.length > 0) {
-      await context.db
-        .update(chainBalanceStates, { id: stateId })
-        .set({
-          unlockedBalance: existingState[0].unlockedBalance - amount,
-          lastUpdated: Number(block.timestamp),
-        });
+    if (!db) throw new Error('Database context is null or undefined');
+    if (!chainId) throw new Error('Chain ID is missing from context');
+    if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+    const id = `${chainId}-${event.transaction.hash}-${event.logIndex}`;
+
+    try {
+      await db.insert(chainBalanceTokenWhitelist).values({
+        id,
+        chainId: Number(chainId),
+        token: token.toLowerCase(),
+        isWhitelisted: true,
+        timestamp,
+        transactionId: event.transaction.hash,
+        blockNumber: event.block.number.toString(),
+        action: 'added',
+      });
+    } catch (error) {
+      console.error('Token whitelist insertion failed:', error);
+      throw new Error(`Failed to insert token whitelist: ${(error as Error).message}`);
     }
   } catch (error) {
-    console.error(`Error updating balance state for claim: ${error}`);
+    console.error('TokenWhitelisted handler error:', error);
+    throw error;
   }
-});
+}
 
-// Token whitelist events
-ponder.on("ChainBalanceManager:TokenWhitelisted", async ({ event, context }) => {
-  const { token } = event.args;
-  const { chainId, block, transaction } = context;
+export async function handleTokenRemoved({ event, context }: any) {
+  try {
+    const { token } = event.args;
+    const chainId = context.network.chainId;
+    const db = context.db;
+    const timestamp = Number(event.block.timestamp);
 
-  const id = `${chainId}-${transaction.hash}-${event.logIndex}`;
+    if (!db) throw new Error('Database context is null or undefined');
+    if (!chainId) throw new Error('Chain ID is missing from context');
+    if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
 
-  await context.db.insert(chainBalanceTokenWhitelist).values({
-    id,
-    chainId: Number(chainId),
-    token: token.toLowerCase(),
-    isWhitelisted: true,
-    timestamp: Number(block.timestamp),
-    transactionId: transaction.hash,
-    blockNumber: block.number.toString(),
-    action: 'added',
-  });
-});
+    const id = `${chainId}-${event.transaction.hash}-${event.logIndex}`;
 
-ponder.on("ChainBalanceManager:TokenRemoved", async ({ event, context }) => {
-  const { token } = event.args;
-  const { chainId, block, transaction } = context;
+    try {
+      await db.insert(chainBalanceTokenWhitelist).values({
+        id,
+        chainId: Number(chainId),
+        token: token.toLowerCase(),
+        isWhitelisted: false,
+        timestamp,
+        transactionId: event.transaction.hash,
+        blockNumber: event.block.number.toString(),
+        action: 'removed',
+      });
+    } catch (error) {
+      console.error('Token removal insertion failed:', error);
+      throw new Error(`Failed to insert token removal: ${(error as Error).message}`);
+    }
+  } catch (error) {
+    console.error('TokenRemoved handler error:', error);
+    throw error;
+  }
+}
 
-  const id = `${chainId}-${transaction.hash}-${event.logIndex}`;
+export async function handleOwnershipTransferred({ event, context }: any) {
+  try {
+    const { previousOwner, newOwner } = event.args;
+    const chainId = context.network.chainId;
 
-  await context.db.insert(chainBalanceTokenWhitelist).values({
-    id,
-    chainId: Number(chainId),
-    token: token.toLowerCase(),
-    isWhitelisted: false,
-    timestamp: Number(block.timestamp),
-    transactionId: transaction.hash,
-    blockNumber: block.number.toString(),
-    action: 'removed',
-  });
-});
+    console.log(`ChainBalanceManager ownership transferred on chain ${chainId}: ${previousOwner} -> ${newOwner} at block ${event.block.number}`);
+  } catch (error) {
+    console.error('OwnershipTransferred handler error:', error);
+    throw error;
+  }
+}
 
-// Owner transfer events (for governance tracking)
-ponder.on("ChainBalanceManager:OwnershipTransferred", async ({ event, context }) => {
-  const { previousOwner, newOwner } = event.args;
-  const { chainId, block, transaction } = context;
+export async function handleInitialized({ event, context }: any) {
+  try {
+    const { version } = event.args;
+    const chainId = context.network.chainId;
 
-  console.log(`ChainBalanceManager ownership transferred on chain ${chainId}: ${previousOwner} -> ${newOwner} at block ${block.number}`);
-});
-
-// Initialization event
-ponder.on("ChainBalanceManager:Initialized", async ({ event, context }) => {
-  const { version } = event.args;
-  const { chainId, block, transaction } = context;
-
-  console.log(`ChainBalanceManager initialized on chain ${chainId} with version ${version} at block ${block.number}`);
-});
+    console.log(`ChainBalanceManager initialized on chain ${chainId} with version ${version} at block ${event.block.number}`);
+  } catch (error) {
+    console.error('Initialized handler error:', error);
+    throw error;
+  }
+}
