@@ -33,8 +33,8 @@ const rise = {
 
 // Custom Rari chain definition
 const rari = {
-  id: 1380012617,
-  name: 'Rari Mainnet',
+  id: 1918988905,
+  name: 'Rari Testnet',
   network: 'rari',
   nativeCurrency: {
     decimals: 18,
@@ -43,19 +43,19 @@ const rari = {
   },
   rpcUrls: {
     default: {
-      http: ['https://mainnet.rpc.rarichain.org/http'],
+      http: [process.env.RARI_TESTNET_ENDPOINT || 'https://testnet.rpc.rarichain.org/http'],
     },
     public: {
-      http: ['https://mainnet.rpc.rarichain.org/http'],
+      http: [process.env.RARI_TESTNET_ENDPOINT || 'https://testnet.rpc.rarichain.org/http'],
     },
   },
   blockExplorers: {
     default: {
       name: 'Rari Explorer',
-      url: 'https://mainnet.explorer.rarichain.org',
+      url: 'https://testnet.explorer.rarichain.org',
     },
   },
-  testnet: false,
+  testnet: true,
 } as const;
 
 // Redis configuration
