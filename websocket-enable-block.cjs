@@ -34,6 +34,33 @@ const rise = {
   testnet: true,
 };
 
+// Custom Rari chain definition
+const rari = {
+  id: 1380012617,
+  name: 'Rari Mainnet',
+  network: 'rari',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ethereum',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://mainnet.rpc.rarichain.org/http'],
+    },
+    public: {
+      http: ['https://mainnet.rpc.rarichain.org/http'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Rari Explorer',
+      url: 'https://mainnet.explorer.rarichain.org',
+    },
+  },
+  testnet: false,
+};
+
 const anvil = {
   id: parseInt(process.env.CHAIN_ID || '31337'),
   name: 'Anvil',
@@ -156,6 +183,7 @@ async function getCurrentBlockNumber() {
 
     const chainMap = {
       'rise': rise,
+      'rari': rari,
       'mainnet': mainnet,
       'sepolia': sepolia,
       'goerli': goerli,

@@ -31,6 +31,33 @@ const rise = {
   testnet: true,
 } as const;
 
+// Custom Rari chain definition
+const rari = {
+  id: 1380012617,
+  name: 'Rari Mainnet',
+  network: 'rari',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ethereum',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://mainnet.rpc.rarichain.org/http'],
+    },
+    public: {
+      http: ['https://mainnet.rpc.rarichain.org/http'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Rari Explorer',
+      url: 'https://mainnet.explorer.rarichain.org',
+    },
+  },
+  testnet: false,
+} as const;
+
 // Redis configuration
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '2147483647');
@@ -133,6 +160,7 @@ async function getCurrentBlockNumber(): Promise<number> {
 
     const chainMap: Record<string, any> = {
       'rise': rise,
+      'rari': rari,
       'mainnet': mainnet,
       'sepolia': sepolia,
       'goerli': goerli,
