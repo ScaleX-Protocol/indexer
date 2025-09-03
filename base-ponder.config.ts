@@ -39,10 +39,10 @@ const contracts: any = {
 			// 	address: getAddress((process.env.CHAIN_BALANCE_MANAGER_RISE_ADDRESS as `0x${string}`) || default_address),
 			// 	startBlock: Number(process.env.RISE_START_BLOCK) || undefined,
 			// },
-			arbitrumSepolia: {
-				address: getAddress((process.env.CHAIN_BALANCE_MANAGER_ARBITRUM_SEPOLIA_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ARBITRUM_SEPOLIA_START_BLOCK) || undefined,
-			},
+			// arbitrumSepolia: {
+			// 	address: getAddress((process.env.CHAIN_BALANCE_MANAGER_ARBITRUM_SEPOLIA_ADDRESS as `0x${string}`) || default_address),
+			// 	startBlock: Number(process.env.ARBITRUM_SEPOLIA_START_BLOCK) || undefined,
+			// },
 		},
 	},
 	// HyperlaneMailbox exists on all chains (source + destination)
@@ -64,11 +64,11 @@ const contracts: any = {
 			// 	startBlock: Number(process.env.RISE_START_BLOCK) || undefined,
 			// 	endBlock: Number(process.env.RISE_END_BLOCK) || undefined,
 			// },
-			arbitrumSepolia: {
-				address: getAddress((process.env.MAILBOX_ARBITRUM_SEPOLIA_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ARBITRUM_SEPOLIA_START_BLOCK) || undefined,
-				endBlock: Number(process.env.ARBITRUM_SEPOLIA_END_BLOCK) || undefined,
-			},
+			// arbitrumSepolia: {
+			// 	address: getAddress((process.env.MAILBOX_ARBITRUM_SEPOLIA_ADDRESS as `0x${string}`) || default_address),
+			// 	startBlock: Number(process.env.ARBITRUM_SEPOLIA_START_BLOCK) || undefined,
+			// 	endBlock: Number(process.env.ARBITRUM_SEPOLIA_END_BLOCK) || undefined,
+			// },
 		},
 	},
 	// PoolManager exists on Rari
@@ -119,11 +119,11 @@ const contracts: any = {
 				startBlock: Number(process.env.APPCHAIN_START_BLOCK) || undefined,
 				endBlock: Number(process.env.APPCHAIN_END_BLOCK) || undefined,
 			},
-			arbitrumSepolia: {
-				address: getAddress((process.env.FAUCET_ARBITRUM_SEPOLIA_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ARBITRUM_SEPOLIA_START_BLOCK) || undefined,
-				endBlock: Number(process.env.ARBITRUM_SEPOLIA_END_BLOCK) || undefined,
-			},
+			// arbitrumSepolia: {
+			// 	address: getAddress((process.env.FAUCET_ARBITRUM_SEPOLIA_ADDRESS as `0x${string}`) || default_address),
+			// 	startBlock: Number(process.env.ARBITRUM_SEPOLIA_START_BLOCK) || undefined,
+			// 	endBlock: Number(process.env.ARBITRUM_SEPOLIA_END_BLOCK) || undefined,
+			// },
 		},
 	},
 };
@@ -153,14 +153,14 @@ export function getBaseConfig() {
 			// 	maxRequestsPerSecond: Number(process.env.RISE_MAX_REQUESTS_PER_SECOND) || 5,
 			// },
 			// Arbitrum Sepolia (Source Chain) - Highest cost, most conservative
-			arbitrumSepolia: {
-				chainId: 421614,
-				transport: fallback([
-					http(process.env.ARBITRUM_SEPOLIA_ENDPOINT),
-				]),
-				pollingInterval: Number(process.env.ARBITRUM_SEPOLIA_POLLING_INTERVAL) || 15000,
-				maxRequestsPerSecond: Number(process.env.ARBITRUM_SEPOLIA_MAX_REQUESTS_PER_SECOND) || 3,
-			},
+			// arbitrumSepolia: {
+			// 	chainId: 421614,
+			// 	transport: fallback([
+			// 		http(process.env.ARBITRUM_SEPOLIA_ENDPOINT),
+			// 	]),
+			// 	pollingInterval: Number(process.env.ARBITRUM_SEPOLIA_POLLING_INTERVAL) || 15000,
+			// 	maxRequestsPerSecond: Number(process.env.ARBITRUM_SEPOLIA_MAX_REQUESTS_PER_SECOND) || 3,
+			// },
 		},
 		contracts: contracts,
 	};
