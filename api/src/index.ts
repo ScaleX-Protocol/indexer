@@ -1,5 +1,5 @@
 import { Elysia, ValidationError } from "elysia";
-import { tradeRoutes } from './routes';
+import { tradeRoutes, marketRoutes } from './routes';
 import { app as appConfig} from './config/app';
 import { swagger } from '@elysiajs/swagger';
 import { createErrorResponse } from './utils/response.utils';
@@ -32,6 +32,7 @@ if(!appConfig.isProduction) app.use(swagger({
 }));
 // routes register
 app.use(tradeRoutes);
+app.use(marketRoutes);
 
 app.listen(appConfig.port);
 

@@ -26,7 +26,6 @@ import {
 } from "@/utils";
 import { getDepth } from "@/utils/getDepth";
 import { getPoolTradingPair } from "@/utils/getPoolTradingPair";
-import { createLogger } from "@/utils/logger";
 import { executeIfInSync } from "@/utils/syncState";
 import dotenv from "dotenv";
 import { and, eq } from "ponder";
