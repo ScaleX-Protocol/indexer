@@ -5,13 +5,14 @@ module.exports = {
       script: 'dist/index.js',
       instances: 1,
       exec_mode: 'fork',
+      env_file: '.env',
       
       // Development environment
       env: {
         NODE_ENV: 'development',
         PORT: process.env.WEBSOCKET_PORT || 8080,
         DEFAULT_CHAIN_ID: '31337',
-        REDIS_URL: 'redis://localhost:6379',
+        REDIS_URL: 'redis://localhost:6380',
         DB_HOST: 'localhost',
         DB_PORT: 5432,
         DB_NAME: 'ponder_core',
@@ -24,7 +25,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: process.env.WEBSOCKET_PORT || process.env.PORT || 8080,
         DEFAULT_CHAIN_ID: process.env.DEFAULT_CHAIN_ID || '31337',
-        REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+        REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6380',
         DB_HOST: process.env.DB_HOST || 'localhost',
         DB_PORT: process.env.DB_PORT || 5432,
         DB_NAME: process.env.DB_NAME || 'ponder_core',
@@ -61,13 +62,14 @@ module.exports = {
       script: 'dist/index.js',
       instances: 1,
       exec_mode: 'fork',
+      env_file: '.env',
       
       // Development environment for side chain
       env: {
         NODE_ENV: 'development',
         PORT: process.env.WEBSOCKET_SIDE_PORT || 8081,
         DEFAULT_CHAIN_ID: '31338',
-        REDIS_URL: 'redis://localhost:6379',
+        REDIS_URL: 'redis://localhost:6380',
         DB_HOST: 'localhost',
         DB_PORT: 5432,
         DB_NAME: 'ponder_side',
@@ -80,7 +82,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: process.env.WEBSOCKET_SIDE_PORT || 8081,
         DEFAULT_CHAIN_ID: '31338',
-        REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+        REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6380',
         DB_HOST: process.env.DB_HOST || 'localhost',
         DB_PORT: process.env.DB_PORT || 5432,
         DB_NAME: process.env.DB_NAME || 'ponder_side',
