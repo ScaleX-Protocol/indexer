@@ -6,7 +6,7 @@ import { sql } from "ponder";
 import { currencies, pools } from "ponder:schema";
 import { Address, getAddress } from "viem";
 import { ERC20ABI } from "../../abis/ERC20";
-import { createPoolCacheKey, setCachedData } from "../utils/redis";
+import { createPoolCacheKey, setChainCachedData } from "../utils/redis";
 import { executeIfInSync } from "../utils/syncState";
 import { pushMiniTicker } from "../websocket/broadcaster";
 
@@ -288,7 +288,7 @@ export async function handlePoolCreated({ event, context }: any) {
 			if (shouldDebug) {
 				console.log(`${logger.log(event, '10a. Cache key created')}: ${safeStringify({ cacheKey })}`);
 			}
-			await setCachedData(cacheKey, poolData, REDIS_CACHE_TTL, Number(event.block.number), 'handlePoolCreated');
+			await setChainCachedData(cacheKey, poolData, chainId, REDIS_CACHE_TTL, Number(event.block.number), 'handlePoolCreated');
 			if (shouldDebug) {
 				console.log(logger.log(event, '10. Pool data cached successfully'));
 			}

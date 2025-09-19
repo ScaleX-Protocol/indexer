@@ -1,6 +1,6 @@
 import { eq } from "ponder";
 import { pools } from "../../ponder.schema";
-import { createPoolCacheKey, getCachedData, setCachedData } from "./redis";
+import { createPoolCacheKey, getChainCachedData, setChainCachedData } from "./redis";
 import { validatePoolId } from "./validation";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -92,7 +92,7 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
 
         const cacheKey = createPoolCacheKey(validatedPoolId, chainId);
         
-        const cachedPoolData = await getCachedData<PoolData>(cacheKey, blockNumber || 0, callerFunction);
+        const cachedPoolData = await getChainCachedData<PoolData>(cacheKey, chainId, blockNumber || 0, callerFunction);
         
         if (cachedPoolData && cachedPoolData.coin) {
             const result = cachedPoolData.coin.replace('/', '').toLowerCase();
@@ -166,7 +166,7 @@ export const getPoolTradingPair = async (context: any, pool: `0x${string}`, chai
         }
         
         
-        await setCachedData(cacheKey, poolData, parseInt(process.env.REDIS_CACHE_TTL || '2147483647'), blockNumber || 0, callerFunction);
+        await setChainCachedData(cacheKey, poolData, chainId, parseInt(process.env.REDIS_CACHE_TTL || '2147483647'), blockNumber || 0, callerFunction);
         
         if (!poolData || !poolData.coin) {
             throw new Error(`Pool data not found for pool ${pool} on chain ${chainId}`);

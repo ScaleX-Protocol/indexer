@@ -1,8 +1,8 @@
 import { ponder } from "ponder:registry";
-import * as orderBookHandler from "./handlers/orderBookHandler";
-import * as poolManagerHandler from "./handlers/poolManagerHandler";
-import * as balanceManagerHandler from "./handlers/balanceManagerHandler";
-import { PonderEvents } from "./types/ponder-core-chain";
+import * as orderBookHandler from "../handlers/orderBookHandler";
+import * as poolManagerHandler from "../handlers/poolManagerHandler";
+import * as balanceManagerHandler from "../handlers/balanceManagerHandler";
+import { PonderEvents } from "../types/ponder-core-chain";
 
 // Pool Manager Events
 ponder.on(PonderEvents.POOL_CREATED, poolManagerHandler.handlePoolCreated);

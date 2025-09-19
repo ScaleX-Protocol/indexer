@@ -10,3 +10,5 @@ export { GTXRouterABI } from './GTXRouter';
 export { OrderBookABI } from './OrderBook';
 export { UpgradeableBeaconABI } from './UpgradeableBeacon';
 export { BeaconProxyABI } from './BeaconProxy';
+export { MailboxABI } from './Mailbox';
+export { FaucetABI } from './Faucet';

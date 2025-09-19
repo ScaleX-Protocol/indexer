@@ -8,7 +8,7 @@ dotenv.config({ path: ".env.core-chain" });
 export default createConfig({
 	database: {
 		kind: "postgres",
-		connectionString: process.env.PONDER_DATABASE_URL || "postgresql://postgres:password@localhost:5433/ponder_core_anvil",
+		connectionString: process.env.PONDER_DATABASE_URL || "postgresql://postgres:password@localhost:5433/ponder_core",
 	},
 	...getCoreChainConfig(),
 });

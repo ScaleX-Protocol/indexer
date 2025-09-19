@@ -1,375 +1,427 @@
 #!/bin/bash
 
-# Usage: ./start-ponder.sh [--production|production]
-# - Default: Runs ponder in development mode (ponder dev)
-# - With --production or production: Runs ponder in production mode (ponder start)
+# Multi-Chain Configuration Launcher
+# Supports separated core-chain and side-chain configurations
+# Usage: ./start-chains.sh [MODE] [OPTIONS]
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PID_DIR="$SCRIPT_DIR/.pids"
+LOG_DIR="$SCRIPT_DIR/logs"
 
-# Load environment variables from .env files
-if [[ -f "$SCRIPT_DIR/.env" ]]; then
-    echo -e "${YELLOW}📄 Loading environment variables from .env${NC}"
-    set -a
-    source "$SCRIPT_DIR/.env"
-    set +a
-fi
+# Create necessary directories
+mkdir -p "$PID_DIR" "$LOG_DIR"
 
-if [[ -f "$SCRIPT_DIR/.env.timescale" ]]; then
-    echo -e "${YELLOW}📄 Loading environment variables from .env.timescale${NC}"
-    set -a
-    source "$SCRIPT_DIR/.env.timescale"
-    set +a
-fi
-WEBSOCKET_SCRIPT_TS="$SCRIPT_DIR/websocket-enable-block.ts"
-WEBSOCKET_SCRIPT_JS="$SCRIPT_DIR/websocket-enable-block.cjs"
-REDIS_KEY="websocket:enable:block"
-MAX_RETRIES=5
-RETRY_DELAY=2
+# Configuration
+CORE_PORT=42070
+SIDE_PORT=42071
+CORE_DB="ponder_core"
+SIDE_DB="ponder_side"
 
-echo -e "${BLUE}🚀 Starting Ponder with WebSocket block number initialization...${NC}"
-
-# Function to check if Redis is available
-check_redis() {
-    local redis_url="${REDIS_URL:-redis://localhost:6379}"
-    echo -e "${YELLOW}📡 Checking Redis connection...${NC}"
-    
-    if command -v redis-cli &> /dev/null; then
-        # Extract host and port from Redis URL
-        local redis_host="localhost"
-        local redis_port="6379"
-        
-        # Try to parse REDIS_URL if set
-        if [[ -n "$REDIS_URL" ]]; then
-            # Extract port from URL like redis://localhost:6379
-            redis_port=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
-            redis_port=${redis_port:-6379}
-        fi
-        
-        redis-cli -h "$redis_host" -p "$redis_port" ping &> /dev/null
-        return $?
-    elif command -v bun &> /dev/null; then
-        # Try with bun and redis client
-        bun -e "
-        import { createClient } from 'redis';
-        const client = createClient({ url: '$redis_url' });
-        try {
-            await client.connect();
-            await client.ping();
-            await client.quit();
-            console.log('Redis connection successful');
-            process.exit(0);
-          } catch (error) {
-            console.error('Redis connection failed:', error.message);
-            process.exit(1);
-          }
-        });
-        " &> /dev/null
-        return $?
-    elif command -v node &> /dev/null; then
-        # Try with Node.js and redis client
-        node -e "
-        const { createClient } = require('redis');
-        const client = createClient({ url: '$redis_url' });
-        (async () => {
-          try {
-            await client.connect();
-            await client.ping();
-            await client.quit();
-            console.log('Redis connection successful');
-            process.exit(0);
-          } catch (error) {
-            console.error('Redis connection failed:', error.message);
-            process.exit(1);
-          }
-        })();
-        " &> /dev/null
-        return $?
-    else
-        echo -e "${RED}❌ No suitable runtime found (redis-cli, bun, or node)${NC}"
-        return 1
-    fi
+# Function to display help
+show_help() {
+    echo -e "${BLUE}🔗 Multi-Chain Configuration Launcher${NC}"
+    echo ""
+    echo -e "${YELLOW}USAGE:${NC}"
+    echo "  ./start-chains.sh [MODE] [OPTIONS]"
+    echo ""
+    echo -e "${YELLOW}MODES:${NC}"
+    echo -e "  ${GREEN}core${NC}         Start core-chain configuration only (OrderBook, PoolManager)"
+    echo -e "  ${GREEN}side${NC}         Start side-chain configuration only (ChainBalanceManager)"
+    echo -e "  ${GREEN}both${NC}         Start both configurations concurrently"
+    echo -e "  ${GREEN}status${NC}       Show status of running processes"
+    echo -e "  ${GREEN}stop${NC}        Stop all running processes"
+    echo -e "  ${GREEN}logs${NC}        Show logs from running processes"
+    echo -e "  ${GREEN}help${NC}        Show this help message"
+    echo ""
+    echo -e "${YELLOW}OPTIONS:${NC}"
+    echo -e "  ${GREEN}--pm2${NC}        Use PM2 process manager (background)"
+    echo -e "  ${GREEN}--dev${NC}        Use development mode (default)"
+    echo -e "  ${GREEN}--prod${NC}       Use production mode"
+    echo -e "  ${GREEN}--follow${NC}     Follow logs in real-time (with logs command)"
+    echo ""
+    echo -e "${YELLOW}EXAMPLES:${NC}"
+    echo "  ./start-chains.sh core              # Start core in foreground"
+    echo "  ./start-chains.sh both --pm2        # Start both with PM2"
+    echo "  ./start-chains.sh side --dev        # Start side in dev mode"
+    echo "  ./start-chains.sh logs --follow     # Follow logs in real-time"
+    echo "  ./start-chains.sh stop              # Stop all processes"
+    echo ""
+    echo -e "${YELLOW}CONFIGURATIONS:${NC}"
+    echo -e "  ${CYAN}Core Chain:${NC}  Chain 31337, Port $CORE_PORT, DB: $CORE_DB"
+    echo -e "  ${CYAN}              ${NC}  URL: http://localhost:$CORE_PORT"
+    echo -e "  ${CYAN}Side Chain:${NC}  Chain 31338, Port $SIDE_PORT, DB: $SIDE_DB"
+    echo -e "  ${CYAN}              ${NC}  URL: http://localhost:$SIDE_PORT"
+    echo ""
+    echo -e "${YELLOW}REDIS:${NC}"
+    echo -e "  ${CYAN}Shared Redis:${NC} localhost:6379 with chain-specific keys"
+    echo -e "  ${CYAN}Core Keys:${NC}    chain:31337:*"
+    echo -e "  ${CYAN}Side Keys:${NC}    chain:31338:*"
 }
 
-# Function to check if the websocket enable block is set in Redis
-check_websocket_block() {
-    local redis_url="${REDIS_URL:-redis://localhost:6379}"
-    echo -e "${YELLOW}🔍 Checking if WebSocket enable block is set in Redis...${NC}"
-    
-    if command -v redis-cli &> /dev/null; then
-        # Extract host and port from Redis URL
-        local redis_host="localhost"
-        local redis_port="6379"
-        
-        # Try to parse REDIS_URL if set
-        if [[ -n "$REDIS_URL" ]]; then
-            # Extract port from URL like redis://localhost:6379
-            redis_port=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
-            redis_port=${redis_port:-6379}
-        fi
-        
-        local result=$(redis-cli -h "$redis_host" -p "$redis_port" get "$REDIS_KEY" 2>/dev/null)
-        if [[ -n "$result" && "$result" != "(nil)" ]]; then
-            echo -e "${GREEN}✅ WebSocket enable block found in Redis: $result${NC}"
+# Function to check if process is running
+is_process_running() {
+    local pid_file="$1"
+    if [[ -f "$pid_file" ]]; then
+        local pid=$(cat "$pid_file")
+        if kill -0 "$pid" 2>/dev/null; then
             return 0
-        fi
-    elif command -v bun &> /dev/null; then
-        # Try with bun and redis client
-        local result=$(bun -e "
-        import { createClient } from 'redis';
-        const client = createClient({ url: '$redis_url' });
-        try {
-            await client.connect();
-            const value = await client.get('$REDIS_KEY');
-            await client.quit();
-            if (value) {
-              console.log(value);
-              process.exit(0);
-            } else {
-              process.exit(1);
-            }
-          } catch (error) {
-            process.exit(1);
-          }
-        });
-        " 2>/dev/null)
-        
-        if [[ $? -eq 0 && -n "$result" ]]; then
-            echo -e "${GREEN}✅ WebSocket enable block found in Redis: $result${NC}"
-            return 0
-        fi
-    elif command -v node &> /dev/null; then
-        # Try with Node.js and redis client
-        local result=$(node -e "
-        const { createClient } = require('redis');
-        const client = createClient({ url: '$redis_url' });
-        (async () => {
-          try {
-            await client.connect();
-            const value = await client.get('$REDIS_KEY');
-            await client.quit();
-            if (value) {
-                console.log(value);
-                process.exit(0);
-            } else {
-                process.exit(1);
-            }
-          } catch (error) {
-            process.exit(1);
-          }
-        })();
-        " 2>/dev/null)
-        
-        if [[ $? -eq 0 && -n "$result" ]]; then
-            echo -e "${GREEN}✅ WebSocket enable block found in Redis: $result${NC}"
-            return 0
+        else
+            rm -f "$pid_file"
+            return 1
         fi
     fi
-    
-    echo -e "${YELLOW}⚠️  WebSocket enable block not found in Redis${NC}"
     return 1
 }
 
-# Function to run the websocket enable block script
-run_websocket_script() {
-    echo -e "${YELLOW}🔧 Running WebSocket enable block script...${NC}"
-    
-    # Prefer Node.js version if available
-    if [[ -f "$WEBSOCKET_SCRIPT_JS" ]] && command -v node &> /dev/null; then
-        echo -e "${YELLOW}🚀 Running JavaScript version with Node.js...${NC}"
-        cd "$SCRIPT_DIR" && node "$WEBSOCKET_SCRIPT_JS"
-    elif [[ -f "$WEBSOCKET_SCRIPT_TS" ]] && command -v tsx &> /dev/null; then
-        echo -e "${YELLOW}🚀 Running TypeScript with tsx...${NC}"
-        cd "$SCRIPT_DIR" && tsx "$WEBSOCKET_SCRIPT_TS"
-    elif [[ -f "$WEBSOCKET_SCRIPT_TS" ]] && command -v ts-node &> /dev/null; then
-        echo -e "${YELLOW}🚀 Running TypeScript with ts-node...${NC}"
-        cd "$SCRIPT_DIR" && ts-node "$WEBSOCKET_SCRIPT_TS"
-    elif [[ -f "$WEBSOCKET_SCRIPT_TS" ]] && command -v bun &> /dev/null; then
-        echo -e "${YELLOW}🚀 Running TypeScript with Bun...${NC}"
-        cd "$SCRIPT_DIR" && bun "$WEBSOCKET_SCRIPT_TS"
-    else
-        echo -e "${RED}❌ No suitable script runner found or WebSocket script missing${NC}"
-        echo -e "${YELLOW}📄 Available files:${NC}"
-        ls -la "$SCRIPT_DIR"/websocket-enable-block.*
-        return 1
+# Function to check PM2 process
+is_pm2_running() {
+    local process_name="$1"
+    if command -v pm2 &> /dev/null; then
+        pm2 list | grep -q "$process_name.*online" 2>/dev/null
+        return $?
     fi
-    local exit_code=$?
+    return 1
+}
+
+# Function to start core configuration
+start_core() {
+    local use_pm2="$1"
+    local mode="$2"
     
-    if [[ $exit_code -eq 0 ]]; then
-        echo -e "${GREEN}✅ WebSocket enable block script completed successfully${NC}"
-        return 0
+    echo -e "${BLUE}🚀 Starting Core Chain Configuration...${NC}"
+    echo -e "${CYAN}  Chain ID: 31337, Port: $CORE_PORT, DB: $CORE_DB${NC}"
+    echo -e "${CYAN}  Redis Keys: chain:31337:*${NC}"
+    echo -e "${CYAN}  URL: http://localhost:$CORE_PORT${NC}"
+    
+    if [[ "$use_pm2" == "true" ]]; then
+        if ! command -v pm2 &> /dev/null; then
+            echo -e "${RED}❌ PM2 not found. Install with: npm install -g pm2${NC}"
+            return 1
+        fi
+        
+        local pm2_name="chain-core"
+        
+        # Stop existing process
+        pm2 delete "$pm2_name" 2>/dev/null || true
+        
+        # Start with PM2
+        cd "$SCRIPT_DIR"
+        pm2 start pnpm --name "$pm2_name" -- run "dev:core-chain"
+        
+        if [[ $? -eq 0 ]]; then
+            echo -e "${GREEN}✅ Core chain configuration started with PM2${NC}"
+            echo -e "${YELLOW}💡 View logs: pm2 logs $pm2_name${NC}"
+        else
+            echo -e "${RED}❌ Failed to start core chain configuration with PM2${NC}"
+            return 1
+        fi
     else
-        echo -e "${RED}❌ WebSocket enable block script failed with exit code: $exit_code${NC}"
-        return 1
+        # Start in foreground
+        echo -e "${YELLOW}🔄 Starting core chain configuration in foreground...${NC}"
+        cd "$SCRIPT_DIR"
+        
+        # Use environment copying to ensure config separation
+        pnpm run dev:core-chain > "$LOG_DIR/core-chain.log" 2>&1 &
+        
+        local pid=$!
+        echo "$pid" > "$PID_DIR/core-chain.pid"
+        echo -e "${GREEN}✅ Core chain configuration started (PID: $pid)${NC}"
+        echo -e "${YELLOW}💡 Log file: $LOG_DIR/core-chain.log${NC}"
+        
+        # Show initial logs
+        sleep 2
+        echo -e "${CYAN}📋 Initial logs:${NC}"
+        tail -10 "$LOG_DIR/core-chain.log"
     fi
 }
 
-# Function to start PM2 process
-start_pm2_process() {
-    echo -e "${YELLOW}🚀 Starting PM2 process...${NC}"
+# Function to start side configuration
+start_side() {
+    local use_pm2="$1"
+    local mode="$2"
     
-    # Check if PM2 is installed
-    if ! command -v pm2 &> /dev/null; then
-        echo -e "${RED}❌ PM2 is not installed. Please install it with: npm install -g pm2${NC}"
-        return 1
+    echo -e "${BLUE}🚀 Starting Side Chain Configuration...${NC}"
+    echo -e "${CYAN}  Chain ID: 31338, Port: $SIDE_PORT, DB: $SIDE_DB${NC}"
+    echo -e "${CYAN}  Redis Keys: chain:31338:*${NC}"
+    echo -e "${CYAN}  URL: http://localhost:$SIDE_PORT${NC}"
+    
+    if [[ "$use_pm2" == "true" ]]; then
+        if ! command -v pm2 &> /dev/null; then
+            echo -e "${RED}❌ PM2 not found. Install with: npm install -g pm2${NC}"
+            return 1
+        fi
+        
+        local pm2_name="chain-side"
+        
+        # Stop existing process
+        pm2 delete "$pm2_name" 2>/dev/null || true
+        
+        # Start with PM2
+        cd "$SCRIPT_DIR"
+        pm2 start pnpm --name "$pm2_name" -- run "dev:side-chain"
+        
+        if [[ $? -eq 0 ]]; then
+            echo -e "${GREEN}✅ Side chain configuration started with PM2${NC}"
+            echo -e "${YELLOW}💡 View logs: pm2 logs $pm2_name${NC}"
+        else
+            echo -e "${RED}❌ Failed to start side chain configuration with PM2${NC}"
+            return 1
+        fi
+    else
+        # Start in foreground
+        echo -e "${YELLOW}🔄 Starting side chain configuration in foreground...${NC}"
+        cd "$SCRIPT_DIR"
+        
+        # Use environment copying to ensure config separation
+        pnpm run dev:side-chain > "$LOG_DIR/side-chain.log" 2>&1 &
+        
+        local pid=$!
+        echo "$pid" > "$PID_DIR/side-chain.pid"
+        echo -e "${GREEN}✅ Side chain configuration started (PID: $pid)${NC}"
+        echo -e "${YELLOW}💡 Log file: $LOG_DIR/side-chain.log${NC}"
+        
+        # Show initial logs
+        sleep 2
+        echo -e "${CYAN}📋 Initial logs:${NC}"
+        tail -10 "$LOG_DIR/side-chain.log"
+    fi
+}
+
+# Function to start both configurations
+start_both() {
+    local use_pm2="$1"
+    local mode="$2"
+    
+    echo -e "${PURPLE}🚀 Starting Both Chain Configurations...${NC}"
+    
+    if [[ "$use_pm2" == "true" ]]; then
+        start_core "$use_pm2" "$mode"
+        echo ""
+        sleep 3
+        start_side "$use_pm2" "$mode"
+        
+        echo ""
+        echo -e "${GREEN}✅ Both chain configurations started with PM2${NC}"
+        echo -e "${YELLOW}💡 View all: pm2 status${NC}"
+        echo -e "${YELLOW}💡 View logs: pm2 logs chain-core chain-side${NC}"
+    else
+        # Use concurrently for foreground mode
+        if ! command -v npx &> /dev/null; then
+            echo -e "${RED}❌ npx not found. Please install Node.js${NC}"
+            return 1
+        fi
+        
+        echo -e "${YELLOW}🔄 Starting both configurations with concurrently...${NC}"
+        cd "$SCRIPT_DIR"
+        
+        # Use the existing pnpm script that uses concurrently
+        pnpm run dev:both-chains
+    fi
+}
+
+# Function to show process status
+show_status() {
+    echo -e "${BLUE}📊 Chain Process Status${NC}"
+    echo ""
+    
+    # Check PM2 processes
+    if command -v pm2 &> /dev/null; then
+        echo -e "${YELLOW}PM2 Processes:${NC}"
+        if pm2 list | grep -q "chain-.*online"; then
+            pm2 list | grep "chain-"
+        else
+            echo "  No chain PM2 processes running"
+        fi
+        echo ""
     fi
     
-    # Determine if we're in production mode
-    local is_production=false
-    for arg in "$@"; do
-        if [[ "$arg" == "--production" || "$arg" == "production" ]]; then
-            is_production=true
-            break
+    # Check PID-based processes
+    echo -e "${YELLOW}Direct Processes:${NC}"
+    
+    # Core process
+    if is_process_running "$PID_DIR/core-chain.pid"; then
+        local pid=$(cat "$PID_DIR/core-chain.pid")
+        echo -e "  ${GREEN}✅ Core Chain:${NC} Running (PID: $pid, Port: $CORE_PORT)"
+    else
+        echo -e "  ${RED}❌ Core Chain:${NC} Not running"
+    fi
+    
+    # Side process
+    if is_process_running "$PID_DIR/side-chain.pid"; then
+        local pid=$(cat "$PID_DIR/side-chain.pid")
+        echo -e "  ${GREEN}✅ Side Chain:${NC} Running (PID: $pid, Port: $SIDE_PORT)"
+    else
+        echo -e "  ${RED}❌ Side Chain:${NC} Not running"
+    fi
+    
+    echo ""
+    echo -e "${CYAN}Configuration Information:${NC}"
+    echo -e "  Core DB: $CORE_DB (Port: $CORE_PORT)"
+    echo -e "  Side DB: $SIDE_DB (Port: $SIDE_PORT)"
+    echo -e "  Redis: localhost:6379 (shared with chain-specific keys)"
+    echo -e "  Core Keys: chain:31337:*"
+    echo -e "  Side Keys: chain:31338:*"
+}
+
+# Function to stop all processes
+stop_all() {
+    echo -e "${YELLOW}🛑 Stopping All Chain Processes...${NC}"
+    
+    # Stop PM2 processes
+    if command -v pm2 &> /dev/null; then
+        pm2 delete chain-core 2>/dev/null || true
+        pm2 delete chain-side 2>/dev/null || true
+        echo -e "${GREEN}✅ PM2 chain processes stopped${NC}"
+    fi
+    
+    # Stop PID-based processes
+    for config in core-chain side-chain; do
+        local pid_file="$PID_DIR/${config}.pid"
+        if is_process_running "$pid_file"; then
+            local pid=$(cat "$pid_file")
+            echo -e "${YELLOW}🛑 Stopping $config process (PID: $pid)...${NC}"
+            kill "$pid" 2>/dev/null || true
+            sleep 2
+            
+            # Force kill if still running
+            if kill -0 "$pid" 2>/dev/null; then
+                echo -e "${RED}⚠️  Force killing $config process...${NC}"
+                kill -9 "$pid" 2>/dev/null || true
+            fi
+            
+            rm -f "$pid_file"
         fi
     done
     
-    # Set command and process name based on mode
-    local ponder_command
-    local process_name
-    if [[ "$is_production" == true ]]; then
-        # Use timestamp-based schema for production (similar to Dockerfile pattern)
-        local timestamp=$(date +%s)
-        ponder_command="pnpm run start --config pg-ponder.config.ts --schema public_${timestamp}"
-        process_name="ponder-prod"
-        echo -e "${GREEN}🏭 Running in PRODUCTION mode with schema: public_${timestamp}${NC}"
-    else
-        ponder_command="pnpm run dev --config pg-ponder.config.ts --disable-ui"
-        process_name="ponder-dev"
-        echo -e "${BLUE}🛠️  Running in DEVELOPMENT mode${NC}"
+    echo -e "${GREEN}✅ All chain processes stopped${NC}"
+}
+
+# Function to show logs
+show_logs() {
+    local follow="$1"
+    
+    echo -e "${BLUE}📋 Chain Process Logs${NC}"
+    echo ""
+    
+    # PM2 logs
+    if command -v pm2 &> /dev/null; then
+        if pm2 list | grep -q "chain-.*online"; then
+            echo -e "${YELLOW}PM2 Logs:${NC}"
+            if [[ "$follow" == "true" ]]; then
+                pm2 logs chain-core chain-side --lines 50
+            else
+                pm2 logs chain-core chain-side --lines 20 --nostream
+            fi
+            return
+        fi
     fi
     
-    # Stop existing process if running
-    pm2 delete "$process_name" 2>/dev/null || true
+    # Direct process logs
+    echo -e "${YELLOW}Log Files:${NC}"
+    for config in core-chain side-chain; do
+        local log_file="$LOG_DIR/${config}.log"
+        if [[ -f "$log_file" ]]; then
+            echo -e "${CYAN}--- $config Configuration ---${NC}"
+            if [[ "$follow" == "true" ]]; then
+                tail -f "$log_file" &
+            else
+                tail -20 "$log_file"
+            fi
+            echo ""
+        else
+            echo -e "${RED}❌ No log file found for $config${NC}"
+        fi
+    done
     
-    # Start the new process
-    pm2 start "$ponder_command" \
-        --name "$process_name" \
-        --log "$process_name.log" \
-        --time
-    
-    local exit_code=$?
-    
-    if [[ $exit_code -eq 0 ]]; then
-        echo -e "${GREEN}✅ PM2 process '$process_name' started successfully${NC}"
-        echo -e "${BLUE}📊 View logs with: pm2 logs $process_name${NC}"
-        echo -e "${BLUE}📊 View status with: pm2 status${NC}"
-        return 0
-    else
-        echo -e "${RED}❌ Failed to start PM2 process${NC}"
-        return 1
+    if [[ "$follow" == "true" ]]; then
+        echo -e "${YELLOW}💡 Press Ctrl+C to stop following logs${NC}"
+        wait
     fi
 }
 
-# Function to start with pnpm dev
-start_pnpm_dev() {
-    echo -e "${YELLOW}🚀 Starting with pnpm dev...${NC}"
+# Main function
+main() {
+    local mode=""
+    local use_pm2="false"
+    local run_mode="dev"
+    local follow_logs="false"
     
-    # Check if pnpm is installed
-    if ! command -v pnpm &> /dev/null; then
-        echo -e "${RED}❌ pnpm is not installed. Please install it first.${NC}"
-        return 1
-    fi
-    
-    # Start the development process
-    pnpm run dev --config pg-ponder.config.ts --disable-ui
-    
-    local exit_code=$?
-    
-    if [[ $exit_code -eq 0 ]]; then
-        echo -e "${GREEN}✅ pnpm dev completed successfully${NC}"
-        return 0
-    else
-        echo -e "${RED}❌ Failed to start with pnpm dev${NC}"
-        return 1
-    fi
-}
-
-# Function to prompt user for execution method
-prompt_execution_method() {
-    echo -e "${BLUE}🤔 How would you like to run Ponder?${NC}"
-    echo -e "${YELLOW}1) PM2 (background process with monitoring)${NC}"
-    echo -e "${YELLOW}2) pnpm dev (foreground process)${NC}"
-    echo -e "${YELLOW}3) Exit${NC}"
-    echo
-    
-    while true; do
-        read -p "Please select an option (1-3): " choice
-        case $choice in
-            1)
-                echo -e "${GREEN}✅ Selected: PM2${NC}"
-                return 1
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            core|side|both|status|stop|logs|help)
+                mode="$1"
+                shift
                 ;;
-            2)
-                echo -e "${GREEN}✅ Selected: pnpm dev${NC}"
-                return 2
+            --pm2)
+                use_pm2="true"
+                shift
                 ;;
-            3)
-                echo -e "${YELLOW}👋 Exiting...${NC}"
-                exit 0
+            --dev)
+                run_mode="dev"
+                shift
+                ;;
+            --prod)
+                run_mode="prod"
+                shift
+                ;;
+            --follow)
+                follow_logs="true"
+                shift
                 ;;
             *)
-                echo -e "${RED}❌ Invalid option. Please choose 1, 2, or 3.${NC}"
+                echo -e "${RED}❌ Unknown option: $1${NC}"
+                show_help
+                exit 1
                 ;;
         esac
     done
-}
-
-# Main execution flow
-main() {
-    echo -e "${BLUE}📋 Starting initialization process...${NC}"
     
-    # Check Redis connection
-    if ! check_redis; then
-        echo -e "${RED}❌ Redis is not available. Please ensure Redis is running.${NC}"
-        exit 1
+    # Default to help if no mode specified
+    if [[ -z "$mode" ]]; then
+        show_help
+        exit 0
     fi
     
-    # Check if websocket block is already set
-    if check_websocket_block; then
-        echo -e "${GREEN}✅ WebSocket enable block already set, skipping initialization${NC}"
-    else
-        echo -e "${YELLOW}🔄 WebSocket enable block not set, running initialization...${NC}"
-        
-        # Run the websocket script with retries
-        retry_count=0
-        while [[ $retry_count -lt $MAX_RETRIES ]]; do
-            if run_websocket_script; then
-                break
-            else
-                retry_count=$((retry_count + 1))
-                if [[ $retry_count -lt $MAX_RETRIES ]]; then
-                    echo -e "${YELLOW}⏳ Retrying in $RETRY_DELAY seconds... (Attempt $((retry_count + 1))/$MAX_RETRIES)${NC}"
-                    sleep $RETRY_DELAY
-                else
-                    echo -e "${RED}❌ Failed to set WebSocket enable block after $MAX_RETRIES attempts${NC}"
-                    exit 1
-                fi
-            fi
-        done
-        
-        # Verify the block was set
-        sleep 1
-        if ! check_websocket_block; then
-            echo -e "${RED}❌ WebSocket enable block was not set properly${NC}"
+    # Handle modes
+    case "$mode" in
+        core)
+            start_core "$use_pm2" "$run_mode"
+            ;;
+        side)
+            start_side "$use_pm2" "$run_mode"
+            ;;
+        both)
+            start_both "$use_pm2" "$run_mode"
+            ;;
+        status)
+            show_status
+            ;;
+        stop)
+            stop_all
+            ;;
+        logs)
+            show_logs "$follow_logs"
+            ;;
+        help)
+            show_help
+            ;;
+        *)
+            echo -e "${RED}❌ Unknown mode: $mode${NC}"
+            show_help
             exit 1
-        fi
-    fi
-    
-    # Start PM2 process
-    if start_pm2_process "$@"; then
-        echo -e "${GREEN}🎉 All done! Ponder is now running with PM2.${NC}"
-        echo -e "${BLUE}💡 Use 'pm2 stop ponder-dev' to stop the process${NC}"
-    else
-        echo -e "${RED}❌ Failed to start PM2 process${NC}"
-        exit 1
-    fi
+            ;;
+    esac
 }
 
 # Handle script interruption

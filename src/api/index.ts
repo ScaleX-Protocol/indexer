@@ -218,8 +218,8 @@ app.get("/api/trades", async c => {
 		let recentTrades;
 
 		if (user) {
-			const timeoutPromise = new Promise((_, reject) => 
-				setTimeout(() => reject(new Error('Query timeout')), 10000) 
+			const timeoutPromise = new Promise((_, reject) =>
+				setTimeout(() => reject(new Error('Query timeout')), 10000)
 			);
 
 			try {
@@ -231,7 +231,7 @@ app.get("/api/trades", async c => {
 					.from(orderBookTrades)
 					.innerJoin(orders, eq(orderBookTrades.poolId, orders.poolId))
 					.where(and(
-						eq(orderBookTrades.poolId, poolId), 
+						eq(orderBookTrades.poolId, poolId),
 						eq(orders.user, user.toLowerCase())
 					))
 					.orderBy(desc(orderBookTrades.timestamp))
@@ -303,7 +303,7 @@ app.get("/api/ticker/24hr", async c => {
 				.orderBy(desc(dailyBuckets.openTime))
 				.limit(1)
 				.execute(),
-			
+
 			db
 				.select()
 				.from(orderBookTrades)
@@ -311,7 +311,7 @@ app.get("/api/ticker/24hr", async c => {
 				.orderBy(desc(orderBookTrades.timestamp))
 				.limit(1)
 				.execute(),
-			
+
 			db
 				.select()
 				.from(orderBookDepth)
@@ -319,7 +319,7 @@ app.get("/api/ticker/24hr", async c => {
 				.orderBy(desc(orderBookDepth.price))
 				.limit(1)
 				.execute(),
-			
+
 			db
 				.select()
 				.from(orderBookDepth)
@@ -471,7 +471,7 @@ app.get("/api/allOrders", async c => {
 			.from(pools)
 			.where(inArray(pools.orderBook, uniquePoolIds as `0x${string}`[]))
 			.execute();
-		
+
 		// Create a map for quick lookup
 		const poolsMap = new Map(poolsData.map(pool => [pool.orderBook, pool]));
 
@@ -562,17 +562,17 @@ app.get("/api/openOrders", async c => {
 		}
 
 		const openOrders = await query.orderBy(desc(orders.timestamp)).limit(500).execute();
-		
+
 		// Collect all unique poolIds to avoid N+1 queries
 		const uniquePoolIds = [...new Set(openOrders.map(order => order.poolId).filter(Boolean))];
-		
+
 		// Fetch all pool data in a single query
 		const poolsData = await db
 			.select()
 			.from(pools)
 			.where(inArray(pools.orderBook, uniquePoolIds as `0x${string}`[]))
 			.execute();
-		
+
 		// Create a map for quick lookup
 		const poolsMap = new Map(poolsData.map(pool => [pool.orderBook, pool]));
 
@@ -626,7 +626,7 @@ app.get("/api/pairs", async c => {
 		const pairs = allPools.map(pool => {
 			const symbol = pool.coin || "";
 			const symbolParts = symbol.split("/");
-			
+
 			return {
 				symbol: symbol.replace("/", ""),
 				baseAsset: symbolParts[0] || symbol,
@@ -651,7 +651,7 @@ app.get("/api/pairs", async c => {
 		const pairs = allPools.map(pool => {
 			const symbol = pool.coin || "";
 			const symbolParts = symbol.split("/");
-			
+
 			return {
 				symbol: symbol.replace("/", ""),
 				baseAsset: symbolParts[0] || symbol,
@@ -675,7 +675,7 @@ app.get("/api/markets", async c => {
 		const pairs = allPools.map(pool => {
 			const symbol = pool.coin || "";
 			const symbolParts = symbol.split("/");
-			
+
 			return {
 				symbol: symbol.replace("/", ""),
 				baseAsset: symbolParts[0] || symbol,
@@ -794,27 +794,27 @@ function formatKlineData(bucket: BucketData): BinanceKlineData {
 }
 
 // Only start WebSocket gateway if enabled
-if (process.env.ENABLE_WEBSOCKET === 'true') {
-  bootstrapGateway(app);
-}
+// if (process.env.ENABLE_WEBSOCKET === 'true') {
+//   bootstrapGateway(app);
+// }
 
 // Initialize event publisher
 async function initializeServices() {
-  try {
-    console.log('Initializing services...');
-    
-    // Initialize Redis client for event publishing
-    const redisClient = await initIORedisClient();
-    if (redisClient) {
-      const eventPublisher = initializeEventPublisher(redisClient);
-      await eventPublisher.createConsumerGroups();
-      console.log('Event publisher initialized successfully');
-    } else {
-      console.warn('Redis client not available, event publishing disabled');
-    }
-  } catch (error) {
-    console.error('Failed to initialize services:', error);
-  }
+	try {
+		console.log('Initializing services...');
+
+		// Initialize Redis client for event publishing
+		const redisClient = await initIORedisClient();
+		if (redisClient) {
+			const eventPublisher = initializeEventPublisher(redisClient);
+			await eventPublisher.createConsumerGroups();
+			console.log('Event publisher initialized successfully');
+		} else {
+			console.warn('Redis client not available, event publishing disabled');
+		}
+	} catch (error) {
+		console.error('Failed to initialize services:', error);
+	}
 }
 
 // Initialize services on startup
@@ -825,10 +825,10 @@ const ENABLE_SYSTEM_MONITOR = process.env.ENABLE_SYSTEM_MONITOR === 'true';
 const SYSTEM_MONITOR_INTERVAL = parseInt(process.env.SYSTEM_MONITOR_INTERVAL || '60');
 
 if (ENABLE_SYSTEM_MONITOR) {
-  console.log(`Starting system monitor for metrics collection (interval: ${SYSTEM_MONITOR_INTERVAL}s)...`);
-  systemMonitor.start(SYSTEM_MONITOR_INTERVAL);
+	console.log(`Starting system monitor for metrics collection (interval: ${SYSTEM_MONITOR_INTERVAL}s)...`);
+	systemMonitor.start(SYSTEM_MONITOR_INTERVAL);
 } else {
-  console.log('System monitor disabled (set ENABLE_SYSTEM_MONITOR=true to enable)');
+	console.log('System monitor disabled (set ENABLE_SYSTEM_MONITOR=true to enable)');
 }
 
 export default app;
