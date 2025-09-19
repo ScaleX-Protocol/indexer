@@ -116,7 +116,11 @@ start_core() {
         
         # Start with PM2
         cd "$SCRIPT_DIR"
-        pm2 start pnpm --name "$pm2_name" -- run "dev:core-chain"
+        if [[ "$mode" == "prod" ]]; then
+            pm2 start pnpm --name "$pm2_name" -- run "start:core-chain"
+        else
+            pm2 start pnpm --name "$pm2_name" -- run "dev:core-chain"
+        fi
         
         if [[ $? -eq 0 ]]; then
             echo -e "${GREEN}✅ Core chain configuration started with PM2${NC}"
@@ -131,7 +135,11 @@ start_core() {
         cd "$SCRIPT_DIR"
         
         # Use environment copying to ensure config separation
-        pnpm run dev:core-chain > "$LOG_DIR/core-chain.log" 2>&1 &
+        if [[ "$mode" == "prod" ]]; then
+            pnpm run start:core-chain > "$LOG_DIR/core-chain.log" 2>&1 &
+        else
+            pnpm run dev:core-chain > "$LOG_DIR/core-chain.log" 2>&1 &
+        fi
         
         local pid=$!
         echo "$pid" > "$PID_DIR/core-chain.pid"
@@ -168,7 +176,11 @@ start_side() {
         
         # Start with PM2
         cd "$SCRIPT_DIR"
-        pm2 start pnpm --name "$pm2_name" -- run "dev:side-chain"
+        if [[ "$mode" == "prod" ]]; then
+            pm2 start pnpm --name "$pm2_name" -- run "start:side-chain"
+        else
+            pm2 start pnpm --name "$pm2_name" -- run "dev:side-chain"
+        fi
         
         if [[ $? -eq 0 ]]; then
             echo -e "${GREEN}✅ Side chain configuration started with PM2${NC}"
@@ -183,7 +195,11 @@ start_side() {
         cd "$SCRIPT_DIR"
         
         # Use environment copying to ensure config separation
-        pnpm run dev:side-chain > "$LOG_DIR/side-chain.log" 2>&1 &
+        if [[ "$mode" == "prod" ]]; then
+            pnpm run start:side-chain > "$LOG_DIR/side-chain.log" 2>&1 &
+        else
+            pnpm run dev:side-chain > "$LOG_DIR/side-chain.log" 2>&1 &
+        fi
         
         local pid=$!
         echo "$pid" > "$PID_DIR/side-chain.pid"
@@ -225,7 +241,11 @@ start_both() {
         cd "$SCRIPT_DIR"
         
         # Use the existing pnpm script that uses concurrently
-        pnpm run dev:both-chains
+        if [[ "$mode" == "prod" ]]; then
+            pnpm run start:both-chains
+        else
+            pnpm run dev:both-chains
+        fi
     fi
 }
 
