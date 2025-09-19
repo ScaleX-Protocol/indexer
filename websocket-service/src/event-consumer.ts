@@ -41,7 +41,7 @@ export class EventConsumer {
         if (exists) {
           // Stream exists, check if consumer group exists first
           try {
-            const groups = await this.redis.xinfo('GROUPS', streamKey);
+            const groups = await this.redis.xinfo('GROUPS', streamKey) as any[];
             const groupExists = groups.some((group: any) => group[1] === this.consumerGroup);
 
             if (!groupExists) {

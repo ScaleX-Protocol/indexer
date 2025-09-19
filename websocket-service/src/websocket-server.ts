@@ -232,7 +232,7 @@ export class WebSocketServer {
           a: depth.asks
         };
         
-        this.sendToClient(clientId, depthPayload);
+        this.sendRawToClient(clientId, JSON.stringify(depthPayload));
       }
     } catch (error) {
       console.error(`Error sending initial depth data for ${stream}:`, error);

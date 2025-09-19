@@ -14,11 +14,6 @@ export class DatabaseClient {
       max: 5, // Limited connections for read-only service
       idle_timeout: 20,
       connect_timeout: 30,
-      // Read-only configuration
-      options: {
-        statement_timeout: 30000,
-        idle_in_transaction_session_timeout: 30000,
-      }
     });
   }
 
