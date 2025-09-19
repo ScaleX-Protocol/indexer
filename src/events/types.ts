@@ -86,6 +86,13 @@ export enum EventStreams {
   CHAIN_BALANCES = 'chain_balances'
 }
 
+// Helper function to create chain-specific stream keys
+export function getStreamKey(stream: EventStreams, chainId?: string): string {
+  const defaultChainId = process.env.DEFAULT_CHAIN_ID || '31337';
+  const actualChainId = chainId || defaultChainId;
+  return `chain:${actualChainId}:${stream}`;
+}
+
 export interface StreamMessage {
   [key: string]: string;
 }

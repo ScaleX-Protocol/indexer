@@ -36,8 +36,9 @@ class AnalyticsService {
     // Initialize TimescaleDB connection
     this.timescaleDb = TimescaleDatabaseClient.getInstance();
 
-    // Initialize event consumer
-    this.eventConsumer = new AnalyticsEventConsumer(this.redis, this.timescaleDb);
+    // Initialize event consumer with chain ID
+    const chainId = process.env.DEFAULT_CHAIN_ID || '31337';
+    this.eventConsumer = new AnalyticsEventConsumer(this.redis, this.timescaleDb, chainId);
 
     // Initialize leaderboard service
     this.leaderboardService = new LeaderboardService(this.db, this.redis, this.timescaleDb);

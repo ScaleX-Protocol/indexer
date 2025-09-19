@@ -7,16 +7,19 @@ import {
   KlineEvent, 
   ExecutionReportEvent,
   ChainBalanceEvent,
-  EventStreams 
+  EventStreams,
+  getStreamKey
 } from './types.js';
 
 export class EventPublisher {
   private redis: Redis;
   private isEnabled: boolean = true;
+  private chainId: string;
 
-  constructor(redis: Redis) {
+  constructor(redis: Redis, chainId?: string) {
     this.redis = redis;
     this.isEnabled = process.env.ENABLE_EVENT_PUBLISHING !== 'false';
+    this.chainId = chainId || process.env.DEFAULT_CHAIN_ID || '31337';
   }
 
   async publishTrade(trade: TradeEvent): Promise<void> {
@@ -25,7 +28,8 @@ export class EventPublisher {
     }
 
     try {
-      await this.redis.xadd(EventStreams.TRADES, 'MAXLEN', '~', '1000', '*', 
+      const streamKey = getStreamKey(EventStreams.TRADES, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*', 
         'symbol', trade.symbol,
         'price', trade.price,
         'quantity', trade.quantity,
@@ -34,7 +38,8 @@ export class EventPublisher {
         'side', trade.side,
         'tradeId', trade.tradeId,
         'orderId', trade.orderId,
-        'makerOrderId', trade.makerOrderId
+        'makerOrderId', trade.makerOrderId,
+        'chainId', this.chainId
       );
     } catch (error) {
       console.error('Failed to publish trade event:', error);
@@ -47,12 +52,14 @@ export class EventPublisher {
     }
 
     try {
-      await this.redis.xadd(EventStreams.BALANCES, 'MAXLEN', '~', '1000', '*',
+      const streamKey = getStreamKey(EventStreams.BALANCES, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
         'userId', balance.userId,
         'token', balance.token,
         'available', balance.available,
         'locked', balance.locked,
-        'timestamp', balance.timestamp
+        'timestamp', balance.timestamp,
+        'chainId', this.chainId
       );
     } catch (error) {
       console.error('Failed to publish balance update event:', error);
@@ -65,7 +72,8 @@ export class EventPublisher {
     }
 
     try {
-      await this.redis.xadd(EventStreams.CHAIN_BALANCES, 'MAXLEN', '~', '1000', '*',
+      const streamKey = getStreamKey(EventStreams.CHAIN_BALANCES, chainBalance.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
         'eventType', chainBalance.eventType,
         'userId', chainBalance.userId,
         'token', chainBalance.token,
@@ -86,7 +94,8 @@ export class EventPublisher {
     }
 
     try {
-      await this.redis.xadd(EventStreams.ORDERS, 'MAXLEN', '~', '1000', '*',
+      const streamKey = getStreamKey(EventStreams.ORDERS, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
         'orderId', order.orderId,
         'userId', order.userId,
         'symbol', order.symbol,
@@ -96,7 +105,8 @@ export class EventPublisher {
         'quantity', order.quantity,
         'filledQuantity', order.filledQuantity,
         'status', order.status,
-        'timestamp', order.timestamp
+        'timestamp', order.timestamp,
+        'chainId', this.chainId
       );
     } catch (error) {
       console.error('Failed to publish order event:', error);
@@ -109,11 +119,13 @@ export class EventPublisher {
     }
 
     try {
-      await this.redis.xadd(EventStreams.DEPTH, 'MAXLEN', '~', '500', '*',
+      const streamKey = getStreamKey(EventStreams.DEPTH, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '500', '*',
         'symbol', depth.symbol,
         'bids', JSON.stringify(depth.bids),
         'asks', JSON.stringify(depth.asks),
-        'timestamp', depth.timestamp
+        'timestamp', depth.timestamp,
+        'chainId', this.chainId
       );
     } catch (error) {
       console.error('Failed to publish depth event:', error);
@@ -126,7 +138,8 @@ export class EventPublisher {
     }
 
     try {
-      await this.redis.xadd(EventStreams.KLINES, 'MAXLEN', '~', '1000', '*',
+      const streamKey = getStreamKey(EventStreams.KLINES, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
         'symbol', kline.symbol,
         'interval', kline.interval,
         'openTime', kline.openTime,
@@ -136,7 +149,8 @@ export class EventPublisher {
         'low', kline.low,
         'close', kline.close,
         'volume', kline.volume,
-        'trades', kline.trades
+        'trades', kline.trades,
+        'chainId', this.chainId
       );
     } catch (error) {
       console.error('Failed to publish kline event:', error);
@@ -149,7 +163,8 @@ export class EventPublisher {
     }
 
     try {
-      await this.redis.xadd(EventStreams.EXECUTION_REPORTS, 'MAXLEN', '~', '1000', '*',
+      const streamKey = getStreamKey(EventStreams.EXECUTION_REPORTS, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
         'orderId', report.orderId,
         'userId', report.userId,
         'symbol', report.symbol,
@@ -160,7 +175,8 @@ export class EventPublisher {
         'filledQuantity', report.filledQuantity,
         'status', report.status,
         'timestamp', report.timestamp,
-        'executionType', report.executionType
+        'executionType', report.executionType,
+        'chainId', this.chainId
       );
     } catch (error) {
       console.error('Failed to publish execution report event:', error);
@@ -180,19 +196,23 @@ export class EventPublisher {
 
     for (const { stream, groups: consumerGroups } of groups) {
       try {
+        const streamKey = getStreamKey(stream, this.chainId);
+        
         // Only create consumer groups if stream exists
-        const exists = await this.redis.exists(stream);
+        const exists = await this.redis.exists(streamKey);
         if (!exists) {
           continue;
         }
 
         for (const group of consumerGroups) {
           try {
-            await this.redis.xgroup('CREATE', stream, group, '0');
+            // Add chain ID to consumer group name for uniqueness
+            const chainSpecificGroup = `${group}-${this.chainId}`;
+            await this.redis.xgroup('CREATE', streamKey, chainSpecificGroup, '0');
           } catch (error: any) {
             if (error.message.includes('BUSYGROUP')) {
             } else {
-              console.error(`Failed to create consumer group ${group} for stream ${stream}:`, error);
+              console.error(`Failed to create consumer group ${group} for stream ${streamKey}:`, error);
             }
           }
         }

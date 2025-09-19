@@ -8,16 +8,22 @@ export class AnalyticsEventConsumer {
   private consumerGroup: string;
   private consumerId: string;
   private isRunning: boolean = false;
+  private chainId: string;
   private streams: string[] = ['orders'];
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
   private backoffMultiplier: number = 1000;
 
-  constructor(redis: Redis, timescaleDb: TimescaleDatabaseClient) {
+  constructor(redis: Redis, timescaleDb: TimescaleDatabaseClient, chainId?: string) {
     this.redis = redis;
     this.timescaleDb = timescaleDb;
-    this.consumerGroup = 'analytics-consumers';
-    this.consumerId = `analytics-consumer-${Date.now()}`;
+    this.chainId = chainId || process.env.DEFAULT_CHAIN_ID || '31337';
+    this.consumerGroup = `analytics-consumers-${this.chainId}`;
+    this.consumerId = `analytics-consumer-${this.chainId}-${Date.now()}`;
+  }
+
+  private getStreamKey(stream: string): string {
+    return `chain:${this.chainId}:${stream}`;
   }
 
   async initialize() {
@@ -45,7 +51,8 @@ export class AnalyticsEventConsumer {
         let messages = null;
         for (const stream of this.streams) {
           try {
-            const exists = await this.redis.exists(stream);
+            const streamKey = this.getStreamKey(stream);
+            const exists = await this.redis.exists(streamKey);
             if (!exists) {
               continue; // Skip non-existent streams
             }
@@ -54,7 +61,7 @@ export class AnalyticsEventConsumer {
               'GROUP', this.consumerGroup, this.consumerId,
               'COUNT', batchSize,
               'BLOCK', 100, // Short timeout
-              'STREAMS', stream, '>'
+              'STREAMS', streamKey, '>'
             );
             
             if (messages && messages.length > 0) {

@@ -15,44 +15,51 @@ export class EventConsumer {
   private consumerGroup: string;
   private consumerId: string;
   private isRunning: boolean = false;
+  private chainId: string;
   private streams: string[] = ['trades', 'balances', 'orders', 'depth', 'klines', 'execution_reports'];
 
-  constructor(redis: Redis, wsServer: WebSocketServer) {
+  constructor(redis: Redis, wsServer: WebSocketServer, chainId?: string) {
     this.redis = redis;
     this.wsServer = wsServer;
-    this.consumerGroup = process.env.CONSUMER_GROUP || 'websocket-consumers';
-    this.consumerId = process.env.CONSUMER_ID || `ws-consumer-${Date.now()}`;
+    this.chainId = chainId || process.env.DEFAULT_CHAIN_ID || '31337';
+    this.consumerGroup = process.env.CONSUMER_GROUP || `websocket-consumers-${this.chainId}`;
+    this.consumerId = process.env.CONSUMER_ID || `ws-consumer-${this.chainId}-${Date.now()}`;
+  }
+
+  private getStreamKey(stream: string): string {
+    return `chain:${this.chainId}:${stream}`;
   }
 
   async initialize() {
     console.log('Initializing event consumer...');
-    
+
     // Clean up orphaned consumer groups and create groups only for existing streams
     for (const stream of this.streams) {
       try {
-        const exists = await this.redis.exists(stream);
+        const streamKey = this.getStreamKey(stream);
+        const exists = await this.redis.exists(streamKey);
         if (exists) {
           // Stream exists, check if consumer group exists first
           try {
-            const groups = await this.redis.xinfo('GROUPS', stream);
+            const groups = await this.redis.xinfo('GROUPS', streamKey);
             const groupExists = groups.some((group: any) => group[1] === this.consumerGroup);
-            
+
             if (!groupExists) {
-              await this.redis.xgroup('CREATE', stream, this.consumerGroup, '0');
-              console.log(`Created consumer group ${this.consumerGroup} for stream ${stream}`);
+              await this.redis.xgroup('CREATE', streamKey, this.consumerGroup, '0');
+              console.log(`Created consumer group ${this.consumerGroup} for stream ${streamKey}`);
             }
             // No need to log if group already exists - it's expected
           } catch (error: any) {
-            console.error(`Failed to validate/create consumer group for stream ${stream}:`, error);
+            console.error(`Failed to validate/create consumer group for stream ${streamKey}:`, error);
           }
         } else {
           // Stream doesn't exist, but consumer group might - delete it
           try {
-            await this.redis.xgroup('DESTROY', stream, this.consumerGroup);
-            console.log(`Deleted orphaned consumer group ${this.consumerGroup} for non-existent stream ${stream}`);
+            await this.redis.xgroup('DESTROY', streamKey, this.consumerGroup);
+            console.log(`Deleted orphaned consumer group ${this.consumerGroup} for non-existent stream ${streamKey}`);
           } catch (error: any) {
             // Group doesn't exist or stream doesn't exist - that's fine
-            console.log(`Stream ${stream} does not exist, skipping consumer group creation`);
+            console.log(`Stream ${streamKey} does not exist, skipping consumer group creation`);
           }
         }
       } catch (error) {
@@ -69,14 +76,15 @@ export class EventConsumer {
 
     this.isRunning = true;
     console.log(`Starting event consumer with ID: ${this.consumerId}`);
-    
+
     // Get the list of existing streams once at startup
     const existingStreams: string[] = [];
     for (const stream of this.streams) {
       try {
-        const exists = await this.redis.exists(stream);
+        const streamKey = this.getStreamKey(stream);
+        const exists = await this.redis.exists(streamKey);
         if (exists) {
-          existingStreams.push(stream);
+          existingStreams.push(streamKey);
         }
       } catch (error) {
         console.warn(`Error checking existence of stream ${stream}:`, error);
@@ -89,7 +97,7 @@ export class EventConsumer {
     }
 
     console.log(`Consumer will read from streams: ${existingStreams.join(', ')}`);
-    
+
     while (this.isRunning) {
       try {
         const batchSize = parseInt(process.env.BATCH_SIZE || '10');
@@ -102,12 +110,12 @@ export class EventConsumer {
             messages = await this.redis.xreadgroup(
               'GROUP', this.consumerGroup, this.consumerId,
               'COUNT', batchSize,
-              'BLOCK', 100, // Short timeout
+              'BLOCK', 100,
               'STREAMS', stream, '>'
             );
             if (messages && messages.length > 0) {
               console.log(`Processing ${messages.length} messages from stream: ${stream}`);
-              break; // If we got messages, break and process them
+              break;
             }
             // If no messages, continue to next stream
           } catch (error: any) {
@@ -115,7 +123,7 @@ export class EventConsumer {
             // Continue to next stream
           }
         }
-        
+
         if (!messages || messages.length === 0) {
           // No messages from any stream, wait before next iteration
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -138,7 +146,7 @@ export class EventConsumer {
         try {
           const eventData = this.parseEventData(fields);
           await this.handleEvent(stream, eventData);
-          
+
           // Acknowledge the message
           await this.redis.xack(stream, this.consumerGroup, id);
         } catch (error) {
@@ -158,7 +166,10 @@ export class EventConsumer {
   }
 
   private async handleEvent(stream: string, data: { [key: string]: string }) {
-    switch (stream) {
+    // Extract stream type from chain-specific stream key (chain:31337:trades -> trades)
+    const streamType = stream.split(':').pop() || stream;
+    
+    switch (streamType) {
       case 'trades':
         await this.handleTradeEvent(data as any);
         break;
