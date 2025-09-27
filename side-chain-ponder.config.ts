@@ -1,4 +1,4 @@
-// side-chain-ponder.config.ts - Configuration for Side Chain (gtxAnvil2/31338)
+// side-chain-ponder.config.ts - Configuration for Side Chain (sideDevnet/31338)
 import dotenv from "dotenv";
 import { factory } from "ponder";
 import { fallback, getAddress, http, parseAbiItem } from "viem";
@@ -13,7 +13,7 @@ const contracts: any = {
 	ChainBalanceManager: {
 		abi: ChainBalanceManagerABI || [],
 		network: {
-			gtxAnvil2: {
+			sideDevnet: {
 				address: getAddress((process.env.CHAIN_BALANCE_MANAGER_GTX_ANVIL_2_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_2_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_2_END_BLOCK) || undefined,
@@ -25,12 +25,12 @@ const contracts: any = {
 	HyperlaneMailbox: {
 		abi: MailboxABI || [],
 		network: {
-			gtxAnvil2: {
+			sideDevnet: {
 				address: getAddress((process.env.MAILBOX_GTX_ANVIL_2_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_2_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_2_END_BLOCK) || undefined,
 			},
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.MAILBOX_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -42,7 +42,7 @@ const contracts: any = {
 	Faucet: {
 		abi: FaucetABI || [],
 		network: {
-			gtxAnvil2: {
+			sideDevnet: {
 				address: getAddress((process.env.FAUCET_GTX_ANVIL_2_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_2_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_2_END_BLOCK) || undefined,
@@ -55,10 +55,10 @@ export function getSideChainConfig() {
 	const config = {
 		networks: {
 			// GTX Anvil 2 (Side Chain - 31338) - Cross-chain operations
-			gtxAnvil2: {
+			sideDevnet: {
 				chainId: 31338,
 				transport: fallback([
-					http(process.env.GTX_ANVIL_2_ENDPOINT),
+					http(process.env.SIDE_DEVNET_ENDPOINT),
 				]),
 				pollingInterval: Number(process.env.GTX_ANVIL_2_POLLING_INTERVAL) || 1000,
 				maxRequestsPerSecond: Number(process.env.GTX_ANVIL_2_MAX_REQUESTS_PER_SECOND) || 50,
@@ -66,10 +66,10 @@ export function getSideChainConfig() {
 				retryCount: Number(process.env.MAX_RETRIES) || 3,
 				retryDelay: Number(process.env.RETRY_DELAY) || 1000,
 			},
-			gtxAnvil: {
+			coreDevnet: {
 				chainId: 31337,
 				transport: fallback([
-					http(process.env.GTX_ANVIL_ENDPOINT),
+					http(process.env.CORE_DEVNET_ENDPOINT),
 				]),
 				pollingInterval: Number(process.env.GTX_ANVIL_POLLING_INTERVAL) || 1000,
 				maxRequestsPerSecond: Number(process.env.GTX_ANVIL_MAX_REQUESTS_PER_SECOND) || 50,
@@ -102,7 +102,7 @@ export function getSideChainConfig() {
 // Utility function to validate side chain environment variables
 export function validateSideChainEnvironment(): boolean {
 	const requiredVars = [
-		"GTX_ANVIL_2_ENDPOINT",
+		"SIDE_DEVNET_ENDPOINT",
 		"CHAIN_BALANCE_MANAGER_GTX_ANVIL_2_ADDRESS",
 		"MAILBOX_GTX_ANVIL_2_ADDRESS",
 		"FAUCET_GTX_ANVIL_2_ADDRESS",

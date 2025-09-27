@@ -105,10 +105,6 @@ export const ordersRelations = relations(orders, ({ many, one }) => ({
 		fields: [orders.poolId, orders.chainId],
 		references: [pools.id, pools.chainId],
 	}),
-	user: one(balances, {
-		fields: [orders.user, orders.chainId],
-		references: [balances.user, balances.chainId],
-	}),
 }));
 
 export const orderHistoryRelations = relations(orderHistory, ({ one }) => ({

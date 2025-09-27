@@ -1,4 +1,4 @@
-// core-chain-ponder.config.ts - Configuration for Core Chain (gtxAnvil/31337)
+// core-chain-ponder.config.ts - Configuration for Core Chain (coreDevnet/31337)
 import dotenv from "dotenv";
 import { factory } from "ponder";
 import { fallback, getAddress, http, parseAbiItem } from "viem";
@@ -13,7 +13,7 @@ const contracts: any = {
 	BalanceManager: {
 		abi: BalanceManagerABI || [],
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.BALANCEMANAGER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -25,7 +25,7 @@ const contracts: any = {
 	HyperlaneMailbox: {
 		abi: MailboxABI || [],
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.MAILBOX_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -37,7 +37,7 @@ const contracts: any = {
 	PoolManager: {
 		abi: PoolManagerABI || [],
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.POOLMANAGER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -49,7 +49,7 @@ const contracts: any = {
 	OrderBook: {
 		abi: OrderBookABI,
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: factory({
 					address: getAddress((process.env.POOLMANAGER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 					event: parseAbiItem(
@@ -67,7 +67,7 @@ const contracts: any = {
 	GTXRouter: {
 		abi: GTXRouterABI || [],
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.GTXROUTER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -79,7 +79,7 @@ const contracts: any = {
 	Faucet: {
 		abi: FaucetABI || [],
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.FAUCET_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.FAUCET_START_BLOCK) || 0,
 				endBlock: Number(process.env.FAUCET_END_BLOCK) || undefined,
@@ -91,7 +91,7 @@ const contracts: any = {
 	ChainRegistry: {
 		abi: [], // Add ChainRegistry ABI if available
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.CHAINREGISTRY_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -103,7 +103,7 @@ const contracts: any = {
 	TokenRegistry: {
 		abi: [], // Add TokenRegistry ABI if available
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.TOKENREGISTRY_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -115,7 +115,7 @@ const contracts: any = {
 	SyntheticTokenFactory: {
 		abi: [], // Add SyntheticTokenFactory ABI if available
 		network: {
-			gtxAnvil: {
+			coreDevnet: {
 				address: getAddress((process.env.SYNTHETICTOKENFACTORY_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
 				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
@@ -128,10 +128,10 @@ export function getCoreChainConfig() {
 	const config = {
 		networks: {
 			// GTX Anvil (Core Chain - 31337) - Main trading chain
-			gtxAnvil: {
+			coreDevnet: {
 				chainId: 31337,
 				transport: fallback([
-					http(process.env.GTX_ANVIL_ENDPOINT),
+					http(process.env.CORE_DEVNET_ENDPOINT),
 				]),
 				pollingInterval: Number(process.env.GTX_ANVIL_POLLING_INTERVAL) || 1000,
 				maxRequestsPerSecond: Number(process.env.GTX_ANVIL_MAX_REQUESTS_PER_SECOND) || 50,
@@ -147,11 +147,11 @@ export function getCoreChainConfig() {
 			// Performance settings optimized for core chain operations
 			maxHealthcheckDuration: 30_000,
 			telemetryDisabled: process.env.PONDER_TELEMETRY_DISABLED === "true",
-			
+
 			// Debug settings
 			logLevel: process.env.LOG_LEVEL as "silent" | "error" | "warn" | "info" | "debug" | "trace" || "debug",
 		},
-		
+
 		// Server configuration
 		server: {
 			port: Number(process.env.PONDER_PORT) || 42070,
@@ -164,7 +164,7 @@ export function getCoreChainConfig() {
 // Utility function to validate core chain environment variables
 export function validateCoreChainEnvironment(): boolean {
 	const requiredVars = [
-		"GTX_ANVIL_ENDPOINT",
+		"CORE_DEVNET_ENDPOINT",
 		"BALANCEMANAGER_CONTRACT_GTX_ANVIL_ADDRESS",
 		"POOLMANAGER_CONTRACT_GTX_ANVIL_ADDRESS",
 		"GTXROUTER_CONTRACT_GTX_ANVIL_ADDRESS",
