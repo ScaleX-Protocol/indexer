@@ -8,29 +8,29 @@ import { getEventPublisher } from "@/events/index";
 dotenv.config();
 
 async function fetchAndPushBalance(context: any, balanceId: string, timestamp: number, blockNumber: number) {
-    await executeIfInSync(blockNumber, async () => {
-        const balance = await context.db.find(balances, { id: balanceId });
-        if (balance) {
-            // Publish balance update event
-            try {
-                const eventPublisher = getEventPublisher();
-                await eventPublisher.publishBalanceUpdate({
-                    userId: balance.user,
-                    token: balance.currency,
-                    available: (balance.amount - balance.lockedAmount).toString(),
-                    locked: balance.lockedAmount.toString(),
-                    timestamp: timestamp.toString()
-                });
-            } catch (error) {
-                console.error('Failed to publish balance update event:', error);
-            }
-            
-        }
-    }, 'fetchAndPushBalance');
+	await executeIfInSync(blockNumber, async () => {
+		const balance = await context.db.find(balances, { id: balanceId });
+		if (balance) {
+			// Publish balance update event
+			try {
+				const eventPublisher = getEventPublisher();
+				await eventPublisher.publishBalanceUpdate({
+					userId: balance.user,
+					token: balance.currency,
+					available: (balance.amount - balance.lockedAmount).toString(),
+					locked: balance.lockedAmount.toString(),
+					timestamp: timestamp.toString()
+				});
+			} catch (error) {
+				console.error('Failed to publish balance update event:', error);
+			}
+
+		}
+	}, 'fetchAndPushBalance');
 }
 
 function fromId(id: number): string {
-return `0x${id.toString(16).padStart(40, "0")}`;
+	return `0x${id.toString(16).padStart(40, "0")}`;
 }
 
 export async function handleDeposit({ event, context }: any) {
@@ -39,7 +39,7 @@ export async function handleDeposit({ event, context }: any) {
 	const user = event.args.user;
 	const currency = getAddress(fromId(event.args.id));
 	const balanceId = createBalanceId(chainId, currency, user);
-    const timestamp = Number(event.block.timestamp);
+	const timestamp = Number(event.block.timestamp);
 
 	await db
 		.insert(balances)
@@ -55,7 +55,7 @@ export async function handleDeposit({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.amount),
 		}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleWithdrawal({ event, context }: any) {
@@ -63,20 +63,20 @@ export async function handleWithdrawal({ event, context }: any) {
 	const user = event.args.user;
 	const currency = getAddress(fromId(event.args.id));
 	const balanceId = createBalanceId(chainId, currency, user);
-    const timestamp = Number(event.block.timestamp);
+	const timestamp = Number(event.block.timestamp);
 
 	await context.db.update(balances, { id: balanceId }).set((row: any) => ({
 		amount: row.amount - BigInt(event.args.amount),
 	}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleTransferFrom({ event, context }: any) {
 	const chainId = context.network.chainId;
 	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
 	const currency = getAddress(fromId(event.args.id));
-    const timestamp = Number(event.block.timestamp);
+	const timestamp = Number(event.block.timestamp);
 
 	// Update or insert sender balance
 	const senderId = createBalanceId(chainId, currency, event.args.sender);
@@ -86,7 +86,7 @@ export async function handleTransferFrom({ event, context }: any) {
 		chainId: chainId,
 	}));
 
-    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert receiver balance
 	const receiverId = createBalanceId(chainId, currency, event.args.receiver);
@@ -105,7 +105,7 @@ export async function handleTransferFrom({ event, context }: any) {
 			amount: row.amount + netAmount,
 		}));
 
-    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// // Update or insert operator balance
 	const operatorId = createBalanceId(chainId, currency, event.args.operator);
@@ -123,14 +123,14 @@ export async function handleTransferFrom({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.feeAmount),
 		}));
 
-    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleTransferLockedFrom({ event, context }: any) {
 	const chainId = context.network.chainId;
 	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
 	const currency = getAddress(fromId(event.args.id));
-    const timestamp = Number(event.block.timestamp);
+	const timestamp = Number(event.block.timestamp);
 
 	// Update sender locked balance
 	const senderId = createBalanceId(chainId, currency, event.args.sender);
@@ -140,7 +140,7 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 		chainId: chainId,
 	}));
 
-    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert receiver balance (unlocked)
 	const receiverId = createBalanceId(chainId, currency, event.args.receiver);
@@ -158,7 +158,7 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 			amount: row.amount + netAmount,
 		}));
 
-    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert operator balance (unlocked)
 	const operatorId = createBalanceId(chainId, currency, event.args.operator);
@@ -176,7 +176,7 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.feeAmount),
 		}));
 
-    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleLock({ event, context }: any) {
@@ -184,14 +184,24 @@ export async function handleLock({ event, context }: any) {
 	const user = event.args.user;
 	const currency = getAddress(fromId(event.args.id));
 	const balanceId = createBalanceId(chainId, currency, user);
-    const timestamp = Number(event.block.timestamp);
+	const timestamp = Number(event.block.timestamp);
 
-	await context.db.update(balances, { id: balanceId }).set((row: any) => ({
-		amount: row.amount - BigInt(event.args.amount),
-		lockedAmount: row.lockedAmount + BigInt(event.args.amount),
-	}));
+	await context.db
+		.insert(balances)
+		.values({
+			id: balanceId,
+			user: user,
+			chainId: chainId,
+			amount: BigInt(0),
+			lockedAmount: BigInt(event.args.amount),
+			currency: currency,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			amount: row.amount - BigInt(event.args.amount),
+			lockedAmount: row.lockedAmount + BigInt(event.args.amount),
+		}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleUnlock({ event, context }: any) {
@@ -199,12 +209,22 @@ export async function handleUnlock({ event, context }: any) {
 	const user = event.args.user;
 	const currency = getAddress(fromId(event.args.id));
 	const balanceId = createBalanceId(chainId, currency, user);
-    const timestamp = Number(event.block.timestamp);
+	const timestamp = Number(event.block.timestamp);
 
-	await context.db.update(balances, { id: balanceId }).set((row: any) => ({
-		lockedAmount: row.lockedAmount - BigInt(event.args.amount),
-		amount: row.amount + BigInt(event.args.amount),
-	}));
+	await context.db
+		.insert(balances)
+		.values({
+			id: balanceId,
+			user: user,
+			chainId: chainId,
+			amount: BigInt(event.args.amount),
+			lockedAmount: BigInt(0),
+			currency: currency,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			lockedAmount: row.lockedAmount - BigInt(event.args.amount),
+			amount: row.amount + BigInt(event.args.amount),
+		}));
 
-    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
+	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }

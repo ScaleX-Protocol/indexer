@@ -14,9 +14,9 @@ const contracts: any = {
 		abi: BalanceManagerABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.BALANCEMANAGER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.BALANCEMANAGER_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -26,9 +26,9 @@ const contracts: any = {
 		abi: MailboxABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.MAILBOX_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.MAILBOX_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -38,9 +38,9 @@ const contracts: any = {
 		abi: PoolManagerABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.POOLMANAGER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.POOLMANAGER_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -51,14 +51,14 @@ const contracts: any = {
 		network: {
 			coreDevnet: {
 				address: factory({
-					address: getAddress((process.env.POOLMANAGER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
+					address: getAddress((process.env.POOLMANAGER_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
 					event: parseAbiItem(
 						"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency)"
 					),
 					parameter: "orderBook",
 				}),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -68,9 +68,9 @@ const contracts: any = {
 		abi: GTXRouterABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.GTXROUTER_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.GTXROUTER_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -80,7 +80,7 @@ const contracts: any = {
 		abi: FaucetABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.FAUCET_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
+				address: getAddress((process.env.FAUCET_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
 				startBlock: Number(process.env.FAUCET_START_BLOCK) || 0,
 				endBlock: Number(process.env.FAUCET_END_BLOCK) || undefined,
 			},
@@ -92,9 +92,9 @@ const contracts: any = {
 		abi: [], // Add ChainRegistry ABI if available
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.CHAINREGISTRY_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.CHAINREGISTRY_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -104,9 +104,9 @@ const contracts: any = {
 		abi: [], // Add TokenRegistry ABI if available
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.TOKENREGISTRY_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.TOKENREGISTRY_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -116,9 +116,9 @@ const contracts: any = {
 		abi: [], // Add SyntheticTokenFactory ABI if available
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.SYNTHETICTOKENFACTORY_CONTRACT_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.SYNTHETICTOKENFACTORY_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -133,8 +133,8 @@ export function getCoreChainConfig() {
 				transport: fallback([
 					http(process.env.CORE_DEVNET_ENDPOINT),
 				]),
-				pollingInterval: Number(process.env.GTX_ANVIL_POLLING_INTERVAL) || 1000,
-				maxRequestsPerSecond: Number(process.env.GTX_ANVIL_MAX_REQUESTS_PER_SECOND) || 50,
+				pollingInterval: Number(process.env.GTX_CORE_DEVNET_POLLING_INTERVAL) || 1000,
+				maxRequestsPerSecond: Number(process.env.GTX_CORE_DEVNET_MAX_REQUESTS_PER_SECOND) || 50,
 				// Anvil-specific optimizations
 				retryCount: Number(process.env.MAX_RETRIES) || 3,
 				retryDelay: Number(process.env.RETRY_DELAY) || 1000,
@@ -165,10 +165,10 @@ export function getCoreChainConfig() {
 export function validateCoreChainEnvironment(): boolean {
 	const requiredVars = [
 		"CORE_DEVNET_ENDPOINT",
-		"BALANCEMANAGER_CONTRACT_GTX_ANVIL_ADDRESS",
-		"POOLMANAGER_CONTRACT_GTX_ANVIL_ADDRESS",
-		"GTXROUTER_CONTRACT_GTX_ANVIL_ADDRESS",
-		"FAUCET_GTX_ANVIL_ADDRESS",
+		"BALANCEMANAGER_CONTRACT_GTX_CORE_DEVNET_ADDRESS",
+		"POOLMANAGER_CONTRACT_GTX_CORE_DEVNET_ADDRESS",
+		"GTXROUTER_CONTRACT_GTX_CORE_DEVNET_ADDRESS",
+		"FAUCET_GTX_CORE_DEVNET_ADDRESS",
 	];
 
 	const missing = requiredVars.filter(varName => !process.env[varName]);

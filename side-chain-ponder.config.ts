@@ -14,9 +14,9 @@ const contracts: any = {
 		abi: ChainBalanceManagerABI || [],
 		network: {
 			sideDevnet: {
-				address: getAddress((process.env.CHAIN_BALANCE_MANAGER_GTX_ANVIL_2_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_2_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_2_END_BLOCK) || undefined,
+				address: getAddress((process.env.CHAIN_BALANCE_MANAGER_GTX_SIDE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_SIDE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_SIDE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -26,14 +26,14 @@ const contracts: any = {
 		abi: MailboxABI || [],
 		network: {
 			sideDevnet: {
-				address: getAddress((process.env.MAILBOX_GTX_ANVIL_2_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_2_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_2_END_BLOCK) || undefined,
+				address: getAddress((process.env.MAILBOX_GTX_SIDE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_SIDE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_SIDE_DEVNET_END_BLOCK) || undefined,
 			},
 			coreDevnet: {
-				address: getAddress((process.env.MAILBOX_GTX_ANVIL_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_END_BLOCK) || undefined,
+				address: getAddress((process.env.MAILBOX_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_CORE_DEVNET_END_BLOCK) || undefined,
 			}
 		},
 	},
@@ -43,9 +43,9 @@ const contracts: any = {
 		abi: FaucetABI || [],
 		network: {
 			sideDevnet: {
-				address: getAddress((process.env.FAUCET_GTX_ANVIL_2_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.GTX_ANVIL_2_START_BLOCK) || 0,
-				endBlock: Number(process.env.GTX_ANVIL_2_END_BLOCK) || undefined,
+				address: getAddress((process.env.FAUCET_GTX_SIDE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.GTX_SIDE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.GTX_SIDE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -60,8 +60,8 @@ export function getSideChainConfig() {
 				transport: fallback([
 					http(process.env.SIDE_DEVNET_ENDPOINT),
 				]),
-				pollingInterval: Number(process.env.GTX_ANVIL_2_POLLING_INTERVAL) || 1000,
-				maxRequestsPerSecond: Number(process.env.GTX_ANVIL_2_MAX_REQUESTS_PER_SECOND) || 50,
+				pollingInterval: Number(process.env.GTX_SIDE_DEVNET_POLLING_INTERVAL) || 1000,
+				maxRequestsPerSecond: Number(process.env.GTX_SIDE_DEVNET_MAX_REQUESTS_PER_SECOND) || 50,
 				// Anvil-specific optimizations
 				retryCount: Number(process.env.MAX_RETRIES) || 3,
 				retryDelay: Number(process.env.RETRY_DELAY) || 1000,
@@ -71,8 +71,8 @@ export function getSideChainConfig() {
 				transport: fallback([
 					http(process.env.CORE_DEVNET_ENDPOINT),
 				]),
-				pollingInterval: Number(process.env.GTX_ANVIL_POLLING_INTERVAL) || 1000,
-				maxRequestsPerSecond: Number(process.env.GTX_ANVIL_MAX_REQUESTS_PER_SECOND) || 50,
+				pollingInterval: Number(process.env.GTX_CORE_DEVNET_POLLING_INTERVAL) || 1000,
+				maxRequestsPerSecond: Number(process.env.GTX_CORE_DEVNET_MAX_REQUESTS_PER_SECOND) || 50,
 				// Anvil-specific optimizations
 				retryCount: Number(process.env.MAX_RETRIES) || 3,
 				retryDelay: Number(process.env.RETRY_DELAY) || 1000,
@@ -103,9 +103,9 @@ export function getSideChainConfig() {
 export function validateSideChainEnvironment(): boolean {
 	const requiredVars = [
 		"SIDE_DEVNET_ENDPOINT",
-		"CHAIN_BALANCE_MANAGER_GTX_ANVIL_2_ADDRESS",
-		"MAILBOX_GTX_ANVIL_2_ADDRESS",
-		"FAUCET_GTX_ANVIL_2_ADDRESS",
+		"CHAIN_BALANCE_MANAGER_GTX_SIDE_DEVNET_ADDRESS",
+		"MAILBOX_GTX_SIDE_DEVNET_ADDRESS",
+		"FAUCET_GTX_SIDE_DEVNET_ADDRESS",
 	];
 
 	const missing = requiredVars.filter(varName => !process.env[varName]);
