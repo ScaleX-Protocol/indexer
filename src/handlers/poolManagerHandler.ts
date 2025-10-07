@@ -41,7 +41,12 @@ async function fetchTokenData(client: any, address: string) {
 
 async function safeReadContract(client: any, address: string, functionName: string) {
 	try {
-		return await client.readContract({ address, abi: ERC20ABI, functionName });
+		return await client.readContract({ 
+			address, 
+			abi: ERC20ABI, 
+			functionName,
+			blockTag: "latest"
+		});
 	} catch (e) {
 		console.error(`Failed to get ${functionName} for ${address}:`, e);
 		return functionName === "decimals" ? 18 : "";
