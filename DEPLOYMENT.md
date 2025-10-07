@@ -209,13 +209,13 @@ pm2 startup
    - [ ] Test endpoints:
      - Core Chain: http://localhost:42070
      - Side Chain: http://localhost:42071
-     - WebSocket: ws://localhost:42080
+     - WebSocket: wss://core-devnet.gtxdex.xyz
 
 ## URL Endpoints
 
 - **Core Chain GraphQL:** http://localhost:42070
 - **Side Chain GraphQL:** http://localhost:42071
-- **WebSocket Service:** ws://localhost:42080
+- **WebSocket Service:** wss://core-devnet.gtxdex.xyz
 
 ## Package.json Scripts Reference
 

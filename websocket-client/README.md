@@ -51,7 +51,7 @@ To receive your own order/trade and balance events, run:
 > user 0xYourWalletAddress
 
 This opens a second socket to:
-  ws://localhost:42080/ws/0xYourWalletAddress
+  wss://core-devnet.gtxdex.xyz/ws/0xYourWalletAddress
 
 No `subscribe` command is needed. Server pushes:
   • executionReport   (order status, fills)

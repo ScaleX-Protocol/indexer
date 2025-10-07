@@ -220,7 +220,7 @@ echo "4. View logs:"
 echo "   ${GREEN}./scripts/microservices.sh logs${NC}"
 echo
 echo "Available URLs (after starting services):"
-echo "  • WebSocket: ws://localhost:42080/ws"
+echo "  • WebSocket: wss://core-devnet.gtxdex.xyz/ws"
 echo "  • Analytics API: http://localhost:3001/api"
 echo "  • WebSocket Health: http://localhost:8080/health"
 echo "  • Analytics Health: http://localhost:3001/health"

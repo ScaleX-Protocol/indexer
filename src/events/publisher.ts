@@ -1,10 +1,10 @@
 import { Redis } from 'ioredis';
-import { 
-  TradeEvent, 
-  BalanceUpdateEvent, 
-  OrderEvent, 
-  DepthEvent, 
-  KlineEvent, 
+import {
+  TradeEvent,
+  BalanceUpdateEvent,
+  OrderEvent,
+  DepthEvent,
+  KlineEvent,
   ExecutionReportEvent,
   ChainBalanceEvent,
   EventStreams,
@@ -29,7 +29,7 @@ export class EventPublisher {
 
     try {
       const streamKey = getStreamKey(EventStreams.TRADES, this.chainId);
-      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*', 
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
         'symbol', trade.symbol,
         'price', trade.price,
         'quantity', trade.quantity,
@@ -197,7 +197,7 @@ export class EventPublisher {
     for (const { stream, groups: consumerGroups } of groups) {
       try {
         const streamKey = getStreamKey(stream, this.chainId);
-        
+
         // Only create consumer groups if stream exists
         const exists = await this.redis.exists(streamKey);
         if (!exists) {

@@ -226,7 +226,7 @@ case "$1" in
         show_status
         echo
         log_info "Services available at:"
-        echo "  • WebSocket: ws://localhost:42080/ws"
+        echo "  • WebSocket: wss://core-devnet.gtxdex.xyz/ws"
         echo "  • Analytics API: http://localhost:42090/api"
         echo "  • PostgreSQL: localhost:5433 (indexer data)"
         echo "  • TimescaleDB: localhost:5434 (analytics data)"

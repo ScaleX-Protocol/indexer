@@ -4,15 +4,15 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const DEFAULT_USER_ADDRESS = '0x77C037fbF42e85dB1487B390b08f58C00f438812';
+const DEFAULT_USER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
 const config = {
-  url: process.env.WEBSOCKET_URL || 'ws://localhost:42080',
+  url: process.env.WEBSOCKET_URL || 'wss://core-devnet.gtxdex.xyz',
   autoReconnect: process.env.AUTO_RECONNECT === "true",
   reconnectInterval: Number(process.env.RECONNECT_INTERVAL) || 3000,
   pingInterval: Number(process.env.PING_INTERVAL) || 30000,
   useDefaultSubscriptions: process.env.NO_DEFAULT_SUBS !== "true",
-  defaultSubscriptions: ['mwethmusdc@trade', 'mwethmusdc@kline_1m', 'mwethmusdc@depth', 'mwethmusdc@miniTicker'],
+  defaultSubscriptions: ['gswethgsusdc@trade', 'gswethgsusdc@kline_1m', 'gswethgsusdc@depth', 'gswethgsusdc@miniTicker'],
   defaultUserAddress: process.env.DEFAULT_USER_ADDRESS || DEFAULT_USER_ADDRESS,
   autoConnectUser: process.env.AUTO_CONNECT_USER !== "false",
 };
@@ -122,9 +122,9 @@ function connectUser(address: string): void {
 
   const normalizedAddress = address.toLowerCase();
   let baseUrl = config.url.replace(/\/$/, "");
-  if (!baseUrl.endsWith("/ws")) {
-    baseUrl += "/ws";
-  }
+  // if (!baseUrl.endsWith("/ws")) {
+  //   baseUrl += "/ws";
+  // }
   const url = `${baseUrl}/${normalizedAddress}`;
   log(colors.blue, "USER", `Connecting to ${url} ...`);
   log(colors.blue, "USER", `Normalized address: ${normalizedAddress}`);
@@ -136,7 +136,7 @@ function connectUser(address: string): void {
     // Send a ping immediately to keep connection alive
     userWs.send(JSON.stringify({ method: "PING" }));
     log(colors.blue, "USER", "Sent initial ping");
-    
+
     // Start regular ping interval for user connection
     if (userPingInterval) clearInterval(userPingInterval);
     userPingInterval = setInterval(() => {
@@ -175,7 +175,7 @@ function processCommand(input: string): void {
   if (command === "commands" || command === "help") {
     log(colors.cyan, "HELP", "Available commands:");
     console.log(`
-  ${colors.cyan}subscribe <stream>${colors.reset}    - Subscribe to a stream (e.g. mwethmusdc@trade)
+  ${colors.cyan}subscribe <stream>${colors.reset}    - Subscribe to a stream (e.g. gswethgsusdc@trade)
   ${colors.cyan}unsubscribe <stream>${colors.reset}  - Unsubscribe from a stream
   ${colors.cyan}list${colors.reset}                  - List current subscriptions
   ${colors.cyan}ping${colors.reset}                  - Send a ping message
@@ -300,12 +300,12 @@ function promptForDefaultSubscriptions(): Promise<boolean> {
     log(colors.cyan, "CONFIG", `Auto-reconnect: ${config.autoReconnect}`);
     log(colors.cyan, "CONFIG", `Reconnect interval: ${config.reconnectInterval}ms`);
     log(colors.cyan, "CONFIG", `Ping interval: ${config.pingInterval}ms`);
-    
+
     console.log(`\n${colors.yellow}Default subscriptions available:${colors.reset}`);
     config.defaultSubscriptions.forEach((stream, index) => {
       console.log(`  ${index + 1}. ${stream}`);
     });
-    
+
     rl.question(`\n${colors.cyan}Do you want to use default subscriptions? (y/N): ${colors.reset}`, (answer) => {
       const useDefaults = answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes';
       resolve(useDefaults);
@@ -326,20 +326,20 @@ async function startClient(): Promise<void> {
   } else {
     config.useDefaultSubscriptions = await promptForDefaultSubscriptions();
   }
-  
+
   if (config.useDefaultSubscriptions) {
     log(colors.cyan, "CONFIG", `Default subscriptions: enabled`);
   } else {
     log(colors.cyan, "CONFIG", "Default subscriptions: disabled");
   }
-  
+
   log(colors.cyan, "CONFIG", `Auto-connect user: ${config.autoConnectUser}`);
   if (config.autoConnectUser) {
     log(colors.cyan, "CONFIG", `Default user address: ${config.defaultUserAddress}`);
   }
-  
+
   connect();
-  
+
   // Auto-connect to user websocket if enabled
   if (config.autoConnectUser) {
     setTimeout(() => {

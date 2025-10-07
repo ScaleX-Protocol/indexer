@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 
@@ -419,7 +419,7 @@ class CLI {
 
   private async showMainMenu(): Promise<void> {
     this.displayHeader();
-    
+
     const choices = menuCategories.map(category => ({
       name: `${category.emoji} ${category.title}`,
       value: category.title,
@@ -462,7 +462,7 @@ class CLI {
     console.log(chalk.blue.bold(`${category.emoji} ${category.title} Commands\n`));
 
     const choices = category.items.map(item => ({
-      name: item.dangerous 
+      name: item.dangerous
         ? chalk.red(`${item.name} - ${item.description}`)
         : `${item.name} - ${chalk.gray(item.description)}`,
       value: item.value,
@@ -524,8 +524,8 @@ class CLI {
     }
 
     // Special handling for stream monitoring commands
-    if (menuItem.value.startsWith('streams-') || menuItem.value.startsWith('stream-') || 
-        menuItem.value.startsWith('websocket-') || menuItem.value.startsWith('analytics-')) {
+    if (menuItem.value.startsWith('streams-') || menuItem.value.startsWith('stream-') ||
+      menuItem.value.startsWith('websocket-') || menuItem.value.startsWith('analytics-')) {
       await this.executeStreamMonitorCommand(menuItem);
       return;
     }
@@ -569,14 +569,14 @@ class CLI {
     }
 
     const [cmd, ...args] = command.split(' ');
-    
+
     return new Promise((resolve) => {
-      const child = spawn(cmd, args, {
+      const child: ChildProcess = spawn(cmd || '', args, {
         stdio: 'inherit',
         shell: true
       });
 
-      child.on('close', (code) => {
+      child.on('close', (code: number | null) => {
         console.log();
         if (code === 0) {
           console.log(chalk.green('✅ Command completed successfully!'));
@@ -587,7 +587,7 @@ class CLI {
         resolve(this.showPostCommandMenu());
       });
 
-      child.on('error', (error) => {
+      child.on('error', (error: Error) => {
         console.log(chalk.red(`❌ Error executing command: ${error.message}`));
         resolve(this.showPostCommandMenu());
       });
@@ -627,7 +627,7 @@ class CLI {
 
       case 'streams-watch':
         console.log(chalk.blue.bold('\n🔄 Real-time Stream Monitoring\n'));
-        
+
         const { watchInterval } = await inquirer.prompt([
           {
             type: 'input',
@@ -651,7 +651,7 @@ class CLI {
 
       case 'stream-details':
         console.log(chalk.blue.bold('\n📋 Stream Details Analysis\n'));
-        
+
         const { selectedStream } = await inquirer.prompt([
           {
             type: 'list',
@@ -668,7 +668,7 @@ class CLI {
 
       case 'consumer-analysis':
         console.log(chalk.blue.bold('\n👥 Consumer Analysis\n'));
-        
+
         const consumerAnswers = await inquirer.prompt([
           {
             type: 'list',
@@ -688,7 +688,7 @@ class CLI {
 
       case 'pending-messages':
         console.log(chalk.blue.bold('\n⏳ Pending Messages Analysis\n'));
-        
+
         const pendingAnswers = await inquirer.prompt([
           {
             type: 'list',
@@ -733,7 +733,7 @@ class CLI {
       case 'stream-health':
         console.log(chalk.blue.bold('\n🏥 Stream Health Check\n'));
         console.log(chalk.cyan('Running comprehensive health check on all streams...\n'));
-        
+
         // Run overview first, then detailed checks
         return this.executeStreamCommand('npm run stream-monitor overview');
 
@@ -758,14 +758,14 @@ class CLI {
 
   private async executeStreamCommand(command: string): Promise<void> {
     const [cmd, ...args] = command.split(' ');
-    
+
     return new Promise((resolve) => {
-      const child = spawn(cmd, args, {
+      const child: ChildProcess = spawn(cmd || '', args, {
         stdio: 'inherit',
         shell: true
       });
 
-      child.on('close', (code) => {
+      child.on('close', (code: number | null) => {
         console.log();
         if (code === 0) {
           console.log(chalk.green('✅ Stream monitoring completed successfully!'));
@@ -776,7 +776,7 @@ class CLI {
         resolve(this.showPostCommandMenu());
       });
 
-      child.on('error', (error) => {
+      child.on('error', (error: Error) => {
         console.log(chalk.red(`❌ Error executing stream monitor: ${error.message}`));
         resolve(this.showPostCommandMenu());
       });
@@ -785,9 +785,9 @@ class CLI {
 
   private async executeWatchCommand(command: string): Promise<void> {
     const [cmd, ...args] = command.split(' ');
-    
+
     return new Promise((resolve) => {
-      const child = spawn(cmd, args, {
+      const child: ChildProcess = spawn(cmd || '', args, {
         stdio: 'inherit',
         shell: true
       });
@@ -807,7 +807,7 @@ class CLI {
 
       process.on('SIGINT', handleExit);
 
-      child.on('close', (code) => {
+      child.on('close', (code: number | null) => {
         process.removeListener('SIGINT', handleExit);
         console.log();
         if (code === 0) {
@@ -819,7 +819,7 @@ class CLI {
         resolve(this.showPostCommandMenu());
       });
 
-      child.on('error', (error) => {
+      child.on('error', (error: Error) => {
         process.removeListener('SIGINT', handleExit);
         console.log(chalk.red(`❌ Error executing stream monitor: ${error.message}`));
         resolve(this.showPostCommandMenu());
@@ -830,7 +830,7 @@ class CLI {
   private async executeStressTest(): Promise<void> {
     console.log(chalk.blue.bold('\n🔌 WebSocket Stress Test Configuration\n'));
 
-    const answers = await inquirer.prompt([
+    const answers = await (inquirer.prompt as any)([
       {
         type: 'input',
         name: 'numClients',
@@ -851,17 +851,17 @@ class CLI {
         type: 'input',
         name: 'url',
         message: 'WebSocket server URL:',
-        default: 'ws://localhost:42080'
+        default: 'wss://core-devnet.gtxdex.xyz'
       },
       {
         type: 'checkbox',
         name: 'streams',
         message: 'Select streams to subscribe to:',
         choices: [
-          { name: 'mwethmusdc@trade - Trade stream', value: 'mwethmusdc@trade', checked: true },
-          { name: 'mwethmusdc@kline_1m - 1-minute kline', value: 'mwethmusdc@kline_1m', checked: true },
-          { name: 'mwethmusdc@depth - Order book depth', value: 'mwethmusdc@depth', checked: true },
-          { name: 'mwethmusdc@miniTicker - Mini ticker', value: 'mwethmusdc@miniTicker', checked: true }
+          { name: 'gswethgsusdc@trade - Trade stream', value: 'gswethgsusdc@trade', checked: true },
+          { name: 'gswethgsusdc@kline_1m - 1-minute kline', value: 'gswethgsusdc@kline_1m', checked: true },
+          { name: 'gswethgsusdc@depth - Order book depth', value: 'gswethgsusdc@depth', checked: true },
+          { name: 'gswethgsusdc@miniTicker - Mini ticker', value: 'gswethgsusdc@miniTicker', checked: true }
         ],
         validate: (choices: string[]) => {
           if (choices.length === 0) {
@@ -881,7 +881,7 @@ class CLI {
         name: 'userFile',
         message: 'Path to user addresses file (one address per line):',
         default: './user-addresses.txt',
-        when: (answers) => answers.useUserSockets,
+        when: (answers: any) => answers.useUserSockets,
         validate: async (input: string) => {
           try {
             const fs = await import('fs');
@@ -962,12 +962,12 @@ class CLI {
     console.log(`   Connection delay: ${chalk.white(answers.connectionDelay)}ms\n`);
 
     return new Promise((resolve) => {
-      const child = spawn('tsx', ['./websocket-client/stress-test.ts', ...args], {
+      const child: ChildProcess = spawn('tsx', ['./websocket-client/stress-test.ts', ...args], {
         stdio: 'inherit',
         shell: true
       });
 
-      child.on('close', (code) => {
+      child.on('close', (code: number | null) => {
         console.log();
         if (code === 0) {
           console.log(chalk.green('✅ Stress test completed successfully!'));
@@ -978,7 +978,7 @@ class CLI {
         resolve(this.showPostCommandMenu());
       });
 
-      child.on('error', (error) => {
+      child.on('error', (error: Error) => {
         console.log(chalk.red(`❌ Error executing stress test: ${error.message}`));
         resolve(this.showPostCommandMenu());
       });
@@ -1016,16 +1016,16 @@ class CLI {
 
     for (const command of commands) {
       console.log(chalk.cyan(`➤ ${command}`));
-      
+
       const [cmd, ...args] = command.split(' ');
-      
+
       await new Promise<void>((resolve) => {
-        const child = spawn(cmd, args, {
+        const child: ChildProcess = spawn(cmd || '', args, {
           stdio: 'inherit',
           shell: true
         });
 
-        child.on('close', (code) => {
+        child.on('close', (code: number | null) => {
           console.log();
           if (code !== 0) {
             console.log(chalk.red(`❌ Command failed with exit code ${code}`));
@@ -1033,7 +1033,7 @@ class CLI {
           resolve();
         });
 
-        child.on('error', (error) => {
+        child.on('error', (error: Error) => {
           console.log(chalk.red(`❌ Error executing command: ${error.message}`));
           resolve();
         });
@@ -1047,7 +1047,7 @@ class CLI {
 
   private async executeLocalServices(): Promise<void> {
     console.log(chalk.blue.bold('\n🚀 Starting All Local Services\n'));
-    
+
     console.log(chalk.yellow('This will start 3 services in parallel:'));
     console.log('  • CLOB Indexer (Core)');
     console.log('  • WebSocket Service');
@@ -1101,8 +1101,8 @@ class CLI {
     // Start all services
     services.forEach(service => {
       console.log(service.color(`[${service.name}] Starting...`));
-      
-      const child = spawn(service.command, service.args, {
+
+      const child: ChildProcess = spawn(service.command, service.args, {
         cwd: service.cwd,
         shell: true,
         env: { ...process.env, FORCE_COLOR: 'true' }
@@ -1123,11 +1123,11 @@ class CLI {
         });
       });
 
-      child.on('error', (error) => {
+      child.on('error', (error: Error) => {
         console.error(service.color(`[${service.name}]`), chalk.red(`Failed to start: ${error.message}`));
       });
 
-      child.on('exit', (code) => {
+      child.on('exit', (code: number | null) => {
         console.log(service.color(`[${service.name}]`), chalk.yellow(`Exited with code ${code}`));
       });
 
@@ -1154,7 +1154,7 @@ class CLI {
     process.on('SIGTERM', cleanup);
 
     // Wait for all services to exit
-    await Promise.all(children.map(child => 
+    await Promise.all(children.map(child =>
       new Promise(resolve => child.on('exit', resolve))
     ));
 
@@ -1190,7 +1190,6 @@ class CLI {
       case 'exit':
         console.log(chalk.green('👋 Goodbye!'));
         process.exit(0);
-        break;
     }
   }
 

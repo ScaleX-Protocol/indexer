@@ -209,15 +209,6 @@ export async function handlePoolCreated({ event, context }: any) {
 		const orderBook = getAddress(event.args.orderBook);
 		const poolId = createPoolId(chainId, orderBook);
 
-		if (shouldDebug) {
-			console.log(`${logger.log(event, '7. Pool identifiers created')}: ${safeStringify({
-				coin,
-				orderBook,
-				poolId,
-				rawOrderBook: event.args.orderBook
-			})}`);
-		}
-
 		const timestamp = Number(event.block.timestamp);
 		const poolData = {
 			id: poolId,
@@ -234,28 +225,8 @@ export async function handlePoolCreated({ event, context }: any) {
 			timestamp,
 		};
 
-		if (shouldDebug) {
-			console.log(`${logger.log(event, '8. Pool data structure created')}: ${safeStringify({
-				poolId: poolData.id,
-				coin: poolData.coin,
-				orderBook: poolData.orderBook,
-				baseCurrency: poolData.baseCurrency,
-				quoteCurrency: poolData.quoteCurrency,
-				baseDecimals: poolData.baseDecimals,
-				quoteDecimals: poolData.quoteDecimals,
-				timestamp: poolData.timestamp
-			})}`);
-		}
-
-		if (shouldDebug) {
-			console.log(logger.log(event, '9. Inserting pool into database...'));
-		}
-
 		try {
 			if (USE_RAW_SQL) {
-				if (shouldDebug) {
-					console.log(logger.log(event, '9a. Using raw SQL for pool insertion'));
-				}
 				await context.db.sql
 					.insert(pools)
 					.values(poolData)
@@ -269,79 +240,30 @@ export async function handlePoolCreated({ event, context }: any) {
 					.values(poolData)
 					.onConflictDoNothing();
 			}
-			if (shouldDebug) {
-				console.log(`${logger.log(event, '9. Pool inserted successfully')}: ${safeStringify({ method: USE_RAW_SQL ? 'raw SQL' : 'Ponder stores API' })}`);
-			}
 		} catch (error) {
-			if (shouldDebug) {
-				console.error(`${logger.log(event, '9. Pool insertion failed')}: ${safeStringify({ error, method: USE_RAW_SQL ? 'raw SQL' : 'Ponder stores API' })}`);
-			}
 			throw new Error(`Failed to insert pool: ${(error as Error).message}`);
-		}
-
-		if (shouldDebug) {
-			console.log(logger.log(event, '10. Caching pool data...'));
 		}
 
 		try {
 			const cacheKey = createPoolCacheKey(orderBook, chainId);
-			if (shouldDebug) {
-				console.log(`${logger.log(event, '10a. Cache key created')}: ${safeStringify({ cacheKey })}`);
-			}
 			await setChainCachedData(cacheKey, poolData, chainId, REDIS_CACHE_TTL, Number(event.block.number), 'handlePoolCreated');
-			if (shouldDebug) {
-				console.log(logger.log(event, '10. Pool data cached successfully'));
-			}
 		} catch (error) {
 			if (shouldDebug) {
 				console.error(`${logger.log(event, '10. Pool data caching failed')}: ${safeStringify(error)}`);
 			}
-			console.error('Failed to cache pool data:', error);
-		}
-
-		if (shouldDebug) {
-			console.log(logger.log(event, '11. Starting executeIfInSync operation...'));
 		}
 
 		try {
 			await executeIfInSync(Number(event.block.number), async () => {
-				if (shouldDebug) {
-					console.log(logger.log(event, '11a. Inside executeIfInSync callback'));
-				}
-
 				const symbol = coin.replace("/", "").toLowerCase();
-				if (shouldDebug) {
-					console.log(`${logger.log(event, '11b. Symbol created for WebSocket')}: ${safeStringify({ originalCoin: coin, symbol })}`);
-				}
-
 				try {
 					pushMiniTicker(symbol, "0", "0", "0", "0");
-					if (shouldDebug) {
-						console.log(logger.log(event, '11c. MiniTicker pushed successfully'));
-					}
 				} catch (error) {
-					if (shouldDebug) {
-						console.error(`${logger.log(event, '11c. MiniTicker push failed')}: ${safeStringify(error)}`);
-					}
 					throw new Error(`Failed to push MiniTicker: ${(error as Error).message}`);
 				}
-
-				if (shouldDebug) {
-					console.log(logger.log(event, '11d. executeIfInSync callback completed successfully'));
-				}
 			}, 'handlePoolCreated');
-			if (shouldDebug) {
-				console.log(logger.log(event, '11. executeIfInSync operation completed successfully'));
-			}
 		} catch (error) {
-			if (shouldDebug) {
-				console.error(`${logger.log(event, '11. executeIfInSync operation failed')}: ${safeStringify(error)}`);
-			}
 			throw new Error(`executeIfInSync failed: ${(error as Error).message}`);
-		}
-
-		if (shouldDebug) {
-			console.log(logger.log(event, '12. POOL CREATION DEBUG SUCCESS'));
 		}
 
 	} catch (error) {

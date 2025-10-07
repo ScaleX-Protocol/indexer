@@ -84,7 +84,7 @@ export function bootstrapGateway(app: Hono) {
 			const origin = info.origin;
 			const userAgent = info.req.headers['user-agent'];
 			const host = info.req.headers.host;
-			
+
 			const connectionInfo = {
 				origin: origin || 'NO_ORIGIN',
 				userAgent: userAgent?.substring(0, 100) || 'NO_USER_AGENT',
@@ -93,58 +93,59 @@ export function bootstrapGateway(app: Hono) {
 				secure: info.secure,
 				ip: info.req.socket.remoteAddress
 			};
-			
+
 			const logMessage = `[WS SERVER] Connection attempt: ${JSON.stringify(connectionInfo, null, 2)}`;
 			console.log(logMessage);
 			logToFile(logMessage);
-			
+
 			return true;
 		}
 	});
 
 	// Register WebSocket stats callback with system monitor
-    systemMonitor.registerWebSocketStatsCallback(() => {
-        let userConnections = 0;
-        let publicConnections = 0;
-        let totalSubscriptions = 0;
-        let marketSubscriptions = 0;
-        let userSubscriptions = 0;
-        let otherSubscriptions = 0;
+	systemMonitor.registerWebSocketStatsCallback(() => {
+		let userConnections = 0;
+		let publicConnections = 0;
+		let totalSubscriptions = 0;
+		let marketSubscriptions = 0;
+		let userSubscriptions = 0;
+		let otherSubscriptions = 0;
 
-        for (const [_, state] of clients) {
-            if (state.isUser) {
-                userConnections++;
-                // For user connections, count each stream as a user subscription
-                userSubscriptions += state.streams.size;
-            } else {
-                publicConnections++;
+		for (const [_, state] of clients) {
+			if (state.isUser) {
+				userConnections++;
+				// For user connections, count each stream as a user subscription
+				userSubscriptions += state.streams.size;
+			} else {
+				publicConnections++;
 
-                // For public connections, categorize subscriptions by stream name
-                for (const stream of state.streams) {
-                    if (stream.includes('@depth') || stream.includes('@trade') || stream.includes('@ticker') || stream.includes('@kline')) {
-                        marketSubscriptions++;
-                    } else {
-                        otherSubscriptions++;
-                    }
-                }
-            }
+				// For public connections, categorize subscriptions by stream name
+				for (const stream of state.streams) {
+					if (stream.includes('@depth') || stream.includes('@trade') || stream.includes('@ticker') || stream.includes('@kline')) {
+						marketSubscriptions++;
+					} else {
+						otherSubscriptions++;
+					}
+				}
+			}
 
-            // Count total subscriptions
-            totalSubscriptions += state.streams.size;
-        }
+			// Count total subscriptions
+			totalSubscriptions += state.streams.size;
+		}
 
-        return {
-            activeConnections: clients.size,
-            totalSubscriptions,
-            userConnections,
-            publicConnections,
-            subscriptionTypes: {
-                market: marketSubscriptions,
-                user: userSubscriptions,
-                other: otherSubscriptions
-            }
-        };
-    });wss.on("connection", (ws: any, req: any) => {
+		return {
+			activeConnections: clients.size,
+			totalSubscriptions,
+			userConnections,
+			publicConnections,
+			subscriptionTypes: {
+				market: marketSubscriptions,
+				user: userSubscriptions,
+				other: otherSubscriptions
+			}
+		};
+	});
+	wss.on("connection", (ws: any, req: any) => {
 		const url = req.url || "/";
 		const listenKey = url.startsWith("/ws/") ? url.slice(4) : undefined;
 		const state: ClientState = {
@@ -165,7 +166,8 @@ export function bootstrapGateway(app: Hono) {
 			}
 			if (!m.method || !allowCtrl(state)) return;
 			// Only track valid messages that pass validation
-            systemMonitor.trackWebSocketMessageReceived();switch (m.method) {
+			systemMonitor.trackWebSocketMessageReceived();
+			switch (m.method) {
 				case "SUBSCRIBE":
 					(m.params || []).forEach(s => state.streams.add(s));
 					ws.send(
@@ -237,18 +239,20 @@ export function bootstrapGateway(app: Hono) {
 			stream,
 			data,
 		});
-		for (const [ws, s] of clients) if (ws.readyState === 1 && s.streams.has(stream)) {ws.send(j);
-	systemMonitor.trackWebSocketMessageSent();
-            }
-    };
+		for (const [ws, s] of clients) if (ws.readyState === 1 && s.streams.has(stream)) {
+			ws.send(j);
+			systemMonitor.trackWebSocketMessageSent();
+		}
+	};
 
 	const emitUser = (userId: string, p: any) => {
 		if (ENABLE_WEBSOCKET_LOG) console.log("[WS EMIT USER]", userId, JSON.stringify(p));
 		const j = JSON.stringify(p);
-		for (const [ws, s] of clients) if (s.isUser && s.userId === userId && ws.readyState === 1) {ws.send(j);
-	systemMonitor.trackWebSocketMessageSent();
-            }
-    };
+		for (const [ws, s] of clients) if (s.isUser && s.userId === userId && ws.readyState === 1) {
+			ws.send(j);
+			systemMonitor.trackWebSocketMessageSent();
+		}
+	};
 
 	const fns = {
 		pushTrade: (sym: string, id: number, p: string, q: string, m: boolean, ts: number) => {

@@ -43,7 +43,7 @@ dotenv.config();
 async function publishOrderEvent(order: any, symbol: string, timestamp: number, executionType: "new" | "trade" | "cancelled", filledQuantity: bigint, _executionPrice: bigint) {
   try {
     const eventPublisher = getEventPublisher();
-    
+
     // Publish order event
     await eventPublisher.publishOrder({
       orderId: order.orderId.toString(),
@@ -80,7 +80,7 @@ async function publishOrderEvent(order: any, symbol: string, timestamp: number, 
 async function publishTradeEvent(symbol: string, price: string, quantity: string, userId: string, side: string, tradeId: string, orderId: string, makerOrderId: string, timestamp: number) {
   try {
     const eventPublisher = getEventPublisher();
-    
+
     await eventPublisher.publishTrade({
       symbol: symbol.toLowerCase(),
       price: price,
@@ -100,7 +100,7 @@ async function publishTradeEvent(symbol: string, price: string, quantity: string
 async function publishDepthEvent(symbol: string, bids: any[], asks: any[], timestamp: number) {
   try {
     const eventPublisher = getEventPublisher();
-    
+
     await eventPublisher.publishDepth({
       symbol: symbol.toLowerCase(),
       bids: bids,
@@ -115,7 +115,7 @@ async function publishDepthEvent(symbol: string, bids: any[], asks: any[], times
 async function publishKlineEvent(symbol: string, interval: string, klinePayload: any) {
   try {
     const eventPublisher = getEventPublisher();
-    
+
     await eventPublisher.publishKline({
       symbol: symbol.toLowerCase(),
       interval: interval,
@@ -323,13 +323,13 @@ export async function handleOrderMatched({ event, context }: any) {
     if (buyRow) {
       await publishOrderEvent(buyRow, symbol, timestamp, "trade", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
     }
-    
+
     if (sellRowById) {
       await publishOrderEvent(sellRowById, symbol, timestamp, "trade", BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice));
     }
 
-    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
-    
+    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+
     // Publish depth event
     await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
 
@@ -453,40 +453,40 @@ export async function handleUpdateOrder({ event, context }: any) {
   try {
     await upsertOrderHistory(db, historyData);
 
-  await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
+    await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
 
-  const isExpired = ORDER_STATUS[5];
+    const isExpired = ORDER_STATUS[5];
 
-  if (event.args.status == isExpired) {
-    const order = await db.find(orders, { id: hashedOrderId });
-    if (order && order.side) {
-      const price = BigInt(order.price);
-      await upsertOrderBookDepth(
-        db,
-        chainId,
-        poolAddress,
-        order.side,
-        price,
-        BigInt(order.quantity),
-        timestamp,
-        false
-      );
+    if (event.args.status == isExpired) {
+      const order = await db.find(orders, { id: hashedOrderId });
+      if (order && order.side) {
+        const price = BigInt(order.price);
+        await upsertOrderBookDepth(
+          db,
+          chainId,
+          poolAddress,
+          order.side,
+          price,
+          BigInt(order.quantity),
+          timestamp,
+          false
+        );
+      }
     }
-  }
-  await executeIfInSync(Number(event.block.number), async () => {
-    const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
-    const row = await context.db.find(orders, { id: hashedOrderId });
+    await executeIfInSync(Number(event.block.number), async () => {
+      const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleUpdateOrder')).toUpperCase();
+      const row = await context.db.find(orders, { id: hashedOrderId });
 
-    if (!row) return;
+      if (!row) return;
 
-    // Publish order event
-    await publishOrderEvent(row, symbol, timestamp, "trade", BigInt(event.args.filled), row.price);
-    
-    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
-    
-    // Publish depth event
-    await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
-  }, 'handleUpdateOrder');
+      // Publish order event
+      await publishOrderEvent(row, symbol, timestamp, "trade", BigInt(event.args.filled), row.price);
+
+      const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+
+      // Publish depth event
+      await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
+    }, 'handleUpdateOrder');
   } catch (e) {
     console.error('UpdateOrder error:', e);
     throw e;
@@ -500,22 +500,22 @@ export async function handleUpdateOrder({ event, context }: any) {
 
     // Publish trade event for the fill
     await publishTradeEvent(
-      symbol, 
-      row.price.toString(), 
-      event.args.filled.toString(), 
-      row.user, 
-      row.side, 
-      event.transaction.hash, 
-      row.id, 
-      row.id, 
+      symbol,
+      row.price.toString(),
+      event.args.filled.toString(),
+      row.user,
+      row.side,
+      event.transaction.hash,
+      row.id,
+      row.id,
       timestamp
     );
 
     // Publish order event
     await publishOrderEvent(row, symbol, timestamp, "trade", BigInt(event.args.filled), row.price);
-    
-    const latestDepth = await getDepth(event.log.address!,  context.db, chainId);
-    
+
+    const latestDepth = await getDepth(event.log.address!, context.db, chainId);
+
     // Publish depth event
     await publishDepthEvent(symbol, latestDepth.bids as any, latestDepth.asks as any, timestamp);
 

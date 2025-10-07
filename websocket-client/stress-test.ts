@@ -8,7 +8,7 @@ interface StressTestConfig {
   userAddresses?: string[];
   pingInterval: number;
   connectionDelay: number;
-  duration?: number; 
+  duration?: number;
 }
 
 interface ClientStats {
@@ -18,13 +18,13 @@ interface ClientStats {
   lastMessageTime: number;
   subscriptions: string[];
   userSocket?: boolean;
-  latestMessages: Array<{timestamp: number, data: any}>; // Store latest messages
+  latestMessages: Array<{ timestamp: number, data: any }>; // Store latest messages
 }
 
 interface SystemStats {
   timestamp: number;
   memoryUsage: {
-    rss: number; 
+    rss: number;
     heapUsed: number;
     heapTotal: number;
     external: number;
@@ -88,15 +88,15 @@ class StressTestClient {
         this.stats.messagesReceived++;
         const timestamp = Date.now();
         this.stats.lastMessageTime = timestamp;
-        
+
         try {
           const message = JSON.parse(data.toString());
-          
+
           // Debug logging to understand message structure
           if (process.env.DEBUG_WS_MESSAGES === 'true') {
             console.log(`[Client ${this.stats.id}] Message:`, JSON.stringify(message, null, 2));
           }
-          
+
           // Store the latest message with timestamp
           this.stats.latestMessages.push({
             timestamp,
@@ -142,7 +142,7 @@ class StressTestClient {
         this.stats.messagesReceived++;
         const timestamp = Date.now();
         this.stats.lastMessageTime = timestamp;
-        
+
         try {
           const message = JSON.parse(data.toString());
           // Store the latest user message with timestamp
@@ -174,10 +174,10 @@ class StressTestClient {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     this.config.streams.forEach(stream => {
-      this.ws!.send(JSON.stringify({ 
-        method: "SUBSCRIBE", 
-        params: [stream], 
-        id: Date.now() + Math.random() 
+      this.ws!.send(JSON.stringify({
+        method: "SUBSCRIBE",
+        params: [stream],
+        id: Date.now() + Math.random()
       }));
       this.stats.subscriptions.push(stream);
       console.log(`[Client ${this.stats.id}] Subscribed to ${stream}`);
@@ -241,7 +241,7 @@ class StressTestRunner {
         const client = this.clients[i];
         if (client) {
           await client.connect();
-          
+
           // Connect user socket if addresses provided - cycle through addresses if more clients than addresses
           if (this.config.userAddresses && this.config.userAddresses.length > 0) {
             const addressIndex = i % this.config.userAddresses.length;
@@ -314,13 +314,13 @@ class StressTestRunner {
     const title = 'GTX WebSocket Stress Test Dashboard';
     const uptime = this.formatUptime(elapsedSeconds);
     const timestamp = new Date().toLocaleTimeString();
-    
+
     const width = 78;
     console.log('┌' + '─'.repeat(width) + '┐');
-    
+
     const titlePadding = width - 2 - title.length;
     console.log(`│ ${title}${' '.repeat(titlePadding)} │`);
-    
+
     // Format second line with proper alignment
     const leftPart = `Uptime: ${uptime}`;
     const rightPart = `Time: ${timestamp}`;
@@ -337,10 +337,10 @@ class StressTestRunner {
       `Avg/Client: ${avgMsgs.toFixed(1)}`,
       `Rate: ${msgRate.toFixed(2)}/s`
     ].join(' │ ');
-    
+
     const overviewPadding = width - 2 - 8; // "Overview" = 8 chars
     console.log(`│ Overview${' '.repeat(overviewPadding)} │`);
-    
+
     const contentPadding = width - 2 - content.length;
     console.log(`│ ${content}${' '.repeat(contentPadding)} │`);
     console.log('├' + '─'.repeat(width) + '┤');
@@ -353,15 +353,15 @@ class StressTestRunner {
     const rss = this.formatBytes(systemStats.memoryUsage.rss);
     const cpuUser = this.formatCpuTime(systemStats.cpuUsage.user);
     const cpuSys = this.formatCpuTime(systemStats.cpuUsage.system);
-    
+
     const titlePadding = width - 2 - 16; // "System Resources" = 16 chars
     console.log(`│ System Resources${' '.repeat(titlePadding)} │`);
-    
+
     const memPart = `Memory: ${memUsed}/${memTotal}`;
     const rssPart = `RSS: ${rss}`;
     const cpuPart = `CPU: ${cpuUser}+${cpuSys}`;
     const content = `${memPart} │ ${rssPart} │ ${cpuPart}`;
-    
+
     const contentPadding = width - 2 - content.length;
     console.log(`│ ${content}${' '.repeat(contentPadding)} │`);
     console.log('├' + '─'.repeat(width) + '┤');
@@ -371,18 +371,18 @@ class StressTestRunner {
     const width = 78;
     const url = this.config.url;
     const streams = this.config.streams.join(', ');
-    
+
     const titlePadding = width - 2 - 18; // "Connection Details" = 18 chars
     console.log(`│ Connection Details${' '.repeat(titlePadding)} │`);
-    
+
     const urlContent = `URL: ${url}`;
     const urlPadding = width - 2 - urlContent.length;
     console.log(`│ ${urlContent}${' '.repeat(urlPadding)} │`);
-    
+
     // Handle long stream names with proper wrapping
     const streamPrefix = 'Streams: ';
     const maxStreamWidth = width - 2 - streamPrefix.length;
-    
+
     if (streams.length <= maxStreamWidth) {
       const streamContent = `${streamPrefix}${streams}`;
       const streamPadding = width - 2 - streamContent.length;
@@ -392,7 +392,7 @@ class StressTestRunner {
       const firstContent = `${streamPrefix}${firstLine}`;
       const firstPadding = width - 2 - firstContent.length;
       console.log(`│ ${firstContent}${' '.repeat(firstPadding)} │`);
-      
+
       if (streams.substring(maxStreamWidth).length > 0) {
         const secondLine = streams.substring(maxStreamWidth);
         const maxSecondWidth = width - 2 - 9; // 9 spaces for continuation
@@ -406,15 +406,15 @@ class StressTestRunner {
 
   private drawClientStats(): void {
     const width = 78;
-    
+
     const titlePadding = width - 2 - 13; // "Client Status" = 13 chars
     console.log(`│ Client Status${' '.repeat(titlePadding)} │`);
-    
+
     const headerContent = "ID │ Status │ Messages │ Subs │ Type │ Last Activity";
     const headerPadding = width - 2 - headerContent.length;
     console.log(`│ ${headerContent}${' '.repeat(headerPadding)} │`);
     console.log('├' + '─'.repeat(width) + '┤');
-    
+
     // Show up to 10 clients in a compact table format
     this.clients.slice(0, 10).forEach(client => {
       const id = client.stats.id.toString().padStart(2);
@@ -422,16 +422,16 @@ class StressTestRunner {
       const messages = client.stats.messagesReceived.toString().padStart(8); // 8 chars to match "Messages"
       const subs = client.stats.subscriptions.length.toString().padStart(4); // 4 chars to match "Subs"
       const type = client.stats.userSocket ? 'User' : 'Pub '; // 4 chars to match "Type"
-      const lastActivity = client.stats.lastMessageTime > 0 ? 
+      const lastActivity = client.stats.lastMessageTime > 0 ?
         `${((Date.now() - client.stats.lastMessageTime) / 1000).toFixed(0)}s ago`.padEnd(13) : // 13 chars to match "Last Activity"
         '     -      ';
-      
+
       // Build the row with exact spacing to match header: "ID │ Status │ Messages │ Subs │ Type │ Last Activity"
       const row = `${id} │ ${status} │ ${messages} │ ${subs} │ ${type} │ ${lastActivity}`;
       const rowPadding = width - 2 - row.length;
       console.log(`│ ${row}${' '.repeat(rowPadding)} │`);
     });
-    
+
     if (this.clients.length > 10) {
       const moreInfo = `... and ${this.clients.length - 10} more clients`;
       const morePadding = width - 2 - moreInfo.length;
@@ -444,9 +444,9 @@ class StressTestRunner {
     const width = 78;
     const titlePadding = width - 2 - 24; // "Recent Messages (Last 5)" = 24 chars
     console.log(`│ Recent Messages (Last 5)${' '.repeat(titlePadding)} │`);
-    
+
     // Collect all recent messages from all clients
-    const allMessages: Array<{timestamp: number, clientId: number, data: any}> = [];
+    const allMessages: Array<{ timestamp: number, clientId: number, data: any }> = [];
     this.clients.forEach(client => {
       client.stats.latestMessages.forEach(msg => {
         allMessages.push({
@@ -456,12 +456,12 @@ class StressTestRunner {
         });
       });
     });
-    
+
     // Sort by timestamp (newest first) and take top 5
     const recentMessages = allMessages
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 5);
-    
+
     if (recentMessages.length === 0) {
       const noPadding = width - 2 - 27; // "No messages received yet..." = 27 chars
       console.log(`│ No messages received yet...${' '.repeat(noPadding)} │`);
@@ -472,7 +472,7 @@ class StressTestRunner {
         // Comprehensive message type parsing covering all WebSocket server message types
         let eventType = 'unknown';
         let stream = 'system';
-        
+
         if (msg.data) {
           // Check for subscription control messages (SUBSCRIBE, UNSUBSCRIBE, LIST_SUBSCRIPTIONS, PING, PONG)
           if (msg.data.method) {
@@ -543,7 +543,7 @@ class StressTestRunner {
             else stream = 'market';
           }
         }
-        
+
         const line = `${timeAgo.padStart(3)} ago │ ${clientId.padEnd(3)} │ ${eventType.padEnd(12)} │ ${stream.substring(0, 20)}`;
         const linePadding = width - 2 - line.length;
         console.log(`│ ${line}${' '.repeat(linePadding)} │`);
@@ -556,32 +556,32 @@ class StressTestRunner {
     const width = 78;
     const memGrowth = this.getMemoryGrowth();
     const pingInterval = `${this.config.pingInterval / 1000}s`;
-    
+
     const titlePadding = width - 2 - 11; // "Performance" = 11 chars
     console.log(`│ Performance${' '.repeat(titlePadding)} │`);
-    
+
     const leftPart = `PING Interval: ${pingInterval}`;
     const rightPart = `Memory Growth: ${memGrowth}`;
     const middleSpaces = width - 2 - leftPart.length - rightPart.length;
     console.log(`│ ${leftPart}${' '.repeat(Math.max(0, middleSpaces))}${rightPart} │`);
-    
+
     console.log('└' + '─'.repeat(width) + '┘');
     console.log('\nPress Ctrl+C to stop the stress test');
   }
 
   private getMemoryGrowth(): string {
     if (this.systemStatsHistory.length < 2) return 'calculating...';
-    
+
     const current = this.systemStatsHistory[this.systemStatsHistory.length - 1];
     const previous = this.systemStatsHistory[this.systemStatsHistory.length - 2];
-    
+
     if (!current || !previous || !current.memoryUsage || !previous.memoryUsage) return 'N/A';
-    
+
     const growth = current.memoryUsage.rss - previous.memoryUsage.rss;
     const growthPerSec = growth / 5; // 5 second intervals
-    
+
     if (Math.abs(growth) < 1024 * 1024) return 'stable';
-    
+
     const sign = growth > 0 ? '+' : '';
     return `${sign}${this.formatBytes(Math.abs(growthPerSec))}/s`;
   }
@@ -590,7 +590,7 @@ class StressTestRunner {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
     if (minutes > 0) return `${minutes}m ${secs}s`;
     return `${secs}s`;
@@ -603,7 +603,7 @@ class StressTestRunner {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
-    
+
     return {
       timestamp: Date.now(),
       memoryUsage: {
@@ -623,8 +623,8 @@ class StressTestRunner {
         used: usedMem,
         percentage: (usedMem / totalMem) * 100,
       },
-      networkConnections: this.clients.filter(c => c.stats.connected).length + 
-                         this.clients.filter(c => c.stats.userSocket).length,
+      networkConnections: this.clients.filter(c => c.stats.connected).length +
+        this.clients.filter(c => c.stats.userSocket).length,
       uptime: process.uptime(),
     };
   }
@@ -643,13 +643,13 @@ class StressTestRunner {
 
   stop(): void {
     console.log("\n🛑 Stopping stress test...");
-    
+
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
     }
 
     this.clients.forEach(client => client.disconnect());
-    
+
     // Final stats and performance summary
     setTimeout(() => {
       this.printStats();
@@ -667,11 +667,11 @@ class StressTestRunner {
 
     const firstStats = this.systemStatsHistory[0];
     const lastStats = this.systemStatsHistory[this.systemStatsHistory.length - 1];
-    
+
     if (!firstStats || !lastStats) return;
-    
+
     const testDurationSeconds = (lastStats.timestamp - firstStats.timestamp) / 1000;
-    
+
     // Memory analysis
     const peakMemory = Math.max(...this.systemStatsHistory.map(s => s.memoryUsage.rss));
     const avgMemory = this.systemStatsHistory.reduce((sum, s) => sum + s.memoryUsage.rss, 0) / this.systemStatsHistory.length;
@@ -684,7 +684,7 @@ class StressTestRunner {
     console.log(`   Average memory: ${this.formatBytes(avgMemory)}`);
     console.log(`   Memory per client: ${this.formatBytes(memoryPerClient)}`);
     console.log(`   Total growth: ${this.formatBytes(memoryGrowth)}`);
-    
+
     // Performance projections
     const memoryFor1000 = memoryPerClient * 1000;
     const memoryFor5000 = memoryPerClient * 5000;
@@ -697,7 +697,7 @@ class StressTestRunner {
 
     // Server recommendations
     console.log(`\n🖥️  Server Sizing Recommendations:`);
-    
+
     const recommendRAM = (clients: number) => {
       const estimatedMemory = memoryPerClient * clients;
       const osOverhead = 2 * 1024 * 1024 * 1024; // 2GB for OS
@@ -729,7 +729,7 @@ class StressTestRunner {
     console.log(`   • Add 50-100% buffer for production workloads`);
     console.log(`   • Monitor actual performance under realistic traffic patterns`);
     console.log(`   • Consider horizontal scaling for >10k concurrent connections`);
-    
+
     console.log("\n" + "=".repeat(61));
   }
 }
@@ -744,9 +744,9 @@ const TIMING_SYNC = {
 
 // Default configuration
 const defaultConfig: StressTestConfig = {
-  url: process.env.WEBSOCKET_URL || 'ws://localhost:42080',
+  url: process.env.WEBSOCKET_URL || 'wss://core-devnet.gtxdex.xyz',
   numClients: 10,
-  streams: ['mwethmusdc@trade', 'mwethmusdc@kline_1m', 'mwethmusdc@depth', 'mwethmusdc@miniTicker'],
+  streams: ['gswethgsusdc@trade', 'gswethgsusdc@kline_1m', 'gswethgsusdc@depth', 'gswethgsusdc@miniTicker'],
   pingInterval: TIMING_SYNC.pingInterval * 1000, // 60 seconds in ms
   connectionDelay: 100, // 100ms between connections
   duration: undefined // Run indefinitely
@@ -759,7 +759,7 @@ async function parseArgs(): Promise<StressTestConfig> {
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     switch (arg) {
       case '--clients':
       case '-c':
@@ -802,8 +802,8 @@ Usage: npm run stress-test [options]
 
 Options:
   -c, --clients <n>      Number of concurrent clients (default: 10)
-  -u, --url <url>        WebSocket server URL (default: ws://localhost:42080)
-  -s, --streams <list>   Comma-separated list of streams (default: mwethmusdc@trade,mwethmusdc@depth)
+  -u, --url <url>        WebSocket server URL (default: wss://core-devnet.gtxdex.xyz)
+  -s, --streams <list>   Comma-separated list of streams (default: gswethgsusdc@trade,gswethgsusdc@depth)
   -d, --duration <sec>   Test duration in seconds (default: unlimited)
   --delay <ms>           Delay between connections in ms (default: 100)
   --users <file>         File containing user addresses (one per line)
@@ -811,7 +811,7 @@ Options:
 
 Examples:
   npm run stress-test -c 50 -d 60
-  npm run stress-test --clients 100 --streams "mwethmusdc@trade,mwethmusdc@kline_1m"
+  npm run stress-test --clients 100 --streams "gswethgsusdc@trade,gswethgsusdc@kline_1m"
   npm run stress-test --users ./user-addresses.txt -c 100
         `);
         process.exit(0);

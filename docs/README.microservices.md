@@ -115,8 +115,8 @@ cd clob-indexer
 ## Service Endpoints
 
 ### WebSocket Service
-- **WebSocket**: `ws://localhost:42080/ws`
-- **User WebSocket**: `ws://localhost:42080/ws/{userId}`
+- **WebSocket**: `wss://core-devnet.gtxdex.xyz/ws`
+- **User WebSocket**: `wss://core-devnet.gtxdex.xyz/ws/{userId}`
 - **Health**: `http://localhost:8080/health`
 
 ### Analytics Service
@@ -170,7 +170,7 @@ GET /api/market/sentiment                 # Market sentiment
 ```
 
 ### User Streams
-Connect to `ws://localhost:42080/ws/{userAddress}` to receive:
+Connect to `wss://core-devnet.gtxdex.xyz/ws/{userAddress}` to receive:
 - Balance updates
 - Execution reports
 - Order status changes

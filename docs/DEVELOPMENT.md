@@ -84,7 +84,7 @@ Once everything is running, you'll have access to:
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| **WebSocket** | `ws://localhost:42080/ws` | Real-time market data |
+| **WebSocket** | `wss://core-devnet.gtxdex.xyz/ws` | Real-time market data |
 | **Analytics API** | `http://localhost:3001/api` | Portfolio & market APIs |
 | **WebSocket Health** | `http://localhost:8080/health` | WebSocket service health |
 | **Analytics Health** | `http://localhost:3001/health` | Analytics service health |
@@ -200,13 +200,13 @@ npm run ws-client
 
 Or test manually:
 ```javascript
-const ws = new WebSocket('ws://localhost:42080/ws');
+const ws = new WebSocket('wss://core-devnet.gtxdex.xyz/ws');
 
 ws.onopen = () => {
   // Subscribe to trade stream
   ws.send(JSON.stringify({
     method: 'SUBSCRIBE',
-    params: ['mwethmusdc@trade'],
+    params: ['gswethgsusdc@trade'],
     id: 1
   }));
 };

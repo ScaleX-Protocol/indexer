@@ -32,7 +32,7 @@ This indexer is the backbone of the GTX CLOB DEX, processing and storing on-chai
 
 ## 🔌 Real-time WebSocket Gateway
 
-The indexer spins up a WebSocket gateway on **ws://localhost:42080**.
+The indexer spins up a WebSocket gateway on **wss://core-devnet.gtxdex.xyz**.
 
 ### 📡 Market Streams
 
@@ -75,7 +75,7 @@ List subscriptions:
 Connect to:
 
 ```
-ws://localhost:42080/ws/<walletAddress>
+wss://core-devnet.gtxdex.xyz/ws/<walletAddress>
 ```
 
 No subscription message is required. You will automatically receive:
@@ -138,7 +138,7 @@ Sent when balances change (deposit, withdrawal, fill, lock/unlock).
 
 ### 📦 Typical Workflow
 
-1. Connect to ws://localhost:42080/ws/<wallet>
+1. Connect to wss://core-devnet.gtxdex.xyz/ws/<wallet>
 2. Place an order → receive executionReport (NEW)
 3. Order fills → receive executionReport (TRADE) and balanceUpdate
 4. Cancel an order → receive executionReport (CANCELED)
@@ -147,8 +147,8 @@ Sent when balances change (deposit, withdrawal, fill, lock/unlock).
 
 ```bash
 pnpm ts-node websocket-client.ts
-> subscribe mwethmusdc@depth
-> subscribe mwethmusdc@trade
+> subscribe gswethgsusdc@depth
+> subscribe gswethgsusdc@trade
 > user 0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae
 ```
 
@@ -338,7 +338,7 @@ During development, you can use these tools together to:
 This workflow helps ensure your WebSocket server can handle the expected load and provides visibility into system performance.
 
 **User streams**  
-Open a second socket to `ws://localhost:42080/ws/<walletAddress>` to receive:
+Open a second socket to `wss://core-devnet.gtxdex.xyz/ws/<walletAddress>` to receive:
 
 - `executionReport` – order status & fills
 - `balanceUpdate` – deposits, withdrawals, fee distributions
