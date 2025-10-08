@@ -12,10 +12,57 @@ import { pushMiniTicker } from "../websocket/broadcaster";
 
 const REDIS_CACHE_TTL = parseInt(process.env.REDIS_CACHE_TTL || '2147483647');
 const USE_RAW_SQL = process.env.USE_RAW_SQL === 'true';
+const USE_STATIC_TOKEN_DATA = process.env.USE_STATIC_TOKEN_DATA !== 'false';
 
 dotenv.config();
 
+// Static token data mapping for core chain tokens to avoid RPC calls
+const STATIC_TOKEN_DATA: Record<string, { symbol: string; name: string; decimals: number }> = {
+	"0x49a524f4a1d999db12546834e227bd1cc720bfe0": {
+		symbol: "gsWETH",
+		name: "GTX Synthetic WETH",
+		decimals: 18
+	},
+	"0x75c902863a9531385fb9f7dbb4b8c929ef8850c8": {
+		symbol: "gsUSDC",
+		name: "GTX Synthetic USDC",
+		decimals: 6
+	},
+	"0x0356b6f5b96a7b99553496570f3d496b6a92224e": {
+		symbol: "gsWBTC",
+		name: "GTX Synthetic WBTC",
+		decimals: 8
+	},
+	// Native tokens (if deployed)
+	"0x7a5ec257391817ef241ef8451642cc6b222d4f8c": {
+		symbol: "USDC",
+		name: "USD Coin",
+		decimals: 6
+	},
+	"0x59c7d03d2e9893fb7baa89da50a9452e1e9b8b90": {
+		symbol: "WBTC",
+		name: "Wrapped Bitcoin",
+		decimals: 8
+	},
+	"0x90e75f390332356426b60fb440df23f860f6a113": {
+		symbol: "WETH",
+		name: "Wrapped Ether",
+		decimals: 18
+	}
+};
+
 async function fetchTokenData(client: any, address: string) {
+	// Check environment variable to decide whether to use static data
+	if (USE_STATIC_TOKEN_DATA) {
+		const normalizedAddress = address.toLowerCase();
+		const staticData = STATIC_TOKEN_DATA[normalizedAddress];
+
+		if (staticData) {
+			console.log(`Using static token data for ${address}: ${staticData.symbol}`);
+			return staticData;
+		}
+	}
+
 	try {
 		const [symbol, name, decimals] = await client.multicall({
 			contracts: [
@@ -23,6 +70,7 @@ async function fetchTokenData(client: any, address: string) {
 				{ address, abi: ERC20ABI, functionName: "name" },
 				{ address, abi: ERC20ABI, functionName: "decimals" },
 			],
+			blockTag: "latest"
 		});
 
 		return {
@@ -41,9 +89,9 @@ async function fetchTokenData(client: any, address: string) {
 
 async function safeReadContract(client: any, address: string, functionName: string) {
 	try {
-		return await client.readContract({ 
-			address, 
-			abi: ERC20ABI, 
+		return await client.readContract({
+			address,
+			abi: ERC20ABI,
 			functionName,
 			blockTag: "latest"
 		});
