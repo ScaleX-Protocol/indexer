@@ -1,60 +1,59 @@
 {
   "data": {
     "poolss": {
-      "totalCount": 2,
       "items": [
         {
-          "baseDecimals": 18,
-          "chainId": 31337,
-          "coin": "gsWETH/gsUSDC",
-          "id": "4570b3118bcaeefd610ce2319d6a1697a4551f5c285132e9caee77bd15ca1d33",
-          "orderBook": "0x8daf17a20c9dba35f005b6324f493785d239719d",
-          "price": "1980000000",
+          "volumeInQuote": "0",
+          "volume": "0",
+          "timestamp": 1760258022,
           "quoteDecimals": 6,
-          "timestamp": 1760233141,
-          "volume": "1000000000000000",
-          "volumeInQuote": "1980000",
-          "baseCurrency": {
-            "address": "0x440c0fcdc317d69606eabc35c0f676d1a8251ee1",
-            "chainId": 31337,
-            "decimals": 18,
-            "name": "GTX Synthetic WETH",
-            "id": "c39493ee934361fe55748ec834762dcbb5ea785f3c25cfff3cca46477efd5ad7",
-            "symbol": "gsWETH"
-          },
+          "price": "0",
+          "orderBook": "0xa4c8495ba6243f718aa01ce75dbd0b63efce6f71",
+          "id": "3d69f0f51275570611b0b89ed84e65e2adfcf07e52bf53b8060bb6abcf3ad749",
+          "coin": "gsWBTC/gsUSDC",
+          "chainId": 31337,
+          "baseDecimals": 8,
           "quoteCurrency": {
-            "address": "0x9bd03768a7dcc129555de410ff8e85528a4f88b5",
+            "address": "0xae4a7d39a9a09545d3e2542d75e0e64a63df9e59",
             "chainId": 31337,
-            "id": "c3511b421e196dd18e65dc6a3c4ae7ca1c7e0562f8c7b5b146dad00747a01d69",
             "decimals": 6,
+            "id": "c804cf021369c0089786f3509779dff3954e6605b0635d52ed56373f1e392f7d",
             "name": "GTX Synthetic USDC",
             "symbol": "gsUSDC"
-          }
-        },
-        {
-          "baseDecimals": 8,
-          "chainId": 31337,
-          "coin": "gsWBTC/gsUSDC",
-          "id": "fbc71495edb77d334265a13610c7ee1f71b1774e99049c5437727c2ae534458c",
-          "orderBook": "0x3ca8f9c04c7e3e1624ac2008f92f6f366a869444",
-          "price": "0",
-          "quoteDecimals": 6,
-          "timestamp": 1760231674,
-          "volume": "0",
-          "volumeInQuote": "0",
+          },
           "baseCurrency": {
-            "address": "0x80e2e2367c5e9d070ae2d6d50bf0cdf6360a7151",
+            "address": "0x19c2164f0b8a514c66deec8f1f8246f655f73b5d",
             "chainId": 31337,
             "decimals": 8,
             "name": "GTX Synthetic WBTC",
-            "id": "184b5835f39ec8fae79fac901b10953319bfa1c79ff22b9c99f0e66aff8f999a",
+            "id": "face9b954f0dc95733d3280a4f3e54b95efe90f3c7ca3805943a7dc69200b613",
             "symbol": "gsWBTC"
+          }
+        },
+        {
+          "volumeInQuote": "0",
+          "volume": "0",
+          "timestamp": 1760258022,
+          "quoteDecimals": 6,
+          "price": "0",
+          "orderBook": "0xc5999ef9fe837edb1fe6611983fb1bf8ceb477d4",
+          "id": "cf3d49d2e0851a0cf19da8974bfdb628f42e345478bab8aa0f920867b01a554f",
+          "coin": "gsWETH/gsUSDC",
+          "chainId": 31337,
+          "baseDecimals": 18,
+          "baseCurrency": {
+            "address": "0xa1f94caf02be7939bd58144b4e156f2e719fc10d",
+            "chainId": 31337,
+            "decimals": 18,
+            "name": "GTX Synthetic WETH",
+            "id": "3cba2163d8c5bb327ca94c4482599bb22b0f7a19b0458710d107d6114ece7496",
+            "symbol": "gsWETH"
           },
           "quoteCurrency": {
-            "address": "0x9bd03768a7dcc129555de410ff8e85528a4f88b5",
+            "address": "0xae4a7d39a9a09545d3e2542d75e0e64a63df9e59",
             "chainId": 31337,
-            "id": "c3511b421e196dd18e65dc6a3c4ae7ca1c7e0562f8c7b5b146dad00747a01d69",
             "decimals": 6,
+            "id": "c804cf021369c0089786f3509779dff3954e6605b0635d52ed56373f1e392f7d",
             "name": "GTX Synthetic USDC",
             "symbol": "gsUSDC"
           }
