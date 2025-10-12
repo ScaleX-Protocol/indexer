@@ -18,17 +18,17 @@ dotenv.config();
 
 // Static token data mapping for core chain tokens to avoid RPC calls
 const STATIC_TOKEN_DATA: Record<string, { symbol: string; name: string; decimals: number }> = {
-	"0x49a524f4a1d999db12546834e227bd1cc720bfe0": {
+	"0x440c0fcdc317d69606eabc35c0f676d1a8251ee1": {
 		symbol: "gsWETH",
 		name: "GTX Synthetic WETH",
 		decimals: 18
 	},
-	"0x75c902863a9531385fb9f7dbb4b8c929ef8850c8": {
+	"0x9bd03768a7dcc129555de410ff8e85528a4f88b5": {
 		symbol: "gsUSDC",
 		name: "GTX Synthetic USDC",
 		decimals: 6
 	},
-	"0x0356b6f5b96a7b99553496570f3d496b6a92224e": {
+	"0x80e2e2367c5e9d070ae2d6d50bf0cdf6360a7151": {
 		symbol: "gsWBTC",
 		name: "GTX Synthetic WBTC",
 		decimals: 8
