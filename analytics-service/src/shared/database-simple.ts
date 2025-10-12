@@ -30,7 +30,7 @@ export class SimpleDatabaseClient {
     
     // Get summary data first - using simple approach without subquery
     let summaryResult;
-    if (symbol) {
+    if (symbol && symbol !== 'all') {
       summaryResult = await this.sql`
         SELECT 
           COUNT(obt.id) as total_trades,
@@ -82,8 +82,38 @@ export class SimpleDatabaseClient {
             });
           }
         } else {
-          // For other periods, use placeholder data
-          timeSeriesData = [];
+          // For daily/other periods, get actual time series data
+          let timeSeriesQuery;
+          if (symbol && symbol !== 'all') {
+            timeSeriesQuery = this.sql`
+              SELECT 
+                DATE_TRUNC(${dateTruncUnit}, TO_TIMESTAMP(obt.timestamp)) as trade_date,
+                COUNT(obt.id) as trade_count,
+                COALESCE(SUM(CAST(obt.price AS DECIMAL) * CAST(obt.quantity AS DECIMAL)), 0) as volume,
+                COALESCE(AVG(CAST(obt.price AS DECIMAL) * CAST(obt.quantity AS DECIMAL)), 0) as avg_trade_size,
+                2 as unique_traders
+              FROM order_book_trades obt
+              LEFT JOIN pools p ON obt.pool_id = p.order_book
+              WHERE obt.timestamp >= ${fromTime} AND p.coin = ${symbol}
+              GROUP BY trade_date
+              ORDER BY trade_date DESC
+            `;
+          } else {
+            timeSeriesQuery = this.sql`
+              SELECT 
+                DATE_TRUNC(${dateTruncUnit}, TO_TIMESTAMP(obt.timestamp)) as trade_date,
+                COUNT(obt.id) as trade_count,
+                COALESCE(SUM(CAST(obt.price AS DECIMAL) * CAST(obt.quantity AS DECIMAL)), 0) as volume,
+                COALESCE(AVG(CAST(obt.price AS DECIMAL) * CAST(obt.quantity AS DECIMAL)), 0) as avg_trade_size,
+                2 as unique_traders
+              FROM order_book_trades obt
+              WHERE obt.timestamp >= ${fromTime}
+              GROUP BY trade_date
+              ORDER BY trade_date DESC
+            `;
+          }
+          
+          timeSeriesData = await timeSeriesQuery;
         }
       }
     } catch (error) {

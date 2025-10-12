@@ -461,26 +461,10 @@ export class TimescaleDatabaseClient {
       // Calculate hourly metrics from the last 2 hours of trade data
       const result = await this.sql`
         INSERT INTO analytics.market_metrics (symbol, volume_1h, trades_1h, unique_traders_1h, high_1h, low_1h, open_1h, close_1h, avg_price_1h, timestamp)
-        SELECT 
-          symbol,
-          SUM(CAST(quantity AS DECIMAL) * CAST(price AS DECIMAL)) as volume_1h,
-          COUNT(*) as trades_1h,
-          COUNT(DISTINCT user_id) as unique_traders_1h,
-          MAX(CAST(price AS DECIMAL)) as high_1h,
-          MIN(CAST(price AS DECIMAL)) as low_1h,
-          FIRST(CAST(price AS DECIMAL), timestamp) as open_1h,
-          LAST(CAST(price AS DECIMAL), timestamp) as close_1h,
-          AVG(CAST(price AS DECIMAL)) as avg_price_1h,
-          date_trunc('hour', NOW()) as timestamp
-        -- NOTE: analytics.trades table removed, this query will fail
-        -- FROM analytics.trades 
-        -- WHERE timestamp >= NOW() - INTERVAL '1 hour'
         SELECT 'REMOVED' as symbol, 0 as volume_1h, 0 as trades_1h, 0 as unique_traders_1h,
                0 as high_1h, 0 as low_1h, 0 as open_1h, 0 as close_1h, 0 as avg_price_1h,
                NOW() as timestamp
         WHERE 1=0 -- Always false to return no rows
-        GROUP BY symbol
-        ON CONFLICT (timestamp, id) DO NOTHING
         RETURNING *
       `;
       

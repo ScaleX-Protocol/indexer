@@ -79,11 +79,19 @@ async function fetchTokenData(client: any, address: string) {
 			decimals: decimals.status === "success" ? decimals.result : 18,
 		};
 	} catch {
-		return {
-			symbol: await safeReadContract(client, address, "symbol"),
-			name: await safeReadContract(client, address, "name"),
-			decimals: (await safeReadContract(client, address, "decimals")) || 18,
-		};
+		try {
+			return {
+				symbol: await safeReadContract(client, address, "symbol"),
+				name: await safeReadContract(client, address, "name"),
+				decimals: (await safeReadContract(client, address, "decimals")) || 18,
+			};
+		} catch {
+			return {
+				symbol: "",
+				name: "",
+				decimals: 18,
+			};
+		}
 	}
 }
 
