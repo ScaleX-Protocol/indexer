@@ -1,4 +1,4 @@
-import { SimpleDatabaseClient } from '../shared/database-simple';
+import { SimpleDatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 // ========================================
@@ -95,7 +95,7 @@ export class UnifiedSyncService {
   constructor(
     private ponderDb: SimpleDatabaseClient,
     private timescaleDb: TimescaleDatabaseClient
-  ) {}
+  ) { }
 
   // ========================================
   // MAIN SYNC METHODS
@@ -177,7 +177,7 @@ export class UnifiedSyncService {
     try {
       // Check if this is a cold start
       const isColdStart = await this.isTrueColdStart();
-      
+
       const [ponderLatest, analyticsLatest] = await Promise.all([
         this.getLatestPonderTimestamp(),
         this.getLastProcessedTimestamp()
@@ -293,7 +293,7 @@ export class UnifiedSyncService {
     // Find all gaps in the data
     const gaps = await this.findAllDataGaps();
     console.log(`📊 Gap Analysis: Found ${gaps.length} gaps in data`);
-    
+
     gaps.forEach((gap, index) => {
       console.log(`  Gap ${index + 1}: ${gap.type} gap from ${gap.fromDate} to ${gap.toDate} (${gap.tradeCount} trades)`);
     });
@@ -323,7 +323,7 @@ export class UnifiedSyncService {
     console.log(`📈 Found ${allMissedTrades.length} total missed trades across all gaps`);
 
     const result = await this.processMissedTrades(allMissedTrades, options.batchSize || 50);
-    
+
     const gapTypes = {
       tailGaps: gaps.filter(g => g.type === 'tail').length,
       middleGaps: gaps.filter(g => g.type === 'middle').length,
@@ -346,7 +346,7 @@ export class UnifiedSyncService {
           gapDetails: gaps
         }
       },
-      recommendations: result.errors > 0 ? 
+      recommendations: result.errors > 0 ?
         ['Some trades failed to process - data integrity may be affected'] :
         ['Comprehensive sync completed - all data gaps resolved']
     };
@@ -360,7 +360,7 @@ export class UnifiedSyncService {
     const startTime = Date.now();
 
     const analysis = await this.analyzeColdStart();
-    
+
     if (!analysis.isColdStart) {
       return {
         success: true,
@@ -473,10 +473,10 @@ export class UnifiedSyncService {
       ].join(', ');
 
       result.message = `ETL orchestration completed: ${summary}`;
-      
+
       console.log(`✅ ETL orchestration completed`);
       console.log(`📊 Components: ${result.components.materializedViews.refreshed.length} views, ${result.components.continuousAggregates.refreshed.length} aggregates, ${result.components.etlJobs.executed.length} jobs`);
-      
+
       return result;
 
     } catch (error) {
@@ -498,7 +498,7 @@ export class UnifiedSyncService {
   async analyzeColdStart(): Promise<ColdStartAnalysis> {
     try {
       const isColdStart = await this.isTrueColdStart();
-      
+
       if (!isColdStart) {
         return {
           isColdStart: false,
@@ -511,7 +511,7 @@ export class UnifiedSyncService {
       }
 
       const analysis = await this.analyzeHistoricalData();
-      
+
       const processingRate = 100; // trades per second
       const fullSyncSeconds = Math.ceil(analysis.totalTrades / processingRate);
       const recentSyncSeconds = Math.ceil(analysis.recentTrades / processingRate);
@@ -571,7 +571,7 @@ export class UnifiedSyncService {
         WHERE status = 'processed' 
         AND service = 'analytics'
       `;
-      
+
       return parseInt(result[0].count) === 0;
     } catch (error) {
       return true; // sync_log table doesn't exist = true cold start
@@ -635,7 +635,7 @@ export class UnifiedSyncService {
           AND service = 'analytics'
         )
       `;
-      
+
       if (result[0]?.last_timestamp) {
         return parseInt(result[0].last_timestamp);
       }
@@ -644,15 +644,15 @@ export class UnifiedSyncService {
         SELECT MIN(timestamp) as first_timestamp 
         FROM order_book_trades
       `;
-      
+
       return parseInt(fallbackResult[0]?.first_timestamp) || 0;
-      
+
     } catch (error) {
       const result = await this.ponderDb.sql`
         SELECT MIN(timestamp) as first_timestamp 
         FROM order_book_trades
       `;
-      
+
       return parseInt(result[0]?.first_timestamp) || 0;
     }
   }
@@ -677,7 +677,7 @@ export class UnifiedSyncService {
     fromDate: string;
     toDate: string;
   }>> {
-    
+
     const allPonderTrades = await this.ponderDb.sql`
       SELECT timestamp 
       FROM order_book_trades 
@@ -706,17 +706,17 @@ export class UnifiedSyncService {
 
     const gaps = [];
     const allTimestamps = allPonderTrades.map(row => parseInt(row.timestamp));
-    
+
     let currentGapStart = null;
     let currentGapType: 'head' | 'middle' | 'tail' = 'head';
-    
+
     for (let i = 0; i < allTimestamps.length; i++) {
       const timestamp = allTimestamps[i];
       const isProcessed = processedTimestamps.has(timestamp);
-      
+
       if (!isProcessed && currentGapStart === null) {
         currentGapStart = timestamp;
-        
+
         if (i === 0) {
           currentGapType = 'head';
         } else if (i === allTimestamps.length - 1) {
@@ -724,11 +724,11 @@ export class UnifiedSyncService {
         } else {
           currentGapType = 'middle';
         }
-        
+
       } else if (isProcessed && currentGapStart !== null) {
         const gapEnd = allTimestamps[i - 1];
         const gapTradeCount = await this.countTradesInRange(currentGapStart, gapEnd);
-        
+
         gaps.push({
           type: currentGapType,
           fromTimestamp: currentGapStart,
@@ -737,15 +737,15 @@ export class UnifiedSyncService {
           fromDate: new Date(currentGapStart * 1000).toISOString(),
           toDate: new Date(gapEnd * 1000).toISOString()
         });
-        
+
         currentGapStart = null;
       }
     }
-    
+
     if (currentGapStart !== null) {
       const gapEnd = allTimestamps[allTimestamps.length - 1];
       const gapTradeCount = await this.countTradesInRange(currentGapStart, gapEnd);
-      
+
       gaps.push({
         type: 'tail',
         fromTimestamp: currentGapStart,
@@ -761,7 +761,7 @@ export class UnifiedSyncService {
 
   private async getMissedTradesFromGaps(gaps: any[]): Promise<any[]> {
     let allMissedTrades = [];
-    
+
     for (const gap of gaps) {
       const gapTrades = await this.ponderDb.sql`
         SELECT 
@@ -785,12 +785,12 @@ export class UnifiedSyncService {
           )
         ORDER BY obt.timestamp ASC
       `;
-      
+
       allMissedTrades = allMissedTrades.concat(gapTrades);
     }
-    
+
     allMissedTrades.sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
-    
+
     return allMissedTrades;
   }
 
@@ -828,7 +828,7 @@ export class UnifiedSyncService {
       `;
 
       return parseInt(firstTradeProcessed[0].count) > 0;
-      
+
     } catch (error) {
       return false;
     }
@@ -854,9 +854,9 @@ export class UnifiedSyncService {
       const processed = parseInt(processedTrades[0].count);
 
       if (total === 0) return 100;
-      
+
       return Math.round((processed / total) * 100 * 100) / 100;
-      
+
     } catch (error) {
       return 0;
     }
@@ -914,7 +914,7 @@ export class UnifiedSyncService {
       const hypertables = await this.timescaleDb.sql`
         SELECT COUNT(*) as count FROM timescaledb_information.hypertables
       `;
-      
+
       return {
         healthy: parseInt(hypertables[0]?.count || '0') > 0,
         hypertables: parseInt(hypertables[0]?.count || '0'),
@@ -930,7 +930,7 @@ export class UnifiedSyncService {
       const aggregates = await this.timescaleDb.sql`
         SELECT COUNT(*) as count FROM timescaledb_information.continuous_aggregates
       `;
-      
+
       return {
         healthy: parseInt(aggregates[0]?.count || '0') > 0,
         activeAggregates: parseInt(aggregates[0]?.count || '0'),
@@ -957,11 +957,11 @@ export class UnifiedSyncService {
 
     for (let i = 0; i < trades.length; i += batchSize) {
       const batch = trades.slice(i, i + batchSize);
-      
+
       try {
         await this.processBatch(batch);
         processed += batch.length;
-        
+
         if (processed % 1000 === 0) {
           console.log(`📈 Processed ${processed}/${trades.length} trades`);
         }
@@ -980,7 +980,7 @@ export class UnifiedSyncService {
         const analyticsData = this.transformTradeForAnalytics(trade);
         await this.simulateAnalyticsProcessing(analyticsData);
         await this.markTradeAsProcessed(trade.id);
-        
+
       } catch (error) {
         console.error(`❌ Failed to process trade ${trade.id}:`, error);
         await this.markTradeAsError(trade.id, error.message);
@@ -1010,7 +1010,7 @@ export class UnifiedSyncService {
   private async markTradeAsProcessed(tradeId: string): Promise<void> {
     try {
       await this.createSyncLogTable();
-      
+
       await this.ponderDb.sql`
         INSERT INTO sync_log (trade_id, service, status, processed_at)
         VALUES (${tradeId}, 'analytics', 'processed', NOW())
@@ -1028,7 +1028,7 @@ export class UnifiedSyncService {
   private async markTradeAsError(tradeId: string, errorMessage: string): Promise<void> {
     try {
       await this.createSyncLogTable();
-      
+
       await this.ponderDb.sql`
         INSERT INTO sync_log (trade_id, service, status, processed_at, error_message)
         VALUES (${tradeId}, 'analytics', 'error', NOW(), ${errorMessage})
@@ -1063,10 +1063,10 @@ export class UnifiedSyncService {
   // Cold start implementations
   private async fullHistoricalSync(options: SyncOptions): Promise<any> {
     console.log('📚 Processing ALL historical data...');
-    
+
     const batchSize = options.batchSize || 100;
     const maxTrades = options.maxHistoricalTrades || 1000000;
-    
+
     const allTrades = await this.ponderDb.sql`
       SELECT 
         obt.id,
@@ -1084,17 +1084,17 @@ export class UnifiedSyncService {
     `;
 
     console.log(`📊 Processing ${allTrades.length} historical trades in batches of ${batchSize}`);
-    
+
     let processed = 0;
     let errors = 0;
 
     for (let i = 0; i < allTrades.length; i += batchSize) {
       const batch = allTrades.slice(i, i + batchSize);
-      
+
       try {
         await this.processBatch(batch);
         processed += batch.length;
-        
+
         if (processed % 1000 === 0) {
           console.log(`📈 Progress: ${processed}/${allTrades.length} trades processed`);
         }
@@ -1116,12 +1116,12 @@ export class UnifiedSyncService {
   private async recentDataSync(options: SyncOptions): Promise<any> {
     const recentDays = options.recentDays || 7;
     const cutoffTimestamp = Math.floor((Date.now() - (recentDays * 24 * 60 * 60 * 1000)) / 1000);
-    
+
     console.log(`📅 Processing recent data from last ${recentDays} days...`);
     console.log(`🕐 Cutoff date: ${new Date(cutoffTimestamp * 1000).toISOString()}`);
-    
+
     const batchSize = options.batchSize || 100;
-    
+
     const [totalTrades, recentTrades] = await Promise.all([
       this.ponderDb.sql`SELECT COUNT(*) as count FROM order_book_trades`,
       this.ponderDb.sql`
@@ -1158,7 +1158,7 @@ export class UnifiedSyncService {
 
     for (let i = 0; i < recentTradesData.length; i += batchSize) {
       const batch = recentTradesData.slice(i, i + batchSize);
-      
+
       try {
         await this.processBatch(batch);
         processed += batch.length;
@@ -1183,14 +1183,14 @@ export class UnifiedSyncService {
 
   private async skipHistoricalSync(options: SyncOptions): Promise<any> {
     console.log('⏭️ Skipping all historical data, focusing on real-time...');
-    
+
     const totalTrades = await this.ponderDb.sql`SELECT COUNT(*) as count FROM order_book_trades`;
     const totalCount = parseInt(totalTrades[0].count);
-    
+
     await this.markAllHistoricalAsSkipped();
-    
+
     console.log(`📊 Marked ${totalCount} historical trades as skipped`);
-    
+
     return {
       totalTrades: totalCount,
       processed: 0,
@@ -1202,7 +1202,7 @@ export class UnifiedSyncService {
 
   private async markHistoricalAsSkipped(cutoffTimestamp: number): Promise<void> {
     await this.createSyncLogTable();
-    
+
     await this.ponderDb.sql`
       INSERT INTO sync_log (trade_id, service, status, processed_at)
       SELECT 
@@ -1218,7 +1218,7 @@ export class UnifiedSyncService {
 
   private async markAllHistoricalAsSkipped(): Promise<void> {
     await this.createSyncLogTable();
-    
+
     await this.ponderDb.sql`
       INSERT INTO sync_log (trade_id, service, status, processed_at)
       SELECT 
@@ -1234,19 +1234,19 @@ export class UnifiedSyncService {
   // ETL orchestration implementations
   private async syncRawData(options: SyncOptions): Promise<{ processed: number; errors: number; duration: number }> {
     const startTime = Date.now();
-    
+
     const lastProcessed = await this.getLastProcessedTimestamp();
     const missedTrades = await this.getMissedTrades(lastProcessed);
-    
+
     console.log(`📊 Found ${missedTrades.length} trades to sync`);
-    
+
     let processed = 0;
     let errors = 0;
     const batchSize = options.batchSize || 100;
 
     for (let i = 0; i < missedTrades.length; i += batchSize) {
       const batch = missedTrades.slice(i, i + batchSize);
-      
+
       try {
         await this.processBatch(batch);
         processed += batch.length;
@@ -1265,7 +1265,7 @@ export class UnifiedSyncService {
 
   private async refreshMaterializedViews(): Promise<{ refreshed: string[]; errors: string[]; duration: number }> {
     const startTime = Date.now();
-    
+
     const materializedViews = [
       'mv_current_volume_stats',        // Market Volume (5 min)
       'mv_trade_counts_24h',           // Trades Count (10 min)  
@@ -1280,7 +1280,7 @@ export class UnifiedSyncService {
     for (const viewName of materializedViews) {
       try {
         console.log(`🔄 Refreshing materialized view: ${viewName}`);
-        
+
         const viewExists = await this.ponderDb.sql`
           SELECT EXISTS (
             SELECT 1 FROM pg_matviews 
@@ -1296,7 +1296,7 @@ export class UnifiedSyncService {
         await this.ponderDb.sql.unsafe(`REFRESH MATERIALIZED VIEW ${viewName}`);
         refreshed.push(viewName);
         console.log(`✅ Refreshed: ${viewName}`);
-        
+
       } catch (error) {
         console.error(`❌ Failed to refresh ${viewName}:`, error);
         errors.push(`${viewName}: ${error.message}`);
@@ -1490,7 +1490,7 @@ export class UnifiedSyncService {
 
   private async createTimeSeriesAggregations(): Promise<void> {
     const latestAggregation = await this.getLatestAggregationTime();
-    
+
     // Get aggregated data from Ponder database
     const aggregatedData = await this.ponderDb.sql`
       SELECT 
@@ -1552,7 +1552,7 @@ export class UnifiedSyncService {
 
   private async refreshContinuousAggregates(): Promise<{ refreshed: string[]; errors: string[]; duration: number }> {
     const startTime = Date.now();
-    
+
     const continuousAggregates = [
       'trades_hourly_aggregate',
       'trades_daily_aggregate'
@@ -1564,7 +1564,7 @@ export class UnifiedSyncService {
     for (const aggName of continuousAggregates) {
       try {
         console.log(`📈 Refreshing continuous aggregate: ${aggName}`);
-        
+
         const aggExists = await this.timescaleDb.sql`
           SELECT EXISTS (
             SELECT 1 FROM timescaledb_information.continuous_aggregates 
@@ -1580,7 +1580,7 @@ export class UnifiedSyncService {
         await this.timescaleDb.sql.unsafe(`CALL refresh_continuous_aggregate('${aggName}', NULL, NULL)`);
         refreshed.push(aggName);
         console.log(`✅ Refreshed: ${aggName}`);
-        
+
       } catch (error) {
         console.error(`❌ Failed to refresh ${aggName}:`, error);
         errors.push(`${aggName}: ${error.message}`);
@@ -1632,7 +1632,7 @@ export class UnifiedSyncService {
 
   private async executeETLJobs(): Promise<{ executed: string[]; errors: string[]; duration: number }> {
     const startTime = Date.now();
-    
+
     const etlJobs = [
       // Daily Cron Jobs (from Quick Reference)
       'daily_trader_analytics_job',      // Unique Traders (2:00 AM)
@@ -1643,7 +1643,7 @@ export class UnifiedSyncService {
       'hourly_liquidity_analysis_job',   // Market Liquidity (hourly :05)
       // Original ETL Jobs (legacy)
       'trader_segmentation_job',
-      'liquidity_scoring_job', 
+      'liquidity_scoring_job',
       'market_making_analysis_job'
     ];
 
@@ -1653,11 +1653,11 @@ export class UnifiedSyncService {
     for (const jobName of etlJobs) {
       try {
         console.log(`🔧 Executing ETL job: ${jobName}`);
-        
+
         await this.executeETLJob(jobName);
         executed.push(jobName);
         console.log(`✅ Executed: ${jobName}`);
-        
+
       } catch (error) {
         console.error(`❌ Failed to execute ${jobName}:`, error);
         errors.push(`${jobName}: ${error.message}`);
@@ -1716,35 +1716,35 @@ export class UnifiedSyncService {
 
   private generateETLRecommendations(result: SyncResult): string[] {
     const recommendations: string[] = [];
-    
+
     if (result.components?.materializedViews?.errors?.length > 0) {
       recommendations.push('Some materialized views failed to refresh - check view definitions');
     }
-    
+
     if (result.components?.continuousAggregates?.errors?.length > 0) {
       recommendations.push('Continuous aggregates need attention - check TimescaleDB configuration');
     }
-    
+
     if (result.components?.etlJobs?.errors?.length > 0) {
       recommendations.push('ETL jobs encountered errors - review job logic and dependencies');
     }
-    
+
     if (result.errors === 0) {
       recommendations.push('ETL pipeline is healthy - all components synchronized successfully');
     }
-    
+
     return recommendations;
   }
 
   private formatDuration(ms: number): string {
     if (ms < 1000) return `${ms}ms`;
-    
+
     const seconds = Math.floor(ms / 1000);
     if (seconds < 60) return `${seconds}s`;
-    
+
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
-    
+
     const hours = Math.floor(minutes / 60);
     return `${hours}h ${minutes % 60}m`;
   }
@@ -1755,7 +1755,7 @@ export class UnifiedSyncService {
 
   private async executeDailyTraderAnalytics(): Promise<void> {
     console.log('👥 Executing daily trader analytics...');
-    
+
     // Create or update trader analytics table in TimescaleDB
     try {
       await this.timescaleDb.sql.unsafe(`
@@ -1785,7 +1785,7 @@ export class UnifiedSyncService {
           new_traders = EXCLUDED.new_traders,
           returning_traders = EXCLUDED.returning_traders;
       `);
-      
+
       console.log('✅ Daily trader analytics completed');
     } catch (error) {
       console.error('❌ Daily trader analytics failed:', error);
@@ -1795,7 +1795,7 @@ export class UnifiedSyncService {
 
   private async executeDailySlippageAnalysis(): Promise<void> {
     console.log('📉 Executing daily slippage analysis...');
-    
+
     try {
       await this.timescaleDb.sql.unsafe(`
         CREATE TABLE IF NOT EXISTS analytics.daily_slippage_stats (
@@ -1826,7 +1826,7 @@ export class UnifiedSyncService {
           p95_slippage = EXCLUDED.p95_slippage,
           total_trades = EXCLUDED.total_trades;
       `);
-      
+
       console.log('✅ Daily slippage analysis completed');
     } catch (error) {
       console.error('❌ Daily slippage analysis failed:', error);
@@ -1836,7 +1836,7 @@ export class UnifiedSyncService {
 
   private async executeDailyInflowAnalysis(): Promise<void> {
     console.log('💰 Executing daily inflow analysis...');
-    
+
     try {
       await this.timescaleDb.sql.unsafe(`
         CREATE TABLE IF NOT EXISTS analytics.daily_flow_stats (
@@ -1866,7 +1866,7 @@ export class UnifiedSyncService {
           net_flow = EXCLUDED.net_flow,
           flow_direction = EXCLUDED.flow_direction;
       `);
-      
+
       console.log('✅ Daily inflow analysis completed');
     } catch (error) {
       console.error('❌ Daily inflow analysis failed:', error);
@@ -1876,7 +1876,7 @@ export class UnifiedSyncService {
 
   private async executeDailyOutflowAnalysis(): Promise<void> {
     console.log('💸 Executing daily outflow analysis...');
-    
+
     try {
       // Outflow analysis uses the same table as inflow
       await this.timescaleDb.sql.unsafe(`
@@ -1888,7 +1888,7 @@ export class UnifiedSyncService {
         ON CONFLICT (trade_date, symbol) DO UPDATE SET
           total_outflow = EXCLUDED.total_outflow;
       `);
-      
+
       console.log('✅ Daily outflow analysis completed');
     } catch (error) {
       console.error('❌ Daily outflow analysis failed:', error);
@@ -1898,7 +1898,7 @@ export class UnifiedSyncService {
 
   private async executeHourlyLiquidityAnalysis(): Promise<void> {
     console.log('💧 Executing hourly liquidity analysis...');
-    
+
     try {
       await this.timescaleDb.sql.unsafe(`
         CREATE TABLE IF NOT EXISTS analytics.hourly_liquidity_stats (
@@ -1927,7 +1927,7 @@ export class UnifiedSyncService {
           liquidity_score = EXCLUDED.liquidity_score,
           total_trades = EXCLUDED.total_trades;
       `);
-      
+
       console.log('✅ Hourly liquidity analysis completed');
     } catch (error) {
       console.error('❌ Hourly liquidity analysis failed:', error);

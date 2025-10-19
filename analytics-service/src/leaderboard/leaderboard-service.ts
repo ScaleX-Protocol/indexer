@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import { DatabaseClient } from '../shared/database';
+import { SimpleDatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 export interface LeaderboardEntry {
@@ -19,11 +19,11 @@ export interface PNLCalculationResult {
 }
 
 export class LeaderboardService {
-  private db: DatabaseClient;
+  private db: SimpleDatabaseClient;
   private redis: Redis;
   private timescaleDb: TimescaleDatabaseClient;
 
-  constructor(db: DatabaseClient, redis: Redis, timescaleDb: TimescaleDatabaseClient) {
+  constructor(db: SimpleDatabaseClient, redis: Redis, timescaleDb: TimescaleDatabaseClient) {
     this.db = db;
     this.redis = redis;
     this.timescaleDb = timescaleDb;
@@ -39,7 +39,7 @@ export class LeaderboardService {
 
     try {
       const viewName = `pnl_leaderboard_${period}`;
-      
+
       const result = await this.timescaleDb.sql`
         SELECT 
           user_id,
@@ -67,8 +67,8 @@ export class LeaderboardService {
         userId: row.user_id,
         value: parseFloat(row.total_pnl || '0'),
         rank: row.rank,
-        percentage: row.performance_status === 'profitable' ? 
-          Math.abs(parseFloat(row.total_pnl || '0')) : 
+        percentage: row.performance_status === 'profitable' ?
+          Math.abs(parseFloat(row.total_pnl || '0')) :
           -Math.abs(parseFloat(row.total_pnl || '0')),
         portfolioValue: parseFloat(row.total_pnl || '0') + 10000, // Base portfolio estimate
         // Enhanced metadata
@@ -94,7 +94,7 @@ export class LeaderboardService {
 
     try {
       const viewName = `volume_leaderboard_${period}`;
-      
+
       const result = await this.timescaleDb.sql`
         SELECT 
           user_id,
@@ -139,7 +139,7 @@ export class LeaderboardService {
 
   async calculatePNLLeaderboard(period: '24h' | '7d' | '30d' = '24h'): Promise<void> {
     console.log(`⚠️ DEPRECATED: calculatePNLLeaderboard - Use getPNLLeaderboard instead`);
-    
+
     // This method is now deprecated since continuous aggregates handle real-time updates
     // Keep for backward compatibility but log deprecation warning
     const result = await this.getPNLLeaderboard(period, 1000);
@@ -148,7 +148,7 @@ export class LeaderboardService {
 
   async calculateVolumeLeaderboard(period: '24h' | '7d' | '30d' = '24h'): Promise<void> {
     console.log(`⚠️ DEPRECATED: calculateVolumeLeaderboard - Use getVolumeLeaderboard instead`);
-    
+
     // This method is now deprecated since continuous aggregates handle real-time updates
     // Keep for backward compatibility but log deprecation warning
     const result = await this.getVolumeLeaderboard(period, 1000);
@@ -161,13 +161,20 @@ export class LeaderboardService {
 
   private async getLegacyPNLLeaderboard(period: '24h' | '7d' | '30d', limit: number): Promise<LeaderboardEntry[]> {
     console.log(`🔄 Falling back to legacy PNL leaderboard calculation...`);
-    
+
     try {
-      const result = await this.timescaleDb.getPNLLeaderboard(period, limit);
-      return result.map((row, index) => ({
+      const result = await this.timescaleDb.sql`
+        SELECT user_id, value, rank
+        FROM analytics.leaderboards 
+        WHERE type = 'pnl' AND period = ${period}
+        ORDER BY rank ASC
+        LIMIT ${limit}
+      `;
+
+      return result.map(row => ({
         userId: row.user_id,
-        value: parseFloat(row.total_pnl || '0'),
-        rank: index + 1
+        value: parseFloat(row.value || '0'),
+        rank: row.rank
       }));
     } catch (error) {
       console.error('Legacy PNL leaderboard also failed:', error);
@@ -177,13 +184,20 @@ export class LeaderboardService {
 
   private async getLegacyVolumeLeaderboard(period: '24h' | '7d' | '30d', limit: number): Promise<LeaderboardEntry[]> {
     console.log(`🔄 Falling back to legacy volume leaderboard calculation...`);
-    
+
     try {
-      const result = await this.timescaleDb.getVolumeLeaderboard(period, limit);
-      return result.map((row, index) => ({
+      const result = await this.timescaleDb.sql`
+        SELECT user_id, value, rank
+        FROM analytics.leaderboards 
+        WHERE type = 'volume' AND period = ${period}
+        ORDER BY rank ASC
+        LIMIT ${limit}
+      `;
+
+      return result.map(row => ({
         userId: row.user_id,
-        value: parseFloat(row.total_volume || '0'),
-        rank: index + 1
+        value: parseFloat(row.value || '0'),
+        rank: row.rank
       }));
     } catch (error) {
       console.error('Legacy volume leaderboard also failed:', error);
@@ -201,7 +215,7 @@ export class LeaderboardService {
   }
 
   // Simplified helper methods for compatibility
-  async getLeaderboard(type: string, period: string, limit: number = 50, offset: number = 0): Promise<{data: LeaderboardEntry[], total: number}> {
+  async getLeaderboard(type: string, period: string, limit: number = 50, offset: number = 0): Promise<{ data: LeaderboardEntry[], total: number }> {
     const result = await this.timescaleDb.sql`
       SELECT user_id, value, rank
       FROM analytics.leaderboards 

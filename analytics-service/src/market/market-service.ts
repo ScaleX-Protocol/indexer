@@ -1,6 +1,5 @@
 import { Redis } from 'ioredis';
-import { DatabaseClient } from '../shared/database';
-import { SimpleDatabaseClient } from '../shared/database-simple';
+import { SimpleDatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 export class MarketService {
@@ -14,8 +13,6 @@ export class MarketService {
     this.redis = redis;
   }
 
-
-
   async getTradingVolume(params: {
     timeframe?: '1h' | '24h' | '7d' | '30d' | '1y' | 'all';
     interval?: 'hourly' | 'daily' | 'weekly' | 'monthly';
@@ -24,32 +21,32 @@ export class MarketService {
   } = {}): Promise<any> {
     try {
       console.log('getTradingVolume called with params:', params);
-      const { 
-        timeframe = '24h', 
-        interval, 
-        includeSymbolTimeSeries = false, 
-        symbol 
+      const {
+        timeframe = '24h',
+        interval,
+        includeSymbolTimeSeries = false,
+        symbol
       } = params;
 
       // Determine appropriate interval if not specified
-      const defaultInterval = timeframe === '1h' ? 'hourly' : 
-                             timeframe === '24h' ? 'hourly' :
-                             timeframe === '7d' ? 'daily' :
-                             timeframe === '30d' ? 'daily' : 'daily';
-      
+      const defaultInterval = timeframe === '1h' ? 'hourly' :
+        timeframe === '24h' ? 'hourly' :
+          timeframe === '7d' ? 'daily' :
+            timeframe === '30d' ? 'daily' : 'daily';
+
       const finalInterval = interval || defaultInterval;
       const period = timeframe === 'all' ? 'all' : timeframe;
-      
+
       // Get time-series volume data (total across all symbols)
       const volumeData = await this.db.getTradesCountAnalytics(period, finalInterval, symbol);
-      
+
       // Calculate total volume
       const totalVolume = volumeData.summary?.total_volume || '0';
-      
+
       // Get symbol-specific static data
       const symbolStats = await this.db.getSymbolStatsForPeriod(period);
-      const filteredSymbolStats = symbol ? 
-        symbolStats.filter((stat: any) => stat.symbol === symbol) : 
+      const filteredSymbolStats = symbol ?
+        symbolStats.filter((stat: any) => stat.symbol === symbol) :
         symbolStats;
 
       // Base response structure
@@ -60,7 +57,7 @@ export class MarketService {
         volumeBySymbol: filteredSymbolStats.map((stat: any) => ({
           symbol: stat.symbol,
           volume: stat.total_volume || '0',
-          percentage: totalVolume !== '0' ? 
+          percentage: totalVolume !== '0' ?
             (parseFloat(stat.total_volume || '0') / parseFloat(totalVolume) * 100).toFixed(2) :
             '0'
         })),
@@ -73,9 +70,9 @@ export class MarketService {
         summary: {
           totalVolume,
           totalTrades: volumeData.summary?.total_trades || 0,
-          avgVolumePerInterval: volumeData.data.length > 0 ? 
+          avgVolumePerInterval: volumeData.data.length > 0 ?
             (parseFloat(totalVolume) / volumeData.data.length).toFixed(2) : '0',
-          peakVolume: volumeData.data.length > 0 ? 
+          peakVolume: volumeData.data.length > 0 ?
             Math.max(...volumeData.data.map((d: any) => parseFloat(d.volume || '0'))).toFixed(2) : '0',
           activeSymbols: filteredSymbolStats.length
         },
@@ -91,51 +88,9 @@ export class MarketService {
       return response;
     } catch (error) {
       console.error(`Error getting trading volume:`, error);
-      console.error(`Error details:`, {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
       throw error;
     }
   }
-
-  private formatSymbolTimeSeries(timeSeriesData: any[], summaryData: any[], totalVolume: string) {
-    // Group time series data by symbol
-    const symbolTimeSeriesMap = new Map();
-    
-    for (const row of timeSeriesData) {
-      if (!symbolTimeSeriesMap.has(row.symbol)) {
-        symbolTimeSeriesMap.set(row.symbol, []);
-      }
-      symbolTimeSeriesMap.get(row.symbol).push({
-        timestamp: row.timestamp,
-        date: row.date,
-        volume: parseFloat(row.volume || '0').toFixed(2),
-        trades: row.trades || 0,
-        uniqueTraders: row.unique_traders || 0,
-        avgTradeSize: parseFloat(row.avg_trade_size || '0').toFixed(2),
-        percentage: totalVolume !== '0' ? 
-          (parseFloat(row.volume || '0') / parseFloat(totalVolume) * 100).toFixed(2) : '0'
-      });
-    }
-
-    // Combine with summary data
-    return summaryData.map(summary => ({
-      symbol: summary.symbol,
-      totalVolume: parseFloat(summary.total_volume || '0').toFixed(2),
-      totalTrades: summary.total_trades || 0,
-      uniqueTraders: summary.unique_traders || 0,
-      avgTradeSize: parseFloat(summary.avg_trade_size || '0').toFixed(2),
-      largestTrade: parseFloat(summary.largest_trade || '0').toFixed(2),
-      percentage: totalVolume !== '0' ? 
-        (parseFloat(summary.total_volume || '0') / parseFloat(totalVolume) * 100).toFixed(2) : '0',
-      timeSeries: symbolTimeSeriesMap.get(summary.symbol) || [],
-      firstTradeTime: summary.first_trade_time,
-      lastTradeTime: summary.last_trade_time
-    })).sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
-  }
-
 
   async getLiquidityMetrics(params: {
     timeframe?: '1h' | '24h' | '7d' | '30d' | '1y' | 'all';
@@ -144,16 +99,16 @@ export class MarketService {
     includeSymbolTimeSeries?: boolean;
   } = {}): Promise<any> {
     try {
-      const { 
-        timeframe = '24h', 
-        interval = '1h', 
-        symbol, 
-        includeSymbolTimeSeries = false 
+      const {
+        timeframe = '24h',
+        interval = '1h',
+        symbol,
+        includeSymbolTimeSeries = false
       } = params;
 
       // Simplified liquidity data since TimescaleDB methods not available
       const symbols = symbol ? [symbol] : undefined;
-      
+
       // Placeholder liquidity data
       const liquidityData = [{
         symbol: 'MWETH/MUSDC',
@@ -171,7 +126,7 @@ export class MarketService {
         avg_trade_volume: '250000',
         snapshot_time: new Date().toISOString()
       }];
-      
+
       // Transform ETL data to match expected format
       const liquidityBySymbol = liquidityData.map(data => ({
         symbol: data.symbol,
@@ -196,13 +151,13 @@ export class MarketService {
       // Calculate market-wide metrics from ETL data
       const totalBidLiquidity = liquidityBySymbol.reduce((sum, s) => sum + parseFloat(s.bidDepth), 0);
       const totalAskLiquidity = liquidityBySymbol.reduce((sum, s) => sum + parseFloat(s.askDepth), 0);
-      const avgSpread = liquidityBySymbol.length > 0 ? 
+      const avgSpread = liquidityBySymbol.length > 0 ?
         liquidityBySymbol.reduce((sum, s) => sum + parseFloat(s.spread), 0) / liquidityBySymbol.length : 0;
-      
+
       // Overall liquidity score from ETL data
       const avgLiquidityScore = liquidityBySymbol.length > 0 ?
         liquidityBySymbol.reduce((sum, s) => sum + parseFloat(s.liquidityScore), 0) / liquidityBySymbol.length : 0;
-      
+
       // Get historical trends if time-series requested (placeholder data)
       let liquidityTrends: any[] = [];
       if (includeSymbolTimeSeries) {
@@ -218,7 +173,7 @@ export class MarketService {
           latest_time: new Date().toISOString()
         }];
       }
-      
+
       // Build response with ETL-optimized data
       const response: any = {
         timeframe,
@@ -240,26 +195,26 @@ export class MarketService {
           liquidityRating: this.getLiquidityRating(avgLiquidityScore),
           lastUpdated: liquidityBySymbol.length > 0 ? liquidityBySymbol[0].lastUpdated : null
         },
-        
+
         liquidityBySymbol,
-        
+
         // Market depth analysis based on ETL data
         marketDepth: {
-          deep: liquidityBySymbol.filter(s => 
+          deep: liquidityBySymbol.filter(s =>
             parseFloat(s.bidDepth) > 100000 && parseFloat(s.askDepth) > 100000
           ).length,
-          
+
           moderate: liquidityBySymbol.filter(s => {
             const bid = parseFloat(s.bidDepth);
             const ask = parseFloat(s.askDepth);
             return (bid >= 10000 && bid <= 100000) && (ask >= 10000 && ask <= 100000);
           }).length,
-          
-          shallow: liquidityBySymbol.filter(s => 
+
+          shallow: liquidityBySymbol.filter(s =>
             parseFloat(s.bidDepth) < 10000 || parseFloat(s.askDepth) < 10000
           ).length
         },
-        
+
         // Spread analysis based on ETL data
         spreadAnalysis: {
           tight: liquidityBySymbol.filter(s => parseFloat(s.spread) < 0.1).length,
@@ -269,7 +224,7 @@ export class MarketService {
           }).length,
           wide: liquidityBySymbol.filter(s => parseFloat(s.spread) > 0.5).length
         },
-        
+
         // ETL-powered historical trends
         liquidityOverTime: liquidityTrends.map(trend => ({
           symbol: trend.symbol,
@@ -282,30 +237,30 @@ export class MarketService {
           dataPoints: trend.data_points,
           latestTime: trend.latest_time
         })),
-        
+
         // Enhanced insights with ETL data
         insights: {
           mostLiquid: liquidityBySymbol
             .sort((a, b) => parseFloat(b.totalDepth) - parseFloat(a.totalDepth))
             .slice(0, 5),
-          
+
           tightestSpreads: liquidityBySymbol
             .sort((a, b) => parseFloat(a.spread) - parseFloat(b.spread))
             .slice(0, 5),
-          
+
           highestScored: liquidityBySymbol
             .sort((a, b) => parseFloat(b.liquidityScore) - parseFloat(a.liquidityScore))
             .slice(0, 5),
-          
+
           marketQuality: avgSpread < 0.2 ? 'Excellent' : avgSpread < 0.5 ? 'Good' : 'Fair',
-          
+
           etlMetrics: {
             totalSymbolsProcessed: liquidityBySymbol.length,
             avgProcessingFrequency: '30-60 seconds',
             dataQuality: 'High - processed from real order book depth'
           }
         },
-        
+
         timestamp: Date.now()
       };
 
@@ -339,14 +294,14 @@ export class MarketService {
     // Depth component (0-50 points)
     const totalDepth = bidDepth + askDepth;
     const depthScore = Math.min(50, Math.log10(totalDepth + 1) * 10);
-    
+
     // Spread component (0-30 points, lower spread = higher score)
     const spreadScore = spread < 0.1 ? 30 : spread < 0.5 ? 20 : spread < 1.0 ? 10 : 0;
-    
+
     // Balance component (0-20 points, balanced order book = higher score)
     const balanceRatio = Math.min(bidDepth, askDepth) / Math.max(bidDepth, askDepth);
     const balanceScore = balanceRatio * 20;
-    
+
     return depthScore + spreadScore + balanceScore;
   }
 

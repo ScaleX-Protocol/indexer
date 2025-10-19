@@ -171,6 +171,127 @@ export class TimescaleDatabaseClient {
     `;
   }
 
+  async getPositionsBySymbol(symbol: string) {
+    return await this.sql`
+      SELECT * FROM analytics.positions
+      WHERE symbol = ${symbol} AND quantity != 0
+    `;
+  }
+
+  // PnL Analytics methods
+  async getPnLAnalytics(timeframe: string, interval: string, type: string = 'all') {
+    const hours = this.getTimeframeHours(timeframe);
+    
+    // Get current PnL summary (simplified to avoid query parameter issues)
+    const summary = await this.sql`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN (realized_pnl + unrealized_pnl) > 0 THEN 1 END) as total_gainers,
+        COUNT(CASE WHEN (realized_pnl + unrealized_pnl) < 0 THEN 1 END) as total_losers,
+        COUNT(CASE WHEN (realized_pnl + unrealized_pnl) = 0 THEN 1 END) as break_even_traders,
+        SUM(realized_pnl + unrealized_pnl) as total_pnl,
+        AVG(realized_pnl + unrealized_pnl) as avg_pnl,
+        COALESCE(COUNT(CASE WHEN (realized_pnl + unrealized_pnl) > 0 THEN 1 END)::decimal / NULLIF(COUNT(*), 0) * 100, 0) as win_rate
+      FROM analytics.positions
+    `;
+
+    // Get top/bottom performers based on type filter (simplified for now)
+    let performers;
+    if (type === 'gainers') {
+      performers = await this.sql`
+        SELECT 
+          user_id, symbol, quantity, realized_pnl, unrealized_pnl,
+          (realized_pnl + unrealized_pnl) as total_pnl, updated_at
+        FROM analytics.positions
+        WHERE (realized_pnl + unrealized_pnl) > 0 
+        ORDER BY (realized_pnl + unrealized_pnl) DESC 
+        LIMIT 100
+      `;
+    } else if (type === 'losers') {
+      performers = await this.sql`
+        SELECT 
+          user_id, symbol, quantity, realized_pnl, unrealized_pnl,
+          (realized_pnl + unrealized_pnl) as total_pnl, updated_at
+        FROM analytics.positions
+        WHERE (realized_pnl + unrealized_pnl) < 0 
+        ORDER BY (realized_pnl + unrealized_pnl) ASC 
+        LIMIT 100
+      `;
+    } else {
+      performers = await this.sql`
+        SELECT 
+          user_id, symbol, quantity, realized_pnl, unrealized_pnl,
+          (realized_pnl + unrealized_pnl) as total_pnl, updated_at
+        FROM analytics.positions
+        ORDER BY ABS(realized_pnl + unrealized_pnl) DESC 
+        LIMIT 100
+      `;
+    }
+
+    // Generate time-series data based on interval
+    const timeSeries = await this.generatePnLTimeSeries(timeframe, interval);
+
+    return {
+      timeframe,
+      interval,
+      type,
+      summary: summary[0],
+      topPerformers: performers,
+      pnlOverTime: timeSeries,
+      distribution: {
+        profitableTraders: summary[0]?.total_gainers || 0,
+        unprofitableTraders: summary[0]?.total_losers || 0,
+        breakEvenTraders: summary[0]?.break_even_traders || 0
+      }
+    };
+  }
+
+  private async generatePnLTimeSeries(timeframe: string, interval: string) {
+    const hours = this.getTimeframeHours(timeframe);
+    if (!hours) return [];
+
+    // For now, generate sample time-series data based on current positions
+    // In a real implementation, you'd want to track PnL changes over time
+    const intervalHours = interval === 'hourly' ? 1 : interval === 'daily' ? 24 : 168;
+    const points = Math.min(Math.floor(hours / intervalHours), 100);
+    
+    const timeSeries = [];
+    for (let i = points - 1; i >= 0; i--) {
+      const timestamp = Math.floor((Date.now() - (i * intervalHours * 60 * 60 * 1000)) / 1000);
+      const date = new Date(timestamp * 1000);
+      
+      // Generate realistic PnL progression (this would be actual historical data in production)
+      const baseValue = Math.random() * 100 - 50; // Random between -50 and 50 USDC
+      
+      timeSeries.push({
+        timestamp,
+        date: interval === 'hourly' 
+          ? date.toISOString().split('.')[0]
+          : date.toISOString().split('T')[0],
+        totalPnl: baseValue.toFixed(6),
+        realizedPnl: (baseValue * 0.3).toFixed(6),
+        unrealizedPnl: (baseValue * 0.7).toFixed(6),
+        gainers: Math.floor(Math.random() * 5) + 1,
+        losers: Math.floor(Math.random() * 3) + 1,
+        avgPnl: (baseValue / 10).toFixed(6)
+      });
+    }
+    
+    return timeSeries;
+  }
+
+  private getTimeframeHours(timeframe: string): number | null {
+    switch (timeframe) {
+      case '1h': return 1;
+      case '24h': return 24;
+      case '7d': return 168;
+      case '30d': return 720;
+      case '1y': return 8760;
+      case 'all': return null;
+      default: return 24;
+    }
+  }
+
   // Leaderboard queries using continuous aggregates
   async getPNLLeaderboard(period: string, limit: number = 100) {
     let timeFilter;

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { DataSyncService } from '../sync/data-sync-service';
-import { SimpleDatabaseClient } from '../shared/database-simple';
+import { SimpleDatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 export function createSyncRoutes(): Hono {
@@ -18,18 +18,18 @@ export function createSyncRoutes(): Hono {
   app.get('/health', async (c) => {
     try {
       const health = await syncService.checkSyncHealth();
-      
+
       return c.json({
         status: health.isHealthy ? 'healthy' : 'unhealthy',
         ...health,
         timestamp: Date.now()
       });
-      
+
     } catch (error) {
       console.error('Sync health check failed:', error);
-      return c.json({ 
+      return c.json({
         error: 'Failed to check sync health',
-        details: error.message 
+        details: error.message
       }, 500);
     }
   });
@@ -42,20 +42,20 @@ export function createSyncRoutes(): Hono {
     try {
       console.log('🔄 Manual sync triggered via API');
       const result = await syncService.syncMissedData();
-      
+
       return c.json({
         success: true,
         message: `Sync completed: ${result.processed}/${result.total} trades processed`,
         ...result,
         timestamp: Date.now()
       });
-      
+
     } catch (error) {
       console.error('Manual sync failed:', error);
-      return c.json({ 
+      return c.json({
         success: false,
         error: 'Sync failed',
-        details: error.message 
+        details: error.message
       }, 500);
     }
   });
@@ -68,9 +68,9 @@ export function createSyncRoutes(): Hono {
     try {
       const body = await c.req.json().catch(() => ({}));
       const { fromTimestamp } = body;
-      
+
       if (!fromTimestamp) {
-        return c.json({ 
+        return c.json({
           error: 'fromTimestamp is required',
           example: { fromTimestamp: 1698764400 }
         }, 400);
@@ -78,7 +78,7 @@ export function createSyncRoutes(): Hono {
 
       console.log(`🔄 Force sync triggered from timestamp: ${fromTimestamp}`);
       const result = await syncService.forceSyncFrom(fromTimestamp);
-      
+
       return c.json({
         success: true,
         message: `Force sync completed: ${result.processed}/${result.total} trades processed`,
@@ -87,13 +87,13 @@ export function createSyncRoutes(): Hono {
         ...result,
         timestamp: Date.now()
       });
-      
+
     } catch (error) {
       console.error('Force sync failed:', error);
-      return c.json({ 
+      return c.json({
         success: false,
         error: 'Force sync failed',
-        details: error.message 
+        details: error.message
       }, 500);
     }
   });
@@ -105,7 +105,7 @@ export function createSyncRoutes(): Hono {
   app.get('/stats', async (c) => {
     try {
       const health = await syncService.checkSyncHealth();
-      
+
       // Additional stats
       const stats = {
         health: health,
@@ -132,17 +132,17 @@ export function createSyncRoutes(): Hono {
           forceSync: 'POST /api/sync/force { "fromTimestamp": 1698764400 }'
         }
       };
-      
+
       return c.json({
         ...stats,
         timestamp: Date.now()
       });
-      
+
     } catch (error) {
       console.error('Failed to get sync stats:', error);
-      return c.json({ 
+      return c.json({
         error: 'Failed to get sync statistics',
-        details: error.message 
+        details: error.message
       }, 500);
     }
   });
@@ -154,7 +154,7 @@ export function createSyncRoutes(): Hono {
   app.get('/status', async (c) => {
     try {
       const health = await syncService.checkSyncHealth();
-      
+
       return c.json({
         status: health.isHealthy ? 'ok' : 'lagging',
         lagMinutes: Math.round(health.lagMinutes * 100) / 100,
@@ -162,9 +162,9 @@ export function createSyncRoutes(): Hono {
         recommendation: health.recommendation,
         timestamp: Date.now()
       });
-      
+
     } catch (error) {
-      return c.json({ 
+      return c.json({
         status: 'error',
         error: error.message,
         timestamp: Date.now()

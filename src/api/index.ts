@@ -672,9 +672,62 @@ app.get("/api/markets", async c => {
 	try {
 		const allPools = await db.select().from(pools).execute();
 
-		const pairs = allPools.map(pool => {
+		const pairs = await Promise.all(allPools.map(async pool => {
 			const symbol = pool.coin || "";
 			const symbolParts = symbol.split("/");
+			
+			// Calculate market age in seconds
+			const currentTime = Math.floor(Date.now() / 1000);
+			const marketAge = pool.timestamp ? currentTime - pool.timestamp : 0;
+			
+			// Calculate liquidity from order book depth (separate buy and sell sides)
+			let bidLiquidity = "0";
+			let askLiquidity = "0";
+			let totalLiquidityInQuote = "0";
+			
+			if (pool.orderBook) {
+				// Get bid side liquidity (Buy orders - in base asset)
+				const bidData = await db
+					.select({
+						totalQuantity: sql`SUM(${orderBookDepth.quantity})`.as("totalQuantity")
+					})
+					.from(orderBookDepth)
+					.where(and(
+						eq(orderBookDepth.poolId, pool.orderBook as `0x${string}`),
+						eq(orderBookDepth.side, "Buy")
+					))
+					.execute();
+				
+				bidLiquidity = bidData[0]?.totalQuantity?.toString() || "0";
+				
+				// Get ask side liquidity (Sell orders - in base asset)
+				const askData = await db
+					.select({
+						totalQuantity: sql`SUM(${orderBookDepth.quantity})`.as("totalQuantity")
+					})
+					.from(orderBookDepth)
+					.where(and(
+						eq(orderBookDepth.poolId, pool.orderBook as `0x${string}`),
+						eq(orderBookDepth.side, "Sell")
+					))
+					.execute();
+				
+				askLiquidity = askData[0]?.totalQuantity?.toString() || "0";
+				
+				// Calculate total liquidity in quote asset (sum of bid_quantity * price for buy orders)
+				const quoteLiquidityData = await db
+					.select({
+						totalValue: sql`SUM(${orderBookDepth.quantity} * ${orderBookDepth.price})`.as("totalValue")
+					})
+					.from(orderBookDepth)
+					.where(and(
+						eq(orderBookDepth.poolId, pool.orderBook as `0x${string}`),
+						eq(orderBookDepth.side, "Buy")
+					))
+					.execute();
+				
+				totalLiquidityInQuote = quoteLiquidityData[0]?.totalValue?.toString() || "0";
+			}
 
 			return {
 				symbol: symbol.replace("/", ""),
@@ -686,8 +739,13 @@ app.get("/api/markets", async c => {
 				volume: pool.volume?.toString() || "0",
 				volumeInQuote: pool.volumeInQuote?.toString() || "0",
 				latestPrice: pool.price?.toString() || "0",
+				age: marketAge,
+				bidLiquidity: bidLiquidity,
+				askLiquidity: askLiquidity,
+				totalLiquidityInQuote: totalLiquidityInQuote,
+				createdAt: pool.timestamp,
 			};
-		});
+		}));
 
 		return c.json(pairs);
 	} catch (error) {

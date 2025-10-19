@@ -1,6 +1,5 @@
 import { Redis } from 'ioredis';
-import { DatabaseClient } from '../shared/database';
-import { SimpleDatabaseClient } from '../shared/database-simple';
+import { SimpleDatabaseClient } from '../shared/database';
 
 export class InflowService {
   private db: SimpleDatabaseClient;
@@ -19,55 +18,40 @@ export class InflowService {
     includeSymbolTimeSeries?: boolean;
   } = {}): Promise<any> {
     try {
-      const { 
-        timeframe = '30d', 
-        interval = 'daily', 
-        symbol, 
+      const {
+        timeframe = '30d',
+        interval = 'daily',
+        symbol,
         currency = 'USD',
-        includeSymbolTimeSeries = false 
+        includeSymbolTimeSeries = false
       } = params;
 
       // Convert timeframe to period format expected by database
       const period = timeframe;
 
-      // Get real trading data to calculate inflow metrics
-      const volumeData = await this.db.getTradesCountAnalytics(period, interval, symbol);
-      const symbolStats = await this.db.getSymbolStatsForPeriod(period);
-      const totalVolume = parseFloat(volumeData.summary?.total_volume || '0');
-      const totalTrades = parseInt(volumeData.summary?.total_trades || '0');
-      
-      // Calculate inflow metrics based on trading volume (assume inflows drive trading)
-      const estimatedInflows = totalVolume * 0.6; // 60% of volume represents inflows
-      const dailyAvgInflow = estimatedInflows / Math.max(volumeData.data.length, 1);
-      
+      // Get real deposit data from balance events
+      const balanceData = await this.db.getInflowAnalyticsFromBalance(period, interval, symbol);
+
       const baseAnalytics = {
-        data: volumeData.data.map(item => {
-          const volumeAmount = parseFloat(item.volume || '0');
-          const totalInflow = volumeAmount * 0.6;
-          const deposits = totalInflow * 0.7; // 70% deposits
-          const tradingVolume = volumeAmount;
-          const netFlow = totalInflow * 0.8; // 80% net positive flow
-          const uniqueDepositors = Math.floor(parseInt(item.trade_count) * 0.3); // 30% of trades from depositors
-          
-          return {
-            timestamp: item.timestamp,
-            date: item.date,
-            total_inflow: totalInflow.toFixed(2),
-            deposits: deposits.toFixed(2),
-            trading_volume: tradingVolume,
-            net_flow: netFlow.toFixed(2),
-            unique_depositors: uniqueDepositors.toString()
-          };
-        }),
+        data: balanceData.data.map(item => ({
+          timestamp: item.timestamp,
+          date: item.date,
+          total_inflow: item.total_inflow,
+          deposits: item.total_inflow, // All inflow is from deposits
+          trading_volume: '0', // Not applicable for balance-based analytics
+          net_flow: item.total_inflow, // Assume net positive from deposits
+          unique_depositors: item.unique_depositors.toString()
+        })),
         summary: {
-          total_inflows: estimatedInflows.toFixed(2),
-          avg_daily_inflow: dailyAvgInflow.toFixed(2),
-          peak_daily_inflow: volumeData.data.length > 0 ? 
-            (Math.max(...volumeData.data.map(d => parseFloat(d.volume || '0'))) * 0.6).toFixed(2) : '0',
-          net_inflow_trend: totalTrades > 100 ? 'positive' : totalTrades > 50 ? 'neutral' : 'negative'
+          total_inflows: balanceData.summary.total_inflows,
+          avg_daily_inflow: balanceData.summary.avg_daily_inflow,
+          peak_daily_inflow: balanceData.data.length > 0 ?
+            Math.max(...balanceData.data.map(d => parseFloat(d.total_inflow))).toFixed(6) : '0',
+          net_inflow_trend: parseInt(balanceData.summary.total_deposits) > 10 ? 'positive' :
+            parseInt(balanceData.summary.total_deposits) > 5 ? 'neutral' : 'negative'
         }
       };
-      
+
       // Base response structure
       const response: any = {
         timeframe,
@@ -83,32 +67,33 @@ export class InflowService {
           netFlow: parseFloat(point.net_flow || '0').toFixed(2),
           uniqueDepositors: parseInt(point.unique_depositors || '0')
         })),
-        
-        // Get inflow by symbol breakdown (static)
+
+        // Get inflow by symbol breakdown (based on actual deposits)
         inflowsBySymbol: [{
-          symbol: 'MWETH/MUSDC',
-          totalInflow: '5000000.00',
-          deposits: '3000000.00',
-          tradingInflow: '2000000.00',
-          uniqueUsers: 45,
-          avgInflowSize: '111111.11',
-          trend: 'positive'
+          symbol: symbol || 'all',
+          totalInflow: baseAnalytics.summary.total_inflows,
+          deposits: baseAnalytics.summary.total_inflows,
+          tradingInflow: '0.00', // Not applicable for balance-based analytics
+          uniqueUsers: parseInt(balanceData.summary.unique_depositors),
+          avgInflowSize: parseInt(balanceData.summary.total_deposits) > 0 ?
+            (parseFloat(baseAnalytics.summary.total_inflows) / parseInt(balanceData.summary.total_deposits)).toFixed(6) : '0.00',
+          trend: baseAnalytics.summary.net_inflow_trend
         }],
-        
+
         summary: {
           totalInflows: parseFloat(baseAnalytics.summary?.total_inflows || '0').toFixed(2),
           avgDailyInflow: parseFloat(baseAnalytics.summary?.avg_daily_inflow || '0').toFixed(2),
           peakDailyInflow: parseFloat(baseAnalytics.summary?.peak_daily_inflow || '0').toFixed(2),
           netInflowTrend: baseAnalytics.summary?.net_inflow_trend || 'neutral'
         },
-        
+
         insights: {
-          description: 'Strong positive inflow trend across all markets',
-          recommendation: 'Continue monitoring for sustained growth patterns',
-          strongestInflowMarkets: ['MWETH/MUSDC'],
+          description: this.generateInflowInsights(baseAnalytics.summary),
+          recommendation: this.generateInflowRecommendation(baseAnalytics.summary),
+          strongestInflowMarkets: [symbol || 'all'],
           strongestOutflowMarkets: []
         },
-        
+
         timestamp: Date.now()
       };
 
@@ -173,19 +158,19 @@ export class InflowService {
   private generateInflowInsights(summary: any): string {
     const totalInflows = parseFloat(summary?.total_inflows || '0');
     const trend = summary?.net_inflow_trend || 'neutral';
-    
+
     if (totalInflows > 1000000) {
-      return trend === 'positive' 
+      return trend === 'positive'
         ? 'Strong capital inflows indicating healthy market growth and investor confidence'
         : trend === 'negative'
-        ? 'High trading volume but declining inflow trend - monitor market sentiment'
-        : 'High trading volume with stable capital flows';
+          ? 'High trading volume but declining inflow trend - monitor market sentiment'
+          : 'High trading volume with stable capital flows';
     } else if (totalInflows > 100000) {
       return trend === 'positive'
         ? 'Moderate capital inflows showing steady market development'
         : trend === 'negative'
-        ? 'Moderate activity with declining inflows - consider growth initiatives'
-        : 'Moderate trading activity with balanced capital flows';
+          ? 'Moderate activity with declining inflows - consider growth initiatives'
+          : 'Moderate trading activity with balanced capital flows';
     } else {
       return 'Early stage market with limited capital flows - focus on user acquisition';
     }
@@ -194,7 +179,7 @@ export class InflowService {
   private generateInflowRecommendation(summary: any): string {
     const trend = summary?.net_inflow_trend || 'neutral';
     const avgDaily = parseFloat(summary?.avg_daily_inflow || '0');
-    
+
     if (trend === 'negative') {
       return 'Consider incentive programs to attract capital inflows and improve market liquidity';
     } else if (trend === 'positive' && avgDaily > 50000) {
@@ -209,7 +194,7 @@ export class InflowService {
   private formatSymbolInflowTimeSeries(timeSeriesData: any[], summaryData: any[], totalInflows: number) {
     // Group time series data by symbol
     const symbolTimeSeriesMap = new Map();
-    
+
     for (const row of timeSeriesData) {
       if (!symbolTimeSeriesMap.has(row.symbol)) {
         symbolTimeSeriesMap.set(row.symbol, []);
@@ -227,11 +212,11 @@ export class InflowService {
         sellTrades: row.sell_trades || 0,
         avgTradeSize: parseFloat(row.avg_trade_size || '0').toFixed(2),
         flowDirection: row.flow_direction || 'balanced',
-        percentage: totalInflows !== 0 ? 
+        percentage: totalInflows !== 0 ?
           (parseFloat(row.total_inflow || '0') / totalInflows * 100).toFixed(2) : '0'
       });
     }
-    
+
     // Combine with summary data
     return summaryData.map(summary => ({
       symbol: summary.symbol,
@@ -252,7 +237,7 @@ export class InflowService {
       avgOutflowPerTrade: parseFloat(summary.avg_outflow_per_trade || '0').toFixed(2),
       flowDirection: summary.flow_direction || 'balanced',
       activityLevel: summary.activity_level || 'low',
-      percentage: totalInflows !== 0 ? 
+      percentage: totalInflows !== 0 ?
         (parseFloat(summary.total_inflow || '0') / totalInflows * 100).toFixed(2) : '0',
       timeSeries: symbolTimeSeriesMap.get(summary.symbol) || [],
       firstTradeTime: summary.first_trade_time,
