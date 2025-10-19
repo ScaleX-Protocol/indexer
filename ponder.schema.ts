@@ -619,6 +619,28 @@ export const chainBalanceStates = onchainTable(
 	})
 );
 
+// User tracking table for analytics
+export const users = onchainTable(
+	"users",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		address: t.hex().notNull(),
+		firstSeenTimestamp: t.integer().notNull(),
+		lastSeenTimestamp: t.integer().notNull(),
+		totalOrders: t.integer().default(0),
+		totalDeposits: t.integer().default(0),
+		totalVolume: t.bigint().default(BigInt(0)),
+	}),
+	table => ({
+		addressIdx: index().on(table.address),
+		chainIdIdx: index().on(table.chainId),
+		addressChainIdx: index().on(table.address, table.chainId),
+		firstSeenIdx: index().on(table.firstSeenTimestamp),
+		lastSeenIdx: index().on(table.lastSeenTimestamp),
+	})
+);
+
 // Analytics tables for deposit/withdrawal tracking
 export const deposits = onchainTable(
 	"deposits",

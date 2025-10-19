@@ -34,10 +34,51 @@ import {
   hourBuckets,
   minuteBuckets,
   orders,
-  thirtyMinuteBuckets
+  thirtyMinuteBuckets,
+  users
 } from "ponder:schema";
 
 dotenv.config();
+
+async function upsertUserForOrder(db: any, chainId: number, user: string, timestamp: number, volume: bigint) {
+	const userId = `${chainId}-${user}`;
+	await db
+		.insert(users)
+		.values({
+			id: userId,
+			chainId: chainId,
+			address: user,
+			firstSeenTimestamp: timestamp,
+			lastSeenTimestamp: timestamp,
+			totalOrders: 1,
+			totalDeposits: 0,
+			totalVolume: volume,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			lastSeenTimestamp: timestamp,
+			totalOrders: row.totalOrders + 1,
+			totalVolume: row.totalVolume + volume,
+		}));
+}
+
+async function upsertUserActivity(db: any, chainId: number, user: string, timestamp: number) {
+	const userId = `${chainId}-${user}`;
+	await db
+		.insert(users)
+		.values({
+			id: userId,
+			chainId: chainId,
+			address: user,
+			firstSeenTimestamp: timestamp,
+			lastSeenTimestamp: timestamp,
+			totalOrders: 0,
+			totalDeposits: 0,
+			totalVolume: BigInt(0),
+		})
+		.onConflictDoUpdate((row: any) => ({
+			lastSeenTimestamp: timestamp,
+		}));
+}
 
 // Helper function to publish events
 async function publishOrderEvent(order: any, symbol: string, timestamp: number, executionType: "new" | "trade" | "cancelled", filledQuantity: bigint, _executionPrice: bigint) {
@@ -184,6 +225,10 @@ export async function handleOrderPlaced({ event, context }: any) {
       throw new Error(`Failed to insert order: ${(error as Error).message}`);
     }
 
+    // Track user for order
+    const volume = price * quantity;
+    await upsertUserForOrder(db, chainId, args.user, timestamp, volume);
+
     const historyId = createOrderHistoryId(chainId, txHash, filled, poolAddress, orderId.toString());
     const historyData = { id: historyId, chainId, orderId, poolId: poolAddress, timestamp, quantity, filled, status };
 
@@ -284,6 +329,10 @@ export async function handleOrderMatched({ event, context }: any) {
   const timestamp = Number(args.timestamp);
 
   await updatePoolVolume(db, poolId, quantity, price, timestamp);
+
+  // Track user trade volume
+  const tradeVolume = price * quantity;
+  await upsertUserForOrder(db, chainId, args.user, timestamp, tradeVolume);
 
   const tradeId = createTradeId(chainId, txHash, args.user, getSide(args.side), args);
   await insertOrderBookTrades(db, chainId, tradeId, txHash, poolAddress, args);
@@ -396,6 +445,9 @@ export async function handleOrderCancelled({ event, context }: any) {
     await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
     await upsertOrderBookDepthOnCancel(db, chainId, hashedOrderId, event, timestamp);
 
+    // Track user activity for order cancellation
+    await upsertUserActivity(db, chainId, event.args.user, timestamp);
+
     await executeIfInSync(Number(event.block.number), async () => {
       const symbol = (await getPoolTradingPair(context, event.log.address!, chainId, 'handleOrderCancelled')).toUpperCase();
       const row = await context.db.find(orders, { id: hashedOrderId });
@@ -454,6 +506,13 @@ export async function handleUpdateOrder({ event, context }: any) {
     await upsertOrderHistory(db, historyData);
 
     await updateOrderStatusAndTimestamp(db, chainId, hashedOrderId, event, timestamp);
+
+    // Track user activity for order update (get user from order)
+    const order = await db.find(orders, { id: hashedOrderId });
+    if (order && order.user) {
+      const updateVolume = BigInt(event.args.filled) * BigInt(order.price);
+      await upsertUserForOrder(db, chainId, order.user, timestamp, updateVolume);
+    }
 
     const isExpired = ORDER_STATUS[5];
 

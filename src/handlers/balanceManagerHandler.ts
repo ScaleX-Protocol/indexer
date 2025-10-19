@@ -1,11 +1,50 @@
 import dotenv from "dotenv";
-import { balances, deposits, withdrawals } from "ponder:schema";
+import { balances, deposits, withdrawals, users } from "ponder:schema";
 import { createBalanceId } from "@/utils";
 import { getAddress } from "viem";
 import { executeIfInSync } from "../utils/syncState";
 import { getEventPublisher } from "@/events/index";
 
 dotenv.config();
+
+async function upsertUserForDeposit(db: any, chainId: number, user: string, timestamp: number) {
+	const userId = `${chainId}-${user}`;
+	await db
+		.insert(users)
+		.values({
+			id: userId,
+			chainId: chainId,
+			address: user,
+			firstSeenTimestamp: timestamp,
+			lastSeenTimestamp: timestamp,
+			totalOrders: 0,
+			totalDeposits: 1,
+			totalVolume: BigInt(0),
+		})
+		.onConflictDoUpdate((row: any) => ({
+			lastSeenTimestamp: timestamp,
+			totalDeposits: row.totalDeposits + 1,
+		}));
+}
+
+async function upsertUserActivity(db: any, chainId: number, user: string, timestamp: number) {
+	const userId = `${chainId}-${user}`;
+	await db
+		.insert(users)
+		.values({
+			id: userId,
+			chainId: chainId,
+			address: user,
+			firstSeenTimestamp: timestamp,
+			lastSeenTimestamp: timestamp,
+			totalOrders: 0,
+			totalDeposits: 0,
+			totalVolume: BigInt(0),
+		})
+		.onConflictDoUpdate((row: any) => ({
+			lastSeenTimestamp: timestamp,
+		}));
+}
 
 async function fetchAndPushBalance(context: any, balanceId: string, timestamp: number, blockNumber: number) {
 	await executeIfInSync(blockNumber, async () => {
@@ -69,6 +108,9 @@ export async function handleDeposit({ event, context }: any) {
 		blockNumber: BigInt(event.block.number),
 	});
 
+	// Track user
+	await upsertUserForDeposit(db, chainId, user, timestamp);
+
 	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
@@ -98,10 +140,14 @@ export async function handleWithdrawal({ event, context }: any) {
 		blockNumber: BigInt(event.block.number),
 	});
 
+	// Track user activity
+	await upsertUserActivity(db, chainId, user, timestamp);
+
 	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleTransferFrom({ event, context }: any) {
+	const { db } = context;
 	const chainId = context.network.chainId;
 	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
 	const currency = getAddress(fromId(event.args.id));
@@ -115,6 +161,9 @@ export async function handleTransferFrom({ event, context }: any) {
 		chainId: chainId,
 	}));
 
+	// Track sender user activity
+	await upsertUserActivity(db, chainId, event.args.sender, timestamp);
+	
 	await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert receiver balance
@@ -134,6 +183,9 @@ export async function handleTransferFrom({ event, context }: any) {
 			amount: row.amount + netAmount,
 		}));
 
+	// Track receiver user activity
+	await upsertUserActivity(db, chainId, event.args.receiver, timestamp);
+
 	await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// // Update or insert operator balance
@@ -152,10 +204,14 @@ export async function handleTransferFrom({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.feeAmount),
 		}));
 
+	// Track operator user activity
+	await upsertUserActivity(db, chainId, event.args.operator, timestamp);
+
 	await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleTransferLockedFrom({ event, context }: any) {
+	const { db } = context;
 	const chainId = context.network.chainId;
 	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
 	const currency = getAddress(fromId(event.args.id));
@@ -168,6 +224,9 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 		user: event.args.sender,
 		chainId: chainId,
 	}));
+
+	// Track sender user activity
+	await upsertUserActivity(db, chainId, event.args.sender, timestamp);
 
 	await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
@@ -187,6 +246,9 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 			amount: row.amount + netAmount,
 		}));
 
+	// Track receiver user activity
+	await upsertUserActivity(db, chainId, event.args.receiver, timestamp);
+
 	await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert operator balance (unlocked)
@@ -205,10 +267,14 @@ export async function handleTransferLockedFrom({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.feeAmount),
 		}));
 
+	// Track operator user activity
+	await upsertUserActivity(db, chainId, event.args.operator, timestamp);
+
 	await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleLock({ event, context }: any) {
+	const { db } = context;
 	const chainId = context.network.chainId;
 	const user = event.args.user;
 	const currency = getAddress(fromId(event.args.id));
@@ -230,10 +296,14 @@ export async function handleLock({ event, context }: any) {
 			lockedAmount: row.lockedAmount + BigInt(event.args.amount),
 		}));
 
+	// Track user activity
+	await upsertUserActivity(db, chainId, user, timestamp);
+
 	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleUnlock({ event, context }: any) {
+	const { db } = context;
 	const chainId = context.network.chainId;
 	const user = event.args.user;
 	const currency = getAddress(fromId(event.args.id));
@@ -254,6 +324,9 @@ export async function handleUnlock({ event, context }: any) {
 			lockedAmount: row.lockedAmount - BigInt(event.args.amount),
 			amount: row.amount + BigInt(event.args.amount),
 		}));
+
+	// Track user activity
+	await upsertUserActivity(db, chainId, user, timestamp);
 
 	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
