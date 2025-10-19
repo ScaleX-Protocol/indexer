@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Redis } from 'ioredis';
-import { SimpleDatabaseClient } from '../shared/database';
+import { DatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 import { MarketService } from '../market/market-service';
 // AnalyticsEventConsumer removed - using polling-based approach
@@ -11,7 +11,7 @@ import { InflowService } from '../analytics/inflow-service';
 import { OutflowService } from '../analytics/outflow-service';
 import { UnifiedSyncService } from '../sync/unified-sync-service';
 
-export function createApiServer(db: SimpleDatabaseClient, redis: Redis, eventConsumer: any, leaderboardService: LeaderboardService, timescaleDb: TimescaleDatabaseClient) {
+export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer: any, leaderboardService: LeaderboardService, timescaleDb: TimescaleDatabaseClient) {
   const app = new Hono();
 
   // Initialize services with Redis for caching
@@ -712,10 +712,10 @@ export function createApiServer(db: SimpleDatabaseClient, redis: Redis, eventCon
         timestamp: Date.now()
       };
 
-      // Add symbol time-series data if requested (simplified for SimpleDatabaseClient)
+      // Add symbol time-series data if requested (simplified for DatabaseClient)
       if (includeSymbolTimeSeries) {
         response.tradersBySymbolOverTime = [];
-        response.message = 'Symbol time-series data not available with SimpleDatabaseClient';
+        response.message = 'Symbol time-series data not available with DatabaseClient';
       }
 
       return c.json(response);

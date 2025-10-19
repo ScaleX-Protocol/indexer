@@ -1,13 +1,13 @@
 import { Hono } from 'hono';
 import { DataSyncService } from '../sync/data-sync-service';
-import { SimpleDatabaseClient } from '../shared/database';
+import { DatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 export function createSyncRoutes(): Hono {
   const app = new Hono();
 
   // Initialize sync service
-  const ponderDb = new SimpleDatabaseClient();
+  const ponderDb = new DatabaseClient();
   const timescaleDb = TimescaleDatabaseClient.getInstance();
   const syncService = new DataSyncService(ponderDb, timescaleDb);
 

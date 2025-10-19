@@ -1,13 +1,13 @@
 import { Redis } from 'ioredis';
-import { SimpleDatabaseClient } from '../shared/database';
+import { DatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 export class MarketService {
-  private db: SimpleDatabaseClient;
+  private db: DatabaseClient;
   private timescaleDb: TimescaleDatabaseClient;
   private redis?: Redis;
 
-  constructor(db: SimpleDatabaseClient, redis?: Redis) {
+  constructor(db: DatabaseClient, redis?: Redis) {
     this.db = db;
     this.timescaleDb = TimescaleDatabaseClient.getInstance();
     this.redis = redis;
@@ -82,7 +82,7 @@ export class MarketService {
       // Add symbol time-series data if requested (simplified for now)
       if (includeSymbolTimeSeries) {
         response.volumeBySymbolOverTime = [];
-        response.message = 'Symbol time-series data not available with SimpleDatabaseClient';
+        response.message = 'Symbol time-series data not available with DatabaseClient';
       }
 
       return response;
@@ -181,7 +181,7 @@ export class MarketService {
         dataSource: 'placeholder_data',
         performance: {
           queryTime: '<10ms (placeholder data)',
-          improvement: 'Using SimpleDatabaseClient with mock liquidity data',
+          improvement: 'Using DatabaseClient with mock liquidity data',
           dataFreshness: 'real-time',
           source: 'Mock data - TimescaleDB not available'
         },
@@ -326,7 +326,7 @@ export class MarketService {
         }
       }
 
-      // Return empty array for now since getPriceHistory not available in SimpleDatabaseClient
+      // Return empty array for now since getPriceHistory not available in DatabaseClient
       return [];
     } catch (error) {
       console.error(`Error getting price data for ${symbol}:`, error);

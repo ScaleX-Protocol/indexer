@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { Redis } from 'ioredis';
 import { serve } from '@hono/node-server';
-import { SimpleDatabaseClient } from './shared/database';
+import { DatabaseClient } from './shared/database';
 import { TimescaleDatabaseClient } from './shared/timescale-database';
 // Event consumer removed - using polling-based approach
 import { createApiServer } from './api/index';
@@ -12,7 +12,7 @@ dotenv.config();
 
 class AnalyticsService {
   private redis: Redis;
-  private db: SimpleDatabaseClient;
+  private db: DatabaseClient;
   private timescaleDb: TimescaleDatabaseClient;
   private leaderboardService: LeaderboardService;
   private apiServer: any;
@@ -24,8 +24,8 @@ class AnalyticsService {
       maxRetriesPerRequest: null,
     });
 
-    // Initialize database connection using SimpleDatabaseClient
-    this.db = SimpleDatabaseClient.getInstance();
+    // Initialize database connection using DatabaseClient
+    this.db = DatabaseClient.getInstance();
 
     // Initialize TimescaleDB connection
     this.timescaleDb = TimescaleDatabaseClient.getInstance();

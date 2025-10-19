@@ -49,7 +49,7 @@ messages = await this.redis.xreadgroup(
 // New sync service
 export class DataSyncService {
   constructor(
-    private ponderDb: SimpleDatabaseClient,
+    private ponderDb: DatabaseClient,
     private analyticsDb: TimescaleDatabaseClient
   ) {}
 

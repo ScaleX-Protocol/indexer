@@ -1,11 +1,11 @@
 import { Redis } from 'ioredis';
-import { SimpleDatabaseClient } from '../shared/database';
+import { DatabaseClient } from '../shared/database';
 
 export class SlippageService {
-  private db: SimpleDatabaseClient;
+  private db: DatabaseClient;
   private redis?: Redis;
 
-  constructor(db: SimpleDatabaseClient, redis?: Redis) {
+  constructor(db: DatabaseClient, redis?: Redis) {
     this.db = db;
     this.redis = redis;
   }

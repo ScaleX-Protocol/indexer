@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import { SimpleDatabaseClient } from '../shared/database';
+import { DatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 export interface LeaderboardEntry {
@@ -19,11 +19,11 @@ export interface PNLCalculationResult {
 }
 
 export class LeaderboardService {
-  private db: SimpleDatabaseClient;
+  private db: DatabaseClient;
   private redis: Redis;
   private timescaleDb: TimescaleDatabaseClient;
 
-  constructor(db: SimpleDatabaseClient, redis: Redis, timescaleDb: TimescaleDatabaseClient) {
+  constructor(db: DatabaseClient, redis: Redis, timescaleDb: TimescaleDatabaseClient) {
     this.db = db;
     this.redis = redis;
     this.timescaleDb = timescaleDb;

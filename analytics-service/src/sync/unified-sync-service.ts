@@ -1,4 +1,4 @@
-import { SimpleDatabaseClient } from '../shared/database';
+import { DatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
 // ========================================
@@ -93,7 +93,7 @@ export interface ColdStartAnalysis {
 
 export class UnifiedSyncService {
   constructor(
-    private ponderDb: SimpleDatabaseClient,
+    private ponderDb: DatabaseClient,
     private timescaleDb: TimescaleDatabaseClient
   ) { }
 

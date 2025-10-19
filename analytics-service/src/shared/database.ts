@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 
-export class SimpleDatabaseClient {
+export class DatabaseClient {
   public sql: ReturnType<typeof postgres>;
 
   constructor() {
@@ -144,7 +144,7 @@ export class SimpleDatabaseClient {
     // Convert time-series data or provide placeholder
     const data = timeSeriesData.length > 0 ? timeSeriesData.map(row => ({
       timestamp: Math.floor(row.trade_date.getTime() / 1000),
-      date: dateTruncUnit === 'hour' 
+      date: dateTruncUnit === 'hour'
         ? row.trade_date.toISOString().split('.')[0] // Include hour for hourly intervals (YYYY-MM-DDTHH:MM:SS)
         : row.trade_date.toISOString().split('T')[0], // Just date for daily intervals (YYYY-MM-DD)
       trade_count: parseInt(row.trade_count),
@@ -153,7 +153,7 @@ export class SimpleDatabaseClient {
       unique_traders: parseInt(row.unique_traders)
     })) : [{
       timestamp: Math.floor(Date.now() / 1000),
-      date: dateTruncUnit === 'hour' 
+      date: dateTruncUnit === 'hour'
         ? new Date().toISOString().split('.')[0]
         : new Date().toISOString().split('T')[0],
       trade_count: parseInt(summaryResult[0].total_trades) || 0,
@@ -224,13 +224,13 @@ export class SimpleDatabaseClient {
   }
 
   // Add singleton pattern to match DatabaseClient interface
-  private static instance: SimpleDatabaseClient;
+  private static instance: DatabaseClient;
 
-  public static getInstance(): SimpleDatabaseClient {
-    if (!SimpleDatabaseClient.instance) {
-      SimpleDatabaseClient.instance = new SimpleDatabaseClient();
+  public static getInstance(): DatabaseClient {
+    if (!DatabaseClient.instance) {
+      DatabaseClient.instance = new DatabaseClient();
     }
-    return SimpleDatabaseClient.instance;
+    return DatabaseClient.instance;
   }
 
   // Add close method
@@ -1560,7 +1560,7 @@ export class SimpleDatabaseClient {
     }
 
     // Get deposit data grouped by time interval
-    const query = symbol && symbol !== 'all' 
+    const query = symbol && symbol !== 'all'
       ? this.sql`
           SELECT 
             DATE_TRUNC(${dateTruncUnit}, TO_TIMESTAMP(d.timestamp)) as trade_date,
@@ -1616,8 +1616,8 @@ export class SimpleDatabaseClient {
     return {
       data: data.map(row => ({
         timestamp: parseInt(row.timestamp),
-        date: dateTruncUnit === 'hour' 
-          ? row.trade_date.toISOString().split('.')[0] 
+        date: dateTruncUnit === 'hour'
+          ? row.trade_date.toISOString().split('.')[0]
           : row.trade_date.toISOString().split('T')[0],
         total_inflow: parseFloat(row.total_inflow).toFixed(6),
         deposit_count: parseInt(row.deposit_count),
@@ -1627,7 +1627,7 @@ export class SimpleDatabaseClient {
         total_inflows: parseFloat(summary[0]?.total_inflows || '0').toFixed(6),
         total_deposits: parseInt(summary[0]?.total_deposits || '0'),
         unique_depositors: parseInt(summary[0]?.unique_depositors || '0'),
-        avg_daily_inflow: data.length > 0 ? 
+        avg_daily_inflow: data.length > 0 ?
           (parseFloat(summary[0]?.total_inflows || '0') / data.length).toFixed(6) : '0'
       }
     };
@@ -1643,7 +1643,7 @@ export class SimpleDatabaseClient {
     }
 
     // Get withdrawal data grouped by time interval
-    const query = symbol && symbol !== 'all' 
+    const query = symbol && symbol !== 'all'
       ? this.sql`
           SELECT 
             DATE_TRUNC(${dateTruncUnit}, TO_TIMESTAMP(w.timestamp)) as trade_date,
@@ -1699,8 +1699,8 @@ export class SimpleDatabaseClient {
     return {
       data: data.map(row => ({
         timestamp: parseInt(row.timestamp),
-        date: dateTruncUnit === 'hour' 
-          ? row.trade_date.toISOString().split('.')[0] 
+        date: dateTruncUnit === 'hour'
+          ? row.trade_date.toISOString().split('.')[0]
           : row.trade_date.toISOString().split('T')[0],
         total_outflow: parseFloat(row.total_outflow).toFixed(6),
         withdrawal_count: parseInt(row.withdrawal_count),
@@ -1710,7 +1710,7 @@ export class SimpleDatabaseClient {
         total_outflows: parseFloat(summary[0]?.total_outflows || '0').toFixed(6),
         total_withdrawals: parseInt(summary[0]?.total_withdrawals || '0'),
         unique_withdrawers: parseInt(summary[0]?.unique_withdrawers || '0'),
-        avg_daily_outflow: data.length > 0 ? 
+        avg_daily_outflow: data.length > 0 ?
           (parseFloat(summary[0]?.total_outflows || '0') / data.length).toFixed(6) : '0'
       }
     };
@@ -1765,8 +1765,8 @@ export class SimpleDatabaseClient {
     return {
       data: timeSeriesData.map(row => ({
         timestamp: parseInt(row.timestamp),
-        date: dateTruncUnit === 'hour' 
-          ? row.trade_date.toISOString().split('.')[0] 
+        date: dateTruncUnit === 'hour'
+          ? row.trade_date.toISOString().split('.')[0]
           : row.trade_date.toISOString().split('T')[0],
         newUsers: parseInt(row.new_users_in_bucket),
         cumulativeUsers: parseInt(row.cumulative_users)
@@ -1774,9 +1774,9 @@ export class SimpleDatabaseClient {
       summary: {
         totalUsers: parseInt(summary.total_users_all_time || '0'),
         newUsersInPeriod: parseInt(summary.total_users_in_period || '0'),
-        avgDailyGrowth: timeSeriesData.length > 0 ? 
+        avgDailyGrowth: timeSeriesData.length > 0 ?
           Math.round(parseInt(summary.total_users_in_period || '0') / timeSeriesData.length) : 0,
-        growthRate: parseInt(summary.total_users_all_time || '0') > 0 ? 
+        growthRate: parseInt(summary.total_users_all_time || '0') > 0 ?
           ((parseInt(summary.total_users_in_period || '0') / parseInt(summary.total_users_all_time || '0')) * 100).toFixed(2) : '0.00'
       }
     };

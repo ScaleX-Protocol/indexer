@@ -1,27 +1,25 @@
 import { ponder } from "ponder:registry";
-import * as crossChainHandler from "./handlers/crossChainHandler";
-import * as chainBalanceManagerHandler from "./handlers/chainBalanceManagerHandler";
-import * as faucetHandler from "./handlers/faucetHandler";
-import { PonderEvents } from "./types/ponder-side-chain";
+import * as orderBookHandler from "./handlers/orderBookHandler";
+import * as poolManagerHandler from "./handlers/poolManagerHandler";
+import * as balanceManagerHandler from "./handlers/balanceManagerHandler";
+import { PonderEvents } from "./types/ponder-core-chain";
 
-// Chain Balance Manager Events - PRIMARY SIDE CHAIN FUNCTIONALITY
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_DEPOSIT, chainBalanceManagerHandler.handleDeposit);
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_WITHDRAW, chainBalanceManagerHandler.handleWithdraw);
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_UNLOCK, chainBalanceManagerHandler.handleUnlock);
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_CLAIM, chainBalanceManagerHandler.handleClaim);
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_TOKEN_WHITELISTED, chainBalanceManagerHandler.handleTokenWhitelisted);
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_TOKEN_REMOVED, chainBalanceManagerHandler.handleTokenRemoved);
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_OWNERSHIP_TRANSFERRED, chainBalanceManagerHandler.handleOwnershipTransferred);
-ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_INITIALIZED, chainBalanceManagerHandler.handleInitialized);
+// Pool Manager Events
+ponder.on(PonderEvents.POOL_CREATED, poolManagerHandler.handlePoolCreated);
 
-// Cross-Chain Events - Hyperlane messaging for side chain
-ponder.on(PonderEvents.HYPERLANE_MAILBOX_DISPATCH_ID, crossChainHandler.handleHyperlaneMailboxDispatchId);
-ponder.on(PonderEvents.HYPERLANE_MAILBOX_PROCESS_ID, crossChainHandler.handleHyperlaneMailboxProcessId);
+// Balance Manager Events
+ponder.on(PonderEvents.DEPOSIT, balanceManagerHandler.handleDeposit);
+ponder.on(PonderEvents.WITHDRAWAL, balanceManagerHandler.handleWithdrawal);
+ponder.on(PonderEvents.TRANSFER_FROM, balanceManagerHandler.handleTransferFrom);
+ponder.on(PonderEvents.TRANSFER_LOCKED_FROM, balanceManagerHandler.handleTransferLockedFrom);
+ponder.on(PonderEvents.LOCK, balanceManagerHandler.handleLock);
+ponder.on(PonderEvents.UNLOCK, balanceManagerHandler.handleUnlock);
 
-// Faucet Events - Side chain faucet functionality
-ponder.on(PonderEvents.ADD_TOKEN, faucetHandler.handleAddToken);
-ponder.on(PonderEvents.REQUEST_TOKEN, faucetHandler.handleRequestToken);
-ponder.on(PonderEvents.DEPOSIT_TOKEN, faucetHandler.handleDepositToken);
+// Order Book Events
+ponder.on(PonderEvents.ORDER_PLACED, orderBookHandler.handleOrderPlaced);
+ponder.on(PonderEvents.ORDER_MATCHED, orderBookHandler.handleOrderMatched);
+ponder.on(PonderEvents.ORDER_CANCELLED, orderBookHandler.handleOrderCancelled);
+ponder.on(PonderEvents.UPDATE_ORDER, orderBookHandler.handleUpdateOrder);
 
-console.log("✅ Side Chain indexer initialized - Chain ID: 31338");
-console.log("🔗 Monitoring: ChainBalanceManager, Hyperlane cross-chain events, Faucet events");
+console.log("✅ Core Chain indexer initialized - Chain ID: 31337");
+console.log("📊 Monitoring: OrderBook, PoolManager events only");

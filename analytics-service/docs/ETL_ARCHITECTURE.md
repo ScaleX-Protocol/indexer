@@ -15,7 +15,7 @@ This document outlines the simple and practical ETL (Extract, Transform, Load) a
 | **5. Transformation** | Trade records | SQL date_trunc grouping<br/>Volume calculations<br/>Trader counting | Analytics format | Per query | Daily/hourly groups | ✅ **Working** |
 | **6. Sync Tracking** | Processed trades | Mark as processed<br/>Update sync_log table | Ponder `sync_log` | Per trade | 129 entries logged | ✅ **Working** |
 | **7. Data Loading** | Analytics data | Insert into TimescaleDB<br/>Create hypertables | TimescaleDB analytics | Background | Hypertable creation | ⚠️ **Partial** |
-| **8. API Serving** | Database queries | SimpleDatabaseClient<br/>Real-time calculations | JSON responses | Per request | Sub-second response | ✅ **Working** |
+| **8. API Serving** | Database queries | DatabaseClient<br/>Real-time calculations | JSON responses | Per request | Sub-second response | ✅ **Working** |
 | **9. Materialized Views** | Time-series data | Continuous aggregates<br/>Auto-refresh | Cached results | 5-10 minutes | Pre-calculated data | 🔄 **Planned** |
 | **10. ETL Orchestration** | All components | Health monitoring<br/>Error handling<br/>Recovery strategies | System stability | Continuous | Pipeline health | ✅ **Working** |
 
@@ -40,7 +40,7 @@ This document outlines the simple and practical ETL (Extract, Transform, Load) a
    └─ Load: Mark as processed in sync_log table
 
 📊 STEP 4: Analytics Generation
-   └─ Real-time: SimpleDatabaseClient queries raw data
+   └─ Real-time: DatabaseClient queries raw data
    └─ Aggregation: PostgreSQL date_trunc for time-series
    └─ Response: JSON with real volume/trade data
 
@@ -86,7 +86,7 @@ WHERE timestamp > (
 | **Component** | **Implementation** | **Status** | **Data Source** | **Output** |
 |---------------|-------------------|------------|-----------------|------------|
 | **UnifiedSyncService** | Single intelligent service | ✅ Working | Ponder + TimescaleDB | Sync strategies |
-| **SimpleDatabaseClient** | Direct SQL queries | ✅ Working | Ponder PostgreSQL | Real analytics data |
+| **DatabaseClient** | Direct SQL queries | ✅ Working | Ponder PostgreSQL | Real analytics data |
 | **TimescaleDatabaseClient** | Time-series storage | ⚠️ Partial | TimescaleDB | Hypertables |
 | **Cold Start Detection** | Smart system analysis | ✅ Working | System health | Auto-strategy |
 | **Gap Analysis** | Data integrity checks | ✅ Working | Database comparison | Missing data report |
@@ -140,7 +140,7 @@ Error rate: 0%
 
 ### **3. Real-time Analytics (Current)**
 ```sql
--- SimpleDatabaseClient.getTradesCountAnalytics() - Working ✅
+-- DatabaseClient.getTradesCountAnalytics() - Working ✅
 SELECT 
   date_trunc('day', to_timestamp(obt.timestamp)) as trade_date,
   COUNT(obt.id) as trade_count,
@@ -157,7 +157,7 @@ GROUP BY trade_date ORDER BY trade_date;
 ### **Real-time Processing (Working ✅)**
 | **Process Type** | **Use Case** | **Implementation** | **Update Frequency** | **Example** |
 |------------------|--------------|-------------------|---------------------|-------------|
-| **Live Analytics** | Current trading metrics | SimpleDatabaseClient queries | Per API request | Volume, trade count, price |
+| **Live Analytics** | Current trading metrics | DatabaseClient queries | Per API request | Volume, trade count, price |
 | **Health Monitoring** | System status & gaps | UnifiedSyncService health checks | Continuous | Cold start detection, data integrity |
 | **Stream Processing** | New trade detection | Sync log monitoring | Real-time | Gap analysis, missing trade detection |
 
@@ -198,9 +198,9 @@ GROUP BY trade_date ORDER BY trade_date;
 
 | **Endpoint** | **ETL Method** | **Update Frequency** | **Use Case** | **Implementation** |
 |--------------|----------------|---------------------|--------------|-------------------|
-| `/health` | **Real-time Query** | Per request | System health checks | SimpleDatabaseClient |
+| `/health` | **Real-time Query** | Per request | System health checks | DatabaseClient |
 | `/metrics` | **Real-time Query** | Per request | Process monitoring | System stats |
-| `/api/analytics/pnl` | **Real-time Query** | Per request | PnL calculations | SimpleDatabaseClient |
+| `/api/analytics/pnl` | **Real-time Query** | Per request | PnL calculations | DatabaseClient |
 
 ## 📋 **Quick Reference: ETL Method by Endpoint**
 
@@ -224,7 +224,7 @@ GROUP BY trade_date ORDER BY trade_date;
 ### **Phase 1: Fix Current Issues (1 week)**
 | **Task** | **Description** | **Impact** |
 |----------|-----------------|------------|
-| Fix API routing | Resolve SimpleDatabaseClient vs TimescaleDB method calls | ✅ Fix trades-count endpoint |
+| Fix API routing | Resolve DatabaseClient vs TimescaleDB method calls | ✅ Fix trades-count endpoint |
 | TimescaleDB sync | Copy sync'd trades from Ponder to TimescaleDB analytics | ✅ Enable more endpoints |
 | Basic materialized views | Create simple volume/trade count views | ✅ Improve performance |
 

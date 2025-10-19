@@ -1,11 +1,11 @@
 import { Redis } from 'ioredis';
-import { SimpleDatabaseClient } from '../shared/database';
+import { DatabaseClient } from '../shared/database';
 
 export class OutflowService {
-  private db: SimpleDatabaseClient;
+  private db: DatabaseClient;
   private redis?: Redis;
 
-  constructor(db: SimpleDatabaseClient, redis?: Redis) {
+  constructor(db: DatabaseClient, redis?: Redis) {
     this.db = db;
     this.redis = redis;
   }
@@ -112,7 +112,7 @@ export class OutflowService {
         }];
 
         response.insights.outflowRisks = [];
-        response.message = 'Symbol time-series data not fully available with SimpleDatabaseClient';
+        response.message = 'Symbol time-series data not fully available with DatabaseClient';
       }
 
       return response;
