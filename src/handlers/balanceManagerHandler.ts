@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { balances } from "ponder:schema";
+import { balances, deposits, withdrawals } from "ponder:schema";
 import { createBalanceId } from "@/utils";
 import { getAddress } from "viem";
 import { executeIfInSync } from "../utils/syncState";
@@ -41,6 +41,7 @@ export async function handleDeposit({ event, context }: any) {
 	const balanceId = createBalanceId(chainId, currency, user);
 	const timestamp = Number(event.block.timestamp);
 
+	// Update balances table
 	await db
 		.insert(balances)
 		.values({
@@ -55,19 +56,47 @@ export async function handleDeposit({ event, context }: any) {
 			amount: row.amount + BigInt(event.args.amount),
 		}));
 
+	// Record deposit event for analytics
+	const depositId = `${event.transaction.hash}-${event.logIndex}`;
+	await db.insert(deposits).values({
+		id: depositId,
+		chainId: chainId,
+		user: user,
+		currency: currency,
+		amount: BigInt(event.args.amount),
+		timestamp: timestamp,
+		transactionId: event.transaction.hash,
+		blockNumber: BigInt(event.block.number),
+	});
+
 	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
 
 export async function handleWithdrawal({ event, context }: any) {
+	const { db } = context;
 	const chainId = context.network.chainId;
 	const user = event.args.user;
 	const currency = getAddress(fromId(event.args.id));
 	const balanceId = createBalanceId(chainId, currency, user);
 	const timestamp = Number(event.block.timestamp);
 
-	await context.db.update(balances, { id: balanceId }).set((row: any) => ({
+	// Update balances table
+	await db.update(balances, { id: balanceId }).set((row: any) => ({
 		amount: row.amount - BigInt(event.args.amount),
 	}));
+
+	// Record withdrawal event for analytics
+	const withdrawalId = `${event.transaction.hash}-${event.logIndex}`;
+	await db.insert(withdrawals).values({
+		id: withdrawalId,
+		chainId: chainId,
+		user: user,
+		currency: currency,
+		amount: BigInt(event.args.amount),
+		timestamp: timestamp,
+		transactionId: event.transaction.hash,
+		blockNumber: BigInt(event.block.number),
+	});
 
 	await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 }
