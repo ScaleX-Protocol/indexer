@@ -18,36 +18,21 @@ dotenv.config();
 
 // Static token data mapping for core chain tokens to avoid RPC calls
 const STATIC_TOKEN_DATA: Record<string, { symbol: string; name: string; decimals: number }> = {
-	"0xa1f94caf02be7939bd58144b4e156f2e719fc10d": {
+	// Actual deployed token addresses from .env.core-chain
+	"0xc641b89a8d3d81151c6cd2f05fa593c95d2c1ffc": {
 		symbol: "gsWETH",
 		name: "GTX Synthetic WETH",
 		decimals: 18
 	},
-	"0xae4a7d39a9a09545d3e2542d75e0e64a63df9e59": {
+	"0x7b6fcb97fc1b74e16cbe577054a4426d3487837c": {
 		symbol: "gsUSDC",
 		name: "GTX Synthetic USDC",
 		decimals: 6
 	},
-	"0x19c2164f0b8a514c66deec8f1f8246f655f73b5d": {
+	"0xe3be36986d245a31d74157daac38b7a8f8552881": {
 		symbol: "gsWBTC",
 		name: "GTX Synthetic WBTC",
 		decimals: 8
-	},
-	// Native tokens (if deployed)
-	"0x7a5ec257391817ef241ef8451642cc6b222d4f8c": {
-		symbol: "USDC",
-		name: "USD Coin",
-		decimals: 6
-	},
-	"0x59c7d03d2e9893fb7baa89da50a9452e1e9b8b90": {
-		symbol: "WBTC",
-		name: "Wrapped Bitcoin",
-		decimals: 8
-	},
-	"0x90e75f390332356426b60fb440df23f860f6a113": {
-		symbol: "WETH",
-		name: "Wrapped Ether",
-		decimals: 18
 	}
 };
 
