@@ -2,7 +2,7 @@
 import dotenv from "dotenv";
 import { factory } from "ponder";
 import { fallback, getAddress, http, parseAbiItem } from "viem";
-import { BalanceManagerABI, FaucetABI, GTXRouterABI, MailboxABI, OrderBookABI, PoolManagerABI } from "./abis";
+import { BalanceManagerABI, FaucetABI, GTXRouterABI, MailboxABI, OrderBookABI, PoolManagerABI, TokenRegistryABI } from "./abis";
 
 dotenv.config({ path: ".env.core-chain" });
 
@@ -101,7 +101,7 @@ const contracts: any = {
 
 	// TokenRegistry exists on GTX Anvil (core chain)
 	TokenRegistry: {
-		abi: [], // Add TokenRegistry ABI if available
+		abi: TokenRegistryABI,
 		network: {
 			coreDevnet: {
 				address: getAddress((process.env.TOKENREGISTRY_CONTRACT_GTX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),

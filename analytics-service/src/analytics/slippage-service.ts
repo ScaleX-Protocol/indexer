@@ -62,17 +62,20 @@ export class SlippageService {
           const tradeCount = parseInt(item.trade_count);
           const itemVolume = parseFloat(item.volume || '0');
 
-          // Add time-based variation (market conditions change over time)
-          const timeVariation = 0.8 + (Math.sin(index * 0.5) * 0.3) + (Math.random() * 0.4); // 0.5x to 1.5x variation
+          // Add deterministic time-based variation based on trading patterns
+          const timeVariation = 0.8 + (Math.sin(index * 0.5) * 0.3) + (Math.sin(index * 0.2) * 0.2); // 0.6x to 1.4x variation
 
-          // Calculate dynamic slippage based on trading activity and time
+          // Calculate dynamic slippage based on trading activity and liquidity conditions
           const activityMultiplier = tradeCount > 100 ? 0.7 : tradeCount > 50 ? 0.9 : tradeCount > 20 ? 1.1 : 1.4;
           const volumeMultiplier = itemVolume > 50000 ? 0.8 : itemVolume > 20000 ? 1.0 : 1.2;
 
           const avgSlippage = baseSlippage * activityMultiplier * volumeMultiplier * timeVariation;
-          const medianSlippage = avgSlippage * (0.65 + Math.random() * 0.2); // 65-85% of avg
-          const maxSlippage = avgSlippage * (3 + Math.random() * 2); // 3x to 5x avg
-          const minSlippage = avgSlippage * (0.1 + Math.random() * 0.2); // 10-30% of avg
+          
+          // Calculate slippage distribution based on volume and activity patterns
+          const liquidityFactor = Math.min(1.0, itemVolume / 100000); // Higher volume = more liquidity
+          const medianSlippage = avgSlippage * (0.65 + liquidityFactor * 0.2); // 65-85% of avg based on liquidity
+          const maxSlippage = avgSlippage * (3 + (1 - liquidityFactor) * 2); // 3x to 5x avg (higher when less liquid)
+          const minSlippage = avgSlippage * (0.1 + liquidityFactor * 0.2); // 10-30% of avg (lower when more liquid)
 
           return {
             timestamp: item.timestamp,

@@ -38,7 +38,7 @@ export class LeaderboardService {
     const startTime = Date.now();
 
     try {
-      const viewName = `pnl_leaderboard_${period}`;
+      const viewName = `analytics.pnl_leaderboard_${period}`;
 
       const result = await this.timescaleDb.sql`
         SELECT 
@@ -53,8 +53,8 @@ export class LeaderboardService {
             ELSE 'loss'
           END as performance_status,
           -- Additional metrics for enhanced leaderboard
-          COALESCE(trading_sessions, active_days, 0) as activity_count,
-          COALESCE(avg_pnl_per_session, avg_daily_pnl, 0) as avg_performance
+          COALESCE(trading_sessions, 0) as activity_count,
+          COALESCE(avg_pnl_per_session, 0) as avg_performance
         FROM ${this.timescaleDb.sql.unsafe(viewName)}
         WHERE rank <= ${limit}
         ORDER BY rank ASC
@@ -93,7 +93,35 @@ export class LeaderboardService {
     const startTime = Date.now();
 
     try {
-      const viewName = `volume_leaderboard_${period}`;
+      const viewName = `analytics.volume_leaderboard_${period}`;
+
+      // First, check what columns exist in the view to avoid schema mismatches
+      let availableColumns;
+      try {
+        availableColumns = await this.timescaleDb.sql`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_schema = 'analytics' 
+          AND table_name = ${viewName.replace('analytics.', '')}
+          ORDER BY column_name
+        `;
+      } catch (error) {
+        console.error(`View ${viewName} does not exist, falling back to legacy method`);
+        throw error;
+      }
+
+      const columnNames = availableColumns.map(col => col.column_name);
+      console.log(`📊 Available columns in ${viewName}:`, columnNames);
+
+      // Determine activity column based on what's actually available
+      const activityColumn = columnNames.includes('active_hours') ? 'active_hours' : 
+                            columnNames.includes('active_days') ? 'active_days' : 
+                            'COUNT(*) as active_hours'; // Fallback calculation
+
+      // Determine trader classification column
+      const traderClassification = columnNames.includes('trader_type') ? 
+                                  'trader_type' : 
+                                  "'regular_trader'"; // Fallback value
 
       const result = await this.timescaleDb.sql`
         SELECT 
@@ -102,8 +130,8 @@ export class LeaderboardService {
           total_trades,
           avg_trade_size,
           rank,
-          COALESCE(active_hours, active_days, 1) as activity_metric,
-          COALESCE(trader_type, 'regular_trader') as trader_classification
+          ${this.timescaleDb.sql.unsafe(activityColumn)} as activity_metric,
+          ${this.timescaleDb.sql.unsafe(traderClassification)} as trader_classification
         FROM ${this.timescaleDb.sql.unsafe(viewName)}
         WHERE rank <= ${limit}
         ORDER BY rank ASC

@@ -48,6 +48,18 @@ export const PonderEvents = {
   ADD_TOKEN: ponderEvent("Faucet:AddToken"),
   REQUEST_TOKEN: ponderEvent("Faucet:RequestToken"),
   DEPOSIT_TOKEN: ponderEvent("Faucet:DepositToken"),
+  
+  // Hyperlane Mailbox Events (cross-chain)
+  HYPERLANEMAILBOX_DISPATCH_ID: ponderEvent("HyperlaneMailbox:DispatchId"),
+  HYPERLANEMAILBOX_PROCESS_ID: ponderEvent("HyperlaneMailbox:ProcessId"),
+  
+  // TokenRegistry Events
+  TOKEN_MAPPING_REGISTERED: ponderEvent("TokenRegistry:TokenMappingRegistered"),
+  TOKEN_MAPPING_UPDATED: ponderEvent("TokenRegistry:TokenMappingUpdated"),
+  TOKEN_MAPPING_REMOVED: ponderEvent("TokenRegistry:TokenMappingRemoved"),
+  TOKEN_STATUS_CHANGED: ponderEvent("TokenRegistry:TokenStatusChanged"),
+  TOKEN_OWNERSHIP_TRANSFERRED: ponderEvent("TokenRegistry:OwnershipTransferred"),
+  TOKEN_INITIALIZED: ponderEvent("TokenRegistry:Initialized"),
 };
 
 /**

@@ -1,4 +1,4 @@
-import { crossChainTransfers, hyperlaneMessages } from "ponder:schema";
+import { crossChainTransfers, hyperlaneMessages, crossChainMessageLinks } from "ponder:schema";
 
 // ChainBalanceManager deposit handling has been moved to chainBalanceManagerHandler.ts
 // This file now only handles Hyperlane mailbox events
@@ -7,8 +7,6 @@ import { crossChainTransfers, hyperlaneMessages } from "ponder:schema";
 
 export async function handleHyperlaneMailboxDispatchId({ event, context }: any) {
 	const { db } = context;
-
-	console.log();
 
 	// Store the Hyperlane DISPATCH message
 	const dispatchId = `${event.args.messageId}-DISPATCH`;
@@ -28,9 +26,65 @@ export async function handleHyperlaneMailboxDispatchId({ event, context }: any) 
 		console.log(`❌ Error storing DISPATCH message: ${error}`);
 	}
 
-	// Update existing cross-chain transfer or create new one
-	const transferId = `transfer-${event.transaction.hash}`;
-	console.log(`🔍 Looking for transfer record: ${transferId}`);
+	// Create cross-chain message link record using conflict-based approach
+	try {
+		await db.insert(crossChainMessageLinks).values({
+			messageId: event.args.messageId,
+			sourceTransactionHash: event.transaction.hash,
+			destinationTransactionHash: null, // Will be filled by Process handler
+			sourceChainId: context.network.chainId,
+			destinationChainId: null, // Will be filled by Process handler
+			sourceTimestamp: Number(event.block.timestamp),
+			destinationTimestamp: null, // Will be filled by Process handler
+			status: "SENT", // Initial status
+		}).onConflictDoUpdate({
+			sourceTransactionHash: event.transaction.hash,
+			sourceChainId: context.network.chainId,
+			sourceTimestamp: Number(event.block.timestamp),
+			status: "SENT",
+		});
+		console.log(`🔗 Created link record for DISPATCH: ${event.args.messageId}`);
+	} catch (error) {
+		console.log(`❌ Error creating link record: ${error}`);
+	}
+
+	// Update transfer record using sourceTransactionHash ID (same as deposit handler)
+	try {
+		const transferId = `transfer-${event.transaction.hash}`;
+		
+		await db.insert(crossChainTransfers).values({
+			id: transferId, // Use same ID pattern as deposit handler (sourceTransactionHash)
+			messageId: event.args.messageId,
+			dispatchMessageId: `${event.args.messageId}-DISPATCH`, // Reference to DISPATCH message
+			processMessageId: null, // Will be set by PROCESS handler
+			status: "SENT",
+			sourceChainId: context.network.chainId,
+			destinationChainId: null, // Will be determined by PROCESS handler
+			sender: "", // Will be preserved from existing deposit record
+			recipient: "", // Will be preserved from existing deposit record
+			sourceToken: "", // Will be preserved from existing deposit record
+			amount: 0n, // Will be preserved from existing deposit record
+			sourceTransactionHash: event.transaction.hash,
+			sourceBlockNumber: BigInt(event.block.number),
+			timestamp: Number(event.block.timestamp),
+			direction: "DEPOSIT",
+			destinationTransactionHash: null, // Will be set by PROCESS handler
+			destinationBlockNumber: null,
+			destinationTimestamp: null,
+		}).onConflictDoUpdate({
+			messageId: event.args.messageId,
+			dispatchMessageId: `${event.args.messageId}-DISPATCH`,
+			status: "SENT",
+			sourceChainId: context.network.chainId,
+			sourceTransactionHash: event.transaction.hash,
+			sourceBlockNumber: BigInt(event.block.number),
+			timestamp: Number(event.block.timestamp),
+		});
+		
+		console.log(`✅ Updated transfer record ${transferId} with messageId: ${event.args.messageId}`);
+	} catch (error) {
+		console.log(`❌ Error updating transfer record: ${error}`);
+	}
 }
 
 export async function handleHyperlaneMailboxProcessId({ event, context }: any) {
@@ -54,62 +108,82 @@ export async function handleHyperlaneMailboxProcessId({ event, context }: any) {
 		console.log(`❌ Error storing PROCESS message: ${error}`);
 	}
 
-	// Find and update the transfer record by messageId
-	console.log(`🔍 Looking for transfer record with messageId: ${event.args.messageId}`);
-
+	// Simplified approach: Update crossChainMessageLinks table with conflict resolution
+	console.log(`🔗 Updating message link record for messageId: ${event.args.messageId}`);
+	
 	try {
-		const transfers = await db.find(crossChainTransfers, {
+		// Update the crossChainMessageLinks table using conflict-based approach
+		await db.insert(crossChainMessageLinks).values({
 			messageId: event.args.messageId,
+			sourceTransactionHash: null, // Keep existing if any
+			destinationTransactionHash: event.transaction.hash,
+			sourceChainId: null, // Keep existing if any
+			destinationChainId: context.network.chainId,
+			sourceTimestamp: null, // Keep existing if any
+			destinationTimestamp: Number(event.block.timestamp),
+			status: "RELAYED",
+		}).onConflictDoUpdate({
+			destinationTransactionHash: event.transaction.hash,
+			destinationChainId: context.network.chainId,
+			destinationTimestamp: Number(event.block.timestamp),
+			status: "RELAYED",
 		});
-
-		console.log(`🔍 Query result for messageId ${event.args.messageId}:`, {
-			found: !!transfers,
-			isArray: Array.isArray(transfers),
-			count: Array.isArray(transfers) ? transfers.length : transfers ? 1 : 0,
-		});
-
-		if (transfers && (Array.isArray(transfers) ? transfers.length > 0 : true)) {
-			const transfersArray = Array.isArray(transfers) ? transfers : [transfers];
-
-			// Prefer transfer- records over any other records
-			const transferRecord = transfersArray.find(t => t.id.startsWith("transfer-")) || transfersArray[0];
-
-			console.log(`✅ Found transfer record ${transferRecord.id} (status: ${transferRecord.status})`);
-			console.log(`🔄 Updating with destination info...`);
-
-			// Update with destination information and mark as RELAYED
-			await db
-				.update(crossChainTransfers, {
-					id: transferRecord.id,
-				})
-				.set({
+		
+		console.log(`✅ Updated message link record to RELAYED for messageId: ${event.args.messageId}`);
+		
+		// Update transfer record using consistent ID pattern (find sourceTransactionHash from messageId)
+		try {
+			// Find the existing transfer record by messageId to get the sourceTransactionHash
+			const existingTransfer = await db.sql`
+				SELECT source_transaction_hash FROM cross_chain_transfers 
+				WHERE message_id = ${event.args.messageId}
+				AND source_transaction_hash IS NOT NULL
+				LIMIT 1
+			`;
+			
+			if (existingTransfer && existingTransfer.length > 0) {
+				// Use the same ID pattern as deposit and dispatch handlers
+				const transferId = `transfer-${existingTransfer[0].source_transaction_hash}`;
+				
+				await db.insert(crossChainTransfers).values({
+					id: transferId, // Use consistent ID pattern based on sourceTransactionHash
+					messageId: event.args.messageId,
+					dispatchMessageId: null, // Will be preserved from existing record
+					processMessageId: `${event.args.messageId}-PROCESS`, // Reference to PROCESS message
 					status: "RELAYED",
 					destinationTransactionHash: event.transaction.hash,
 					destinationBlockNumber: BigInt(event.block.number),
 					destinationTimestamp: Number(event.block.timestamp),
+					destinationChainId: context.network.chainId,
+					sourceChainId: null, // Will be preserved from existing record
+					sender: "", // Will be preserved from existing record
+					recipient: "", // Will be preserved from existing record
+					sourceToken: "", // Will be preserved from existing record
+					amount: 0n, // Will be preserved from existing record
+					sourceTransactionHash: existingTransfer[0].source_transaction_hash, // Preserve from existing
+					sourceBlockNumber: BigInt(0), // Will be preserved from existing record
+					timestamp: 0, // Will be preserved from existing record
+					direction: "DEPOSIT",
+				}).onConflictDoUpdate({
+					messageId: event.args.messageId,
+					processMessageId: `${event.args.messageId}-PROCESS`,
+					status: "RELAYED",
+					destinationTransactionHash: event.transaction.hash,
+					destinationBlockNumber: BigInt(event.block.number),
+					destinationTimestamp: Number(event.block.timestamp),
+					destinationChainId: context.network.chainId,
 				});
-
-			console.log(`✅ Transfer ${transferRecord.id} completed: SENT → RELAYED`);
-
-			// Clean up any duplicate records with same messageId
-			// const duplicates = transfersArray.filter(t => t.id !== transferRecord.id);
-			// for (const duplicate of duplicates) {
-			// 	console.log(`🗑️ Cleaning up duplicate record: ${duplicate.id}`);
-			// 	try {
-			// 		await db
-			// 			.update(crossChainTransfers, { id: duplicate.id })
-			// 			.set({ id: `deleted-${duplicate.id}` });
-			// 	} catch (cleanupError) {
-			// 		console.log(`Could not clean up ${duplicate.id}: ${cleanupError}`);
-			// 	}
-			// }
-		} else {
-			console.log(`⚠️ No transfer found with messageId ${event.args.messageId}`);
-			console.log(`This means ProcessId arrived before DispatchId - will wait for linking`);
-			// In the new design, we don't create placeholder records
-			// The transfer will be created/linked when DispatchId processes
+				
+				console.log(`✅ Updated transfer record ${transferId} to RELAYED using messageId: ${event.args.messageId}`);
+			} else {
+				console.log(`⚠️  No existing transfer record found for process: ${event.args.messageId}`);
+			}
+		} catch (error) {
+			console.log(`❌ Error updating transfer record with process: ${error}`);
 		}
-	} catch (error) {
+		
+		} catch (error) {
 		console.log(`❌ Error in ProcessId handler: ${error}`);
 	}
 }
+

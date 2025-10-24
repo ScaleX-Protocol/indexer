@@ -404,6 +404,8 @@ export const crossChainTransfers = onchainTable(
 		destinationToken: t.hex(), // Synthetic token address on destination chain
 		amount: t.bigint().notNull(),
 		messageId: t.hex(),
+		dispatchMessageId: t.text(), // Reference to hyperlaneMessages ID for DISPATCH (messageId-DISPATCH)
+		processMessageId: t.text(), // Reference to hyperlaneMessages ID for PROCESS (messageId-PROCESS)
 		sourceTransactionHash: t.text().notNull(), // Source chain TX hash
 		destinationTransactionHash: t.text(), // Destination chain TX hash (when processed)
 		sourceBlockNumber: t.bigint().notNull(),
@@ -457,16 +459,16 @@ export const hyperlaneMessages = onchainTable(
 
 // Relations for cross-chain transfers
 export const crossChainTransfersRelations = relations(crossChainTransfers, ({ one }) => ({
-	// Link to the source hyperlane DISPATCH message via sourceTransactionHash
+	// Link to the source hyperlane DISPATCH message via dispatchMessageId
 	dispatchMessage: one(hyperlaneMessages, {
-		fields: [crossChainTransfers.sourceTransactionHash],
-		references: [hyperlaneMessages.transactionHash],
+		fields: [crossChainTransfers.dispatchMessageId],
+		references: [hyperlaneMessages.id],
 		relationName: "sourceDispatch",
 	}),
-	// Link to destination hyperlane PROCESS message via messageId
+	// Link to destination hyperlane PROCESS message via processMessageId
 	processMessage: one(hyperlaneMessages, {
-		fields: [crossChainTransfers.messageId],
-		references: [hyperlaneMessages.messageId],
+		fields: [crossChainTransfers.processMessageId],
+		references: [hyperlaneMessages.id],
 		relationName: "destinationProcess",
 	}),
 }));
@@ -619,6 +621,38 @@ export const chainBalanceStates = onchainTable(
 	})
 );
 
+export const tokenMappings = onchainTable(
+	"token_mappings",
+	t => ({
+		id: t.text().primaryKey(),
+		sourceChainId: t.integer().notNull(),
+		sourceToken: t.hex().notNull(),
+		targetChainId: t.integer().notNull(),
+		syntheticToken: t.hex().notNull(),
+		symbol: t.varchar().notNull(),
+		sourceDecimals: t.integer().notNull(),
+		syntheticDecimals: t.integer().notNull(),
+		isActive: t.boolean().notNull(),
+		registeredAt: t.integer().notNull(),
+		transactionId: t.text().notNull(),
+		blockNumber: t.bigint().notNull(),
+		timestamp: t.integer().notNull(),
+	}),
+	table => ({
+		sourceChainIdIdx: index().on(table.sourceChainId),
+		targetChainIdIdx: index().on(table.targetChainId),
+		sourceTokenIdx: index().on(table.sourceToken),
+		syntheticTokenIdx: index().on(table.syntheticToken),
+		symbolIdx: index().on(table.symbol),
+		isActiveIdx: index().on(table.isActive),
+		sourceChainTargetChainIdx: index().on(table.sourceChainId, table.targetChainId),
+		sourceTokenTargetChainIdx: index().on(table.sourceToken, table.targetChainId),
+		syntheticTokenTargetChainIdx: index().on(table.syntheticToken, table.targetChainId),
+		timestampIdx: index().on(table.timestamp),
+		transactionIdIdx: index().on(table.transactionId),
+	})
+);
+
 // User tracking table for analytics
 export const users = onchainTable(
 	"users",
@@ -689,5 +723,26 @@ export const withdrawals = onchainTable(
 		currencyChainIdx: index().on(table.currency, table.chainId),
 		userCurrencyChainIdx: index().on(table.user, table.currency, table.chainId),
 		transactionIdx: index().on(table.transactionId),
+	})
+);
+
+// Simple table for cross-chain message linking - avoids db.find() usage
+export const crossChainMessageLinks = onchainTable(
+	"cross_chain_message_links",
+	t => ({
+		messageId: t.text().primaryKey(), // Use messageId as primary key
+		sourceTransactionHash: t.text(), // From DISPATCH event
+		destinationTransactionHash: t.text(), // From PROCESS event (filled later)
+		sourceChainId: t.integer(), // From DISPATCH event
+		destinationChainId: t.integer(), // From PROCESS event (filled later)
+		sourceTimestamp: t.integer(), // From DISPATCH event
+		destinationTimestamp: t.integer(), // From PROCESS event (filled later)
+		status: t.varchar().default("SENT"), // "SENT" -> "RELAYED"
+	}),
+	table => ({
+		messageIdIdx: index().on(table.messageId),
+		sourceTxHashIdx: index().on(table.sourceTransactionHash),
+		destinationTxHashIdx: index().on(table.destinationTransactionHash),
+		statusIdx: index().on(table.status),
 	})
 );

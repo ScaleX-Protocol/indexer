@@ -229,13 +229,7 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
             liquidityScore: parseInt(stat.total_trades) > 50 ? '92.3' : '78.5',
             liquidityRating: parseInt(stat.total_trades) > 50 ? 'Excellent' : 'Good'
           })),
-          liquidityOverTime: volumeData.data.map(item => ({
-            timestamp: item.timestamp,
-            date: item.date,
-            totalLiquidity: (parseFloat(item.volume || '0') * 0.1).toFixed(2),
-            averageSpread: spread,
-            activeMarkets: symbolStats.length
-          })),
+          liquidityOverTime: await getHistoricalLiquidityData(timescaleDb, timeframe, targetSymbol),
           marketDepth: {
             deep: symbolStats.filter(s => parseInt(s.total_trades) > 100).length,
             moderate: symbolStats.filter(s => parseInt(s.total_trades) > 20 && parseInt(s.total_trades) <= 100).length,
@@ -320,78 +314,94 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
   app.get('/api/market/liquidity', async (c) => {
     try {
       const timeframe = c.req.query('timeframe') || '24h';
-      const interval = c.req.query('interval') || '1h';
+      const interval = c.req.query('interval') || 'hourly';
       const symbol = c.req.query('symbol');
 
-      // Get real trading data to calculate liquidity metrics
-      const symbolStats = await db.getSymbolStatsForPeriod(timeframe === 'all' ? 'all' : timeframe);
-      const volumeData = await db.getTradesCountAnalytics(timeframe === 'all' ? 'all' : timeframe, 'daily');
+      console.log(`📊 Liquidity API called with timeframe: ${timeframe}, symbol: ${symbol}`);
 
-      const totalVolume = parseFloat(volumeData.summary?.total_volume || '0');
-      const totalTrades = parseInt(volumeData.summary?.total_trades || '0');
+      // Get ALL liquidity data from historical reconstruction (TimescaleDB only)
+      const liquidityOverTime = await getHistoricalLiquidityData(timescaleDb, timeframe, symbol);
+      
+      // Get the latest snapshot for current totals from historical data
+      const latestSnapshot = await getLatestLiquiditySnapshot(timescaleDb, symbol);
+      
+      // Calculate totals from latest historical snapshot (not current order book)
+      const totalBidLiquidity = parseFloat(latestSnapshot?.bid_liquidity || '0');
+      const totalAskLiquidity = parseFloat(latestSnapshot?.ask_liquidity || '0');
+      const totalLiquidity = totalBidLiquidity + totalAskLiquidity;
+      const averageSpread = parseFloat(latestSnapshot?.spread || '0.0125');
 
-      // Calculate liquidity metrics based on real trading activity
-      const estimatedLiquidity = (totalVolume * 0.1).toFixed(2); // 10% of volume as liquidity estimate
-      const avgTradeSize = totalTrades > 0 ? (totalVolume / totalTrades).toFixed(2) : '0';
-      const spread = totalTrades > 100 ? '0.0125' : totalTrades > 50 ? '0.025' : '0.05';
+      // Calculate liquidity quality metrics based on historical data
+      const liquidityScore = totalLiquidity > 10000 ? '92.3' : totalLiquidity > 5000 ? '85.7' : totalLiquidity > 1000 ? '78.5' : '65.2';
+      const liquidityRating = totalLiquidity > 10000 ? 'Excellent' : totalLiquidity > 5000 ? 'Very Good' : totalLiquidity > 1000 ? 'Good' : 'Fair';
 
-      const activeSymbol = symbolStats.length > 0 ? symbolStats[0].symbol : 'MWETH/MUSDC';
-      const targetSymbol = symbol || activeSymbol;
+      // Get symbol breakdown from historical snapshots
+      const symbolBreakdown = await getSymbolLiquidityBreakdown(timescaleDb, timeframe);
+
+      console.log(`✅ Historical liquidity data: ${liquidityOverTime.length} time points, latest: ${totalLiquidity.toFixed(2)}`);
 
       return c.json({
         timeframe,
         interval,
         overview: {
-          totalBidLiquidity: (parseFloat(estimatedLiquidity) * 0.52).toFixed(2),
-          totalAskLiquidity: (parseFloat(estimatedLiquidity) * 0.48).toFixed(2),
-          totalLiquidity: estimatedLiquidity,
-          averageSpread: spread + '%',
-          activeMarkets: symbolStats.length,
-          liquidityScore: totalTrades > 100 ? '92.3' : totalTrades > 50 ? '78.5' : '65.2',
-          liquidityRating: totalTrades > 100 ? 'Excellent' : totalTrades > 50 ? 'Good' : 'Fair'
+          totalBidLiquidity: totalBidLiquidity.toFixed(2),
+          totalAskLiquidity: totalAskLiquidity.toFixed(2),
+          totalLiquidity: totalLiquidity.toFixed(2),
+          averageSpread: (averageSpread * 100).toFixed(4) + '%',
+          activeMarkets: symbolBreakdown.length,
+          liquidityScore,
+          liquidityRating,
+          dataSource: 'Historical Reconstruction'
         },
-        liquidityBySymbol: symbolStats.map(stat => ({
-          symbol: stat.symbol,
-          poolId: `0x${stat.symbol.replace('/', '').toLowerCase()}...`,
-          bidDepth: (parseFloat(stat.total_volume) * 0.052).toFixed(2),
-          askDepth: (parseFloat(stat.total_volume) * 0.048).toFixed(2),
-          totalDepth: (parseFloat(stat.total_volume) * 0.1).toFixed(2),
-          bestBid: (parseFloat(stat.avg_price) * 0.9995).toFixed(6),
-          bestAsk: (parseFloat(stat.avg_price) * 1.0005).toFixed(6),
-          spread: spread,
-          bidOrders: Math.floor(parseInt(stat.total_trades) * 0.45),
-          askOrders: Math.floor(parseInt(stat.total_trades) * 0.55),
-          liquidityScore: parseInt(stat.total_trades) > 50 ? '92.3' : '78.5',
-          liquidityRating: parseInt(stat.total_trades) > 50 ? 'Excellent' : 'Good'
+        liquidityBySymbol: symbolBreakdown.map(item => ({
+          symbol: item.symbol,
+          poolId: item.pool_id?.substring(0, 10) + '...' || `0x${item.symbol.replace('/', '').toLowerCase()}...`,
+          bidDepth: parseFloat(item.bid_liquidity || '0').toFixed(2),
+          askDepth: parseFloat(item.ask_liquidity || '0').toFixed(2),
+          totalDepth: parseFloat(item.total_liquidity || '0').toFixed(2),
+          bestBid: parseFloat(item.best_bid || '0').toFixed(6),
+          bestAsk: parseFloat(item.best_ask || '0').toFixed(6),
+          spread: (parseFloat(item.spread || '0.0125') * 100).toFixed(4) + '%',
+          bidOrders: parseInt(item.bid_orders || '0'),
+          askOrders: parseInt(item.ask_orders || '0'),
+          liquidityScore: parseFloat(item.total_liquidity || '0') > 2000 ? '92.3' : parseFloat(item.total_liquidity || '0') > 1000 ? '85.7' : '78.5',
+          liquidityRating: parseFloat(item.total_liquidity || '0') > 2000 ? 'Excellent' : parseFloat(item.total_liquidity || '0') > 1000 ? 'Very Good' : 'Good'
         })),
-        liquidityOverTime: volumeData.data.map(item => ({
-          timestamp: item.timestamp,
-          date: item.date,
-          totalLiquidity: (parseFloat(item.volume || '0') * 0.1).toFixed(2),
-          averageSpread: spread,
-          activeMarkets: symbolStats.length
-        })),
+        liquidityOverTime, // This is the main field that was showing zeros before!
         marketDepth: {
-          deep: symbolStats.filter(s => parseInt(s.total_trades) > 100).length,
-          moderate: symbolStats.filter(s => parseInt(s.total_trades) > 20 && parseInt(s.total_trades) <= 100).length,
-          shallow: symbolStats.filter(s => parseInt(s.total_trades) <= 20).length
+          deep: symbolBreakdown.filter(item => parseFloat(item.total_liquidity || '0') > 2000).length,
+          moderate: symbolBreakdown.filter(item => {
+            const depth = parseFloat(item.total_liquidity || '0');
+            return depth > 500 && depth <= 2000;
+          }).length,
+          shallow: symbolBreakdown.filter(item => parseFloat(item.total_liquidity || '0') <= 500).length
         },
         spreadAnalysis: {
-          tight: symbolStats.filter(s => parseFloat(s.avg_price) > 1000).length, // Higher price = tighter spread typically
-          moderate: symbolStats.filter(s => parseFloat(s.avg_price) > 100 && parseFloat(s.avg_price) <= 1000).length,
-          wide: symbolStats.filter(s => parseFloat(s.avg_price) <= 100).length
+          tight: symbolBreakdown.filter(item => parseFloat(item.spread || '1') < 0.005).length,
+          moderate: symbolBreakdown.filter(item => {
+            const spread = parseFloat(item.spread || '1');
+            return spread >= 0.005 && spread <= 0.02;
+          }).length,
+          wide: symbolBreakdown.filter(item => parseFloat(item.spread || '1') > 0.02).length
         },
         insights: {
-          mostLiquid: symbolStats.slice(0, 3).map(stat => ({
-            symbol: stat.symbol,
-            totalDepth: (parseFloat(stat.total_volume) * 0.1).toFixed(2),
-            spread: spread
-          })),
-          tightestSpreads: symbolStats.slice(0, 3).map(stat => ({
-            symbol: stat.symbol,
-            spread: spread
-          })),
-          marketQuality: totalTrades > 100 ? 'Excellent' : totalTrades > 50 ? 'Good' : 'Developing'
+          mostLiquid: symbolBreakdown
+            .sort((a, b) => parseFloat(b.total_liquidity || '0') - parseFloat(a.total_liquidity || '0'))
+            .slice(0, 3)
+            .map(item => ({
+              symbol: item.symbol,
+              totalDepth: parseFloat(item.total_liquidity || '0').toFixed(2),
+              spread: (parseFloat(item.spread || '0.0125') * 100).toFixed(4) + '%'
+            })),
+          tightestSpreads: symbolBreakdown
+            .filter(item => parseFloat(item.spread || '1') < 1)
+            .sort((a, b) => parseFloat(a.spread || '1') - parseFloat(b.spread || '1'))
+            .slice(0, 3)
+            .map(item => ({
+              symbol: item.symbol,
+              spread: (parseFloat(item.spread || '0.0125') * 100).toFixed(4) + '%'
+            })),
+          marketQuality: liquidityRating
         },
         timestamp: Date.now()
       });
@@ -1164,8 +1174,6 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
         });
 
         return c.json({
-          success: result.success,
-          message: `Force sync completed from ${new Date(fromTimestamp * 1000).toISOString()}`,
           fromTimestamp,
           fromDate: new Date(fromTimestamp * 1000).toISOString(),
           ...result,
@@ -1388,6 +1396,131 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
       }, 500);
     }
   });
+
+  // Helper method to get latest liquidity snapshot for current totals
+  async function getLatestLiquiditySnapshot(timescaleDb: TimescaleDatabaseClient, symbol?: string) {
+    try {
+      let query = `
+        SELECT 
+          symbol,
+          total_liquidity,
+          bid_liquidity,
+          ask_liquidity,
+          spread,
+          best_bid,
+          best_ask,
+          bid_orders,
+          ask_orders
+        FROM analytics.liquidity_snapshots_aggregated
+        WHERE 1=1
+      `;
+      
+      if (symbol) {
+        query += ` AND symbol = '${symbol}'`;
+      }
+      
+      query += ` ORDER BY snapshot_timestamp DESC LIMIT 1`;
+      
+      const snapshots = await timescaleDb.sql.unsafe(query);
+      return snapshots[0] || null;
+    } catch (error) {
+      console.log('Latest snapshot not available:', error.message);
+      return null;
+    }
+  }
+
+  // Helper method to get symbol liquidity breakdown
+  async function getSymbolLiquidityBreakdown(timescaleDb: TimescaleDatabaseClient, timeframe: string) {
+    try {
+      const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : timeframe === '90d' ? 2160 : timeframe === '1y' ? 8760 : null;
+      const fromTime = hours ? Math.floor((Date.now() - (hours * 60 * 60 * 1000)) / 1000) : 0;
+      
+      let query = `
+        SELECT DISTINCT ON (symbol)
+          symbol,
+          pool_id,
+          total_liquidity,
+          bid_liquidity,
+          ask_liquidity,
+          spread,
+          best_bid,
+          best_ask,
+          bid_orders,
+          ask_orders
+        FROM analytics.liquidity_snapshots_aggregated
+        WHERE 1=1
+      `;
+      
+      if (fromTime > 0) {
+        query += ` AND snapshot_timestamp >= ${fromTime}`;
+      }
+      
+      query += ` ORDER BY symbol, snapshot_timestamp DESC`;
+      
+      const snapshots = await timescaleDb.sql.unsafe(query);
+      return snapshots || [];
+    } catch (error) {
+      console.log('Symbol breakdown not available:', error.message);
+      return [];
+    }
+  }
+
+  // Helper method to get historical liquidity data from TimescaleDB snapshots
+  async function getHistoricalLiquidityData(timescaleDb: TimescaleDatabaseClient, timeframe: string, symbol?: string) {
+    try {
+      // Get historical liquidity snapshots from TimescaleDB
+      const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : timeframe === '90d' ? 2160 : timeframe === '1y' ? 8760 : null;
+      const fromTime = hours ? Math.floor((Date.now() - (hours * 60 * 60 * 1000)) / 1000) : 0;
+      
+      // Get aggregated snapshots from TimescaleDB
+      let query = `
+        SELECT 
+          snapshot_timestamp as timestamp,
+          to_timestamp(snapshot_timestamp) as date,
+          total_liquidity,
+          bid_liquidity,
+          ask_liquidity,
+          spread,
+          symbol
+        FROM analytics.liquidity_snapshots_aggregated
+        WHERE 1=1
+      `;
+      
+      if (fromTime > 0) {
+        query += ` AND snapshot_timestamp >= ${fromTime}`;
+      }
+      
+      if (symbol) {
+        query += ` AND symbol = '${symbol}'`;
+      }
+      
+      query += ` ORDER BY snapshot_timestamp ASC`;
+      
+      const snapshots = await timescaleDb.sql.unsafe(query) || [];
+
+      return snapshots.map(snap => ({
+        timestamp: snap.timestamp,
+        date: snap.date.toISOString(),
+        totalLiquidity: parseFloat(snap.total_liquidity || '0').toFixed(2),
+        bidLiquidity: parseFloat(snap.bid_liquidity || '0').toFixed(2),
+        askLiquidity: parseFloat(snap.ask_liquidity || '0').toFixed(2),
+        averageSpread: (parseFloat(snap.spread || '0') * 100).toFixed(4) + '%',
+        symbol: snap.symbol
+      }));
+    } catch (error) {
+      console.log('Historical liquidity not available, using fallback:', error.message);
+      // Fallback to current data if historical reconstruction hasn't run yet
+      return [{
+        timestamp: Math.floor(Date.now() / 1000),
+        date: new Date().toISOString().split('T')[0],
+        totalLiquidity: '0.00',
+        bidLiquidity: '0.00', 
+        askLiquidity: '0.00',
+        averageSpread: '0.0125%',
+        symbol: symbol || 'gsWETH/gsUSDC'
+      }];
+    }
+  }
 
   return app;
 }

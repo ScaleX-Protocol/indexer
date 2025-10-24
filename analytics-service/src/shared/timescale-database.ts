@@ -15,7 +15,7 @@ export class TimescaleDatabaseClient {
       idle_timeout: 20,
       connect_timeout: 30,
     } as any);
-    
+
     // Set search path after connection
     this.sql`SET search_path TO analytics, public`.catch(console.error);
   }
@@ -180,8 +180,6 @@ export class TimescaleDatabaseClient {
 
   // PnL Analytics methods
   async getPnLAnalytics(timeframe: string, interval: string, type: string = 'all') {
-    const hours = this.getTimeframeHours(timeframe);
-    
     // Get current PnL summary (simplified to avoid query parameter issues)
     const summary = await this.sql`
       SELECT 
@@ -248,36 +246,53 @@ export class TimescaleDatabaseClient {
 
   private async generatePnLTimeSeries(timeframe: string, interval: string) {
     const hours = this.getTimeframeHours(timeframe);
-    if (!hours) return [];
+    
+    // Use real historical data from hourly_pnl_metrics
+    const intervalClause = interval === 'hourly' ? '1 hour' : 
+                          interval === 'daily' ? '1 day' : 
+                          interval === 'weekly' ? '1 week' : '1 day';
 
-    // For now, generate sample time-series data based on current positions
-    // In a real implementation, you'd want to track PnL changes over time
-    const intervalHours = interval === 'hourly' ? 1 : interval === 'daily' ? 24 : 168;
-    const points = Math.min(Math.floor(hours / intervalHours), 100);
-    
-    const timeSeries = [];
-    for (let i = points - 1; i >= 0; i--) {
-      const timestamp = Math.floor((Date.now() - (i * intervalHours * 60 * 60 * 1000)) / 1000);
-      const date = new Date(timestamp * 1000);
-      
-      // Generate realistic PnL progression (this would be actual historical data in production)
-      const baseValue = Math.random() * 100 - 50; // Random between -50 and 50 USDC
-      
-      timeSeries.push({
-        timestamp,
-        date: interval === 'hourly' 
-          ? date.toISOString().split('.')[0]
-          : date.toISOString().split('T')[0],
-        totalPnl: baseValue.toFixed(6),
-        realizedPnl: (baseValue * 0.3).toFixed(6),
-        unrealizedPnl: (baseValue * 0.7).toFixed(6),
-        gainers: Math.floor(Math.random() * 5) + 1,
-        losers: Math.floor(Math.random() * 3) + 1,
-        avgPnl: (baseValue / 10).toFixed(6)
-      });
+    let timeFilter = '';
+    if (hours) {
+      timeFilter = `WHERE bucket >= NOW() - INTERVAL '${hours} hours'`;
     }
-    
-    return timeSeries;
+
+    try {
+      const data = await this.sql.unsafe(`
+        SELECT 
+          time_bucket('${intervalClause}', bucket) as time_bucket,
+          EXTRACT(epoch FROM time_bucket('${intervalClause}', bucket)) as timestamp,
+          SUM(total_pnl) as totalPnl,
+          SUM(total_realized_pnl) as realizedPnl,
+          SUM(total_unrealized_pnl) as unrealizedPnl,
+          COUNT(CASE WHEN total_pnl > 0 THEN 1 END) as gainers,
+          COUNT(CASE WHEN total_pnl < 0 THEN 1 END) as losers,
+          AVG(total_pnl) as avgPnl,
+          COUNT(DISTINCT user_id) as activeUsers
+        FROM analytics.hourly_pnl_metrics
+        ${timeFilter}
+        GROUP BY time_bucket('${intervalClause}', bucket)
+        ORDER BY time_bucket('${intervalClause}', bucket)
+      `);
+
+      return data.map(row => ({
+        timestamp: parseInt(row.timestamp),
+        date: interval === 'hourly'
+          ? new Date(row.time_bucket).toISOString().split('.')[0]
+          : new Date(row.time_bucket).toISOString().split('T')[0],
+        totalPnl: parseFloat(row.totalpnl || 0).toFixed(6),
+        realizedPnl: parseFloat(row.realizedpnl || 0).toFixed(6),
+        unrealizedPnl: parseFloat(row.unrealizedpnl || 0).toFixed(6),
+        gainers: parseInt(row.gainers || 0),
+        losers: parseInt(row.losers || 0),
+        avgPnl: parseFloat(row.avgpnl || 0).toFixed(6),
+        activeUsers: parseInt(row.activeusers || 0)
+      }));
+
+    } catch (error) {
+      console.warn('Failed to get real PnL time series, falling back to empty data:', error instanceof Error ? error.message : String(error));
+      return [];
+    }
   }
 
   private getTimeframeHours(timeframe: string): number | null {
@@ -411,7 +426,7 @@ export class TimescaleDatabaseClient {
 
   async getTradesCountAnalytics(period: string, interval: string, symbol?: string) {
     const symbolFilter = symbol ? this.sql`AND symbol = ${symbol}` : this.sql``;
-    
+
     const data = await this.sql`
       SELECT 
         time_bucket(${interval}, bucket) as timestamp,
@@ -448,13 +463,13 @@ export class TimescaleDatabaseClient {
     // NOTE: analytics.balances table was removed during database specialization
     // This method now returns empty data. For real inflow analytics, implement using Ponder database
     console.warn('getInflowsAnalytics: analytics.balances table removed. Use Ponder database for balance analytics.');
-    
+
     const data: any[] = [];
-    const summaryResult = [{ 
-      total_inflows: '0', 
-      avg_daily_inflow: '0', 
-      peak_daily_inflow: '0', 
-      net_inflow_trend: 'neutral' 
+    const summaryResult = [{
+      total_inflows: '0',
+      avg_daily_inflow: '0',
+      peak_daily_inflow: '0',
+      net_inflow_trend: 'neutral'
     }];
 
     return {
@@ -512,7 +527,7 @@ export class TimescaleDatabaseClient {
     // NOTE: analytics.trades table was removed. This method now returns empty data.
     // For real slippage analytics, implement using Ponder database order_book_trades
     console.warn('getSlippageAnalytics: analytics.trades table removed. Use Ponder database for trade analytics.');
-    
+
     return [];
   }
 
@@ -550,7 +565,7 @@ export class TimescaleDatabaseClient {
     // NOTE: analytics.trades table was removed. This method now returns empty data.
     // For real volume analytics, implement using Ponder database order_book_trades
     console.warn('getLargestVolumeByUsers: analytics.trades table removed. Use Ponder database for trade analytics.');
-    
+
     return {
       data: [],
       total: 0,
@@ -588,7 +603,7 @@ export class TimescaleDatabaseClient {
         WHERE 1=0 -- Always false to return no rows
         RETURNING *
       `;
-      
+
       console.log(`Generated market metrics for ${result.length} symbols`);
       return result;
     } catch (error) {
@@ -619,7 +634,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { symbols, timeframe = '1h', limit = 100 } = params;
-    
+
     let symbolFilter = '';
     if (symbols && symbols.length > 0) {
       const symbolList = symbols.map(s => `'${s}'`).join(',');
@@ -695,7 +710,7 @@ export class TimescaleDatabaseClient {
     interval?: string;
   } = {}): Promise<any[]> {
     const { symbol, hours = 24, interval = '1h' } = params;
-    
+
     let symbolFilter = '';
     if (symbol) {
       symbolFilter = `AND symbol = '${symbol}'`;
@@ -755,7 +770,7 @@ export class TimescaleDatabaseClient {
     tradeSizeCategory?: string;
   } = {}): Promise<any[]> {
     const { symbols, tradeSizeCategory } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_latest_slippage_metrics(
         ${symbols || null}, 
@@ -770,7 +785,7 @@ export class TimescaleDatabaseClient {
     tradeSizeCategory?: string;
   }): Promise<any[]> {
     const { symbol, hours = 24, tradeSizeCategory } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_slippage_trends(
         ${symbol}, 
@@ -787,7 +802,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { symbols, hours = 24, tradeSizeCategory, limit = 100 } = params;
-    
+
     let symbolFilter = '';
     if (symbols && symbols.length > 0) {
       const symbolList = symbols.map(s => `'${s}'`).join(',');
@@ -844,7 +859,7 @@ export class TimescaleDatabaseClient {
     days?: number;
   }): Promise<any[]> {
     const { userId, periodType = 'daily', days = 30 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_user_activity_summary(
         ${userId}, 
@@ -860,7 +875,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { periodType = 'daily', days = 7, limit = 100 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_top_traders_by_activity(
         ${periodType}, 
@@ -877,7 +892,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { userIds, periodType = 'daily', days = 30, limit = 100 } = params;
-    
+
     let userFilter = '';
     if (userIds && userIds.length > 0) {
       const userList = userIds.map(u => `'${u}'`).join(',');
@@ -936,7 +951,7 @@ export class TimescaleDatabaseClient {
     hours?: number;
   } = {}): Promise<any[]> {
     const { symbols, intervalType = '1h', hours = 24 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_volume_metrics(
         ${symbols || null}, 
@@ -952,7 +967,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { intervalType = '1d', days = 7, limit = 20 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_top_volume_symbols(
         ${intervalType}, 
@@ -968,7 +983,7 @@ export class TimescaleDatabaseClient {
     threshold?: number;
   } = {}): Promise<any[]> {
     const { intervalType = '1h', hours = 24, threshold = 3.0 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_volume_anomalies(
         ${intervalType}, 
@@ -985,7 +1000,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { symbols, intervalType = '1h', hours = 24, limit = 100 } = params;
-    
+
     let symbolFilter = '';
     if (symbols && symbols.length > 0) {
       const symbolList = symbols.map(s => `'${s}'`).join(',');
@@ -1045,7 +1060,7 @@ export class TimescaleDatabaseClient {
     hours?: number;
   } = {}): Promise<any[]> {
     const { symbols, periodType = '1h', hours = 24 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_capital_flow_summary(
         ${symbols || null}, 
@@ -1062,7 +1077,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { periodType = '1d', days = 7, flowType = 'net', limit = 20 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_top_capital_flow_symbols(
         ${periodType}, 
@@ -1079,7 +1094,7 @@ export class TimescaleDatabaseClient {
     thresholdMultiplier?: number;
   } = {}): Promise<any[]> {
     const { periodType = '1h', hours = 24, thresholdMultiplier = 3.0 } = params;
-    
+
     return await this.sql`
       SELECT * FROM get_capital_flow_alerts(
         ${periodType}, 
@@ -1096,7 +1111,7 @@ export class TimescaleDatabaseClient {
     limit?: number;
   } = {}): Promise<any[]> {
     const { symbols, periodType = '1h', hours = 24, limit = 100 } = params;
-    
+
     let symbolFilter = '';
     if (symbols && symbols.length > 0) {
       const symbolList = symbols.map(s => `'${s}'`).join(',');

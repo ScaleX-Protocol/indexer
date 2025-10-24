@@ -6,6 +6,8 @@ import { TimescaleDatabaseClient } from './shared/timescale-database';
 // Event consumer removed - using polling-based approach
 import { createApiServer } from './api/index';
 import { LeaderboardService } from './leaderboard/leaderboard-service';
+import { HistoricalLiquidityJob } from './jobs/historical-liquidity-job';
+import { PNLCalculationJob } from './jobs/pnl-calculation-job';
 import * as cron from 'node-cron';
 
 dotenv.config();
@@ -165,6 +167,146 @@ class AnalyticsService {
         await this.updateAllUnrealizedPnL();
       } catch (error) {
         console.error('Error updating unrealized PNL:', error);
+      }
+    });
+
+    // Historical liquidity reconstruction (runs once at startup, then resumes daily)
+    // This implements the user's requirement for hour-by-hour historical reconstruction
+    setTimeout(async () => {
+      console.log('🏗️ Starting historical liquidity reconstruction...');
+      try {
+        const historicalJob = new HistoricalLiquidityJob();
+        await historicalJob.resumeReconstruction();
+        console.log('✅ Historical liquidity reconstruction completed');
+      } catch (error) {
+        console.error('❌ Error in historical liquidity reconstruction:', error);
+      }
+    }, 5000); // Start 5 seconds after service startup
+
+    // Initial PNL data backfill (runs once at startup to ensure sufficient data for all leaderboards)
+    setTimeout(async () => {
+      console.log('💰 Starting comprehensive PNL data backfill...');
+      try {
+        const pnlJob = new PNLCalculationJob();
+        
+        // Record startup job in tracking table
+        await this.timescaleDb.sql`
+          INSERT INTO analytics.startup_data_jobs (job_name, status, job_details)
+          VALUES ('initial_pnl_backfill', 'running', '{"target_days": 35}'::jsonb)
+        `;
+        
+        // FIXED: Backfill 35 days to ensure sufficient data for 30d leaderboards
+        // This prevents the empty 30d leaderboard issue that occurred before
+        const thirtyFiveDaysAgo = Math.floor(Date.now() / 1000) - (35 * 24 * 3600);
+        const now = Math.floor(Date.now() / 1000);
+        
+        console.log(`📅 Backfilling ${35} days of PNL data for complete leaderboard coverage...`);
+        console.log(`   From: ${new Date(thirtyFiveDaysAgo * 1000).toISOString()}`);
+        console.log(`   To:   ${new Date(now * 1000).toISOString()}`);
+        
+        const hoursProcessed = await pnlJob.backfillHistoricalPNL(thirtyFiveDaysAgo, now);
+        console.log(`✅ Comprehensive PNL backfill completed: ${hoursProcessed} hours processed (${Math.round(hoursProcessed / 24)} days)`);
+        
+        // Also capture current snapshot
+        const snapshotResult = await pnlJob.captureHourlyPNLSnapshot();
+        console.log(`✅ Current PNL snapshot captured: ${snapshotResult.users} users processed`);
+        
+        // Update job status to completed
+        await this.timescaleDb.sql`
+          UPDATE analytics.startup_data_jobs 
+          SET status = 'completed', 
+              completed_at = NOW(), 
+              records_processed = ${hoursProcessed},
+              job_details = jsonb_set(job_details, '{actual_hours}', ${hoursProcessed}::text::jsonb)
+          WHERE job_name = 'initial_pnl_backfill' 
+          AND status = 'running'
+        `;
+        
+        // Verify leaderboard data coverage
+        console.log('🔍 Verifying leaderboard data coverage...');
+        const coverage = await this.timescaleDb.sql`
+          SELECT table_name, unique_users, days_covered, leaderboard_readiness 
+          FROM analytics.leaderboard_data_coverage 
+          WHERE table_name = 'hourly_pnl_metrics'
+        `;
+        
+        if (coverage.length > 0) {
+          const result = coverage[0];
+          console.log(`📊 Data Coverage: ${result.days_covered} days, ${result.unique_users} users, Status: ${result.leaderboard_readiness}`);
+          
+          if (result.leaderboard_readiness === '✅ 30d Ready') {
+            console.log('🎉 SUCCESS: All leaderboards (24h, 7d, 30d) are now ready!');
+          } else {
+            console.log('⚠️ WARNING: Leaderboard readiness may be insufficient for 30d endpoints');
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ Error in comprehensive PNL backfill:', error);
+        
+        // Record failure in tracking table
+        try {
+          await this.timescaleDb.sql`
+            UPDATE analytics.startup_data_jobs 
+            SET status = 'failed', 
+                completed_at = NOW(), 
+                error_message = ${error instanceof Error ? error.message : String(error)}
+            WHERE job_name = 'initial_pnl_backfill' 
+            AND status = 'running'
+          `;
+        } catch (trackingError) {
+          console.error('❌ Error updating job tracking:', trackingError);
+        }
+      }
+    }, 10000); // Start 10 seconds after service startup (after liquidity job)
+
+    // Incremental historical reconstruction every 10 minutes for real-time updates
+    cron.schedule('*/10 * * * *', async () => {
+      console.log('🔄 Running incremental liquidity reconstruction...');
+      try {
+        const historicalJob = new HistoricalLiquidityJob();
+        await historicalJob.resumeReconstruction();
+        console.log('✅ Incremental liquidity reconstruction completed');
+      } catch (error) {
+        console.error('❌ Error in incremental liquidity reconstruction:', error);
+      }
+    });
+
+    // Daily comprehensive catch-up at 2 AM to ensure no gaps
+    cron.schedule('0 2 * * *', async () => {
+      console.log('🔄 Running daily comprehensive liquidity catch-up...');
+      try {
+        const historicalJob = new HistoricalLiquidityJob();
+        await historicalJob.resumeReconstruction();
+        console.log('✅ Daily comprehensive liquidity catch-up completed');
+      } catch (error) {
+        console.error('❌ Error in daily comprehensive liquidity catch-up:', error);
+      }
+    });
+
+    // Hourly PNL snapshots (capture current position PNL every hour)
+    cron.schedule('0 * * * *', async () => {
+      console.log('💰 Capturing hourly PNL snapshot...');
+      try {
+        const pnlJob = new PNLCalculationJob();
+        const result = await pnlJob.captureHourlyPNLSnapshot();
+        console.log(`✅ PNL snapshot captured: ${result.users} users processed`);
+      } catch (error) {
+        console.error('❌ Error in hourly PNL snapshot:', error);
+      }
+    });
+
+    // Daily PNL backfill at 3 AM to ensure historical data is complete
+    cron.schedule('0 3 * * *', async () => {
+      console.log('🔄 Running daily PNL backfill...');
+      try {
+        const pnlJob = new PNLCalculationJob();
+        const yesterdayStart = Math.floor(Date.now() / 1000) - (24 * 3600);
+        const todayStart = Math.floor(Date.now() / 1000);
+        const hoursProcessed = await pnlJob.backfillHistoricalPNL(yesterdayStart, todayStart);
+        console.log(`✅ Daily PNL backfill completed: ${hoursProcessed} hours processed`);
+      } catch (error) {
+        console.error('❌ Error in daily PNL backfill:', error);
       }
     });
 

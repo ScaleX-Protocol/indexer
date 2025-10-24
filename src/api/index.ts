@@ -7,16 +7,19 @@ import { and, asc, client, desc, eq, graphql, gt, gte, inArray, lte, or, sql } f
 import { db } from "ponder:api";
 import schema, {
 	balances,
+	chainBalanceDeposits,
 	currencies,
 	dailyBuckets,
 	fiveMinuteBuckets,
 	hourBuckets,
+	hyperlaneMessages,
 	minuteBuckets,
 	orderBookDepth,
 	orderBookTrades,
 	orders,
 	pools,
 	thirtyMinuteBuckets,
+	tokenMappings,
 } from "ponder:schema";
 import { systemMonitor } from "../utils/systemMonitor";
 
@@ -675,16 +678,16 @@ app.get("/api/markets", async c => {
 		const pairs = await Promise.all(allPools.map(async pool => {
 			const symbol = pool.coin || "";
 			const symbolParts = symbol.split("/");
-			
+
 			// Calculate market age in seconds
 			const currentTime = Math.floor(Date.now() / 1000);
 			const marketAge = pool.timestamp ? currentTime - pool.timestamp : 0;
-			
+
 			// Calculate liquidity from order book depth (separate buy and sell sides)
 			let bidLiquidity = "0";
 			let askLiquidity = "0";
 			let totalLiquidityInQuote = "0";
-			
+
 			if (pool.orderBook) {
 				// Get bid side liquidity (Buy orders - in base asset)
 				const bidData = await db
@@ -697,9 +700,9 @@ app.get("/api/markets", async c => {
 						eq(orderBookDepth.side, "Buy")
 					))
 					.execute();
-				
+
 				bidLiquidity = bidData[0]?.totalQuantity?.toString() || "0";
-				
+
 				// Get ask side liquidity (Sell orders - in base asset)
 				const askData = await db
 					.select({
@@ -711,9 +714,9 @@ app.get("/api/markets", async c => {
 						eq(orderBookDepth.side, "Sell")
 					))
 					.execute();
-				
+
 				askLiquidity = askData[0]?.totalQuantity?.toString() || "0";
-				
+
 				// Calculate total liquidity in quote asset (sum of bid_quantity * price for buy orders)
 				const quoteLiquidityData = await db
 					.select({
@@ -725,7 +728,7 @@ app.get("/api/markets", async c => {
 						eq(orderBookDepth.side, "Buy")
 					))
 					.execute();
-				
+
 				totalLiquidityInQuote = quoteLiquidityData[0]?.totalValue?.toString() || "0";
 			}
 
@@ -750,6 +753,197 @@ app.get("/api/markets", async c => {
 		return c.json(pairs);
 	} catch (error) {
 		return c.json({ error: `Failed to fetch pairs data: ${error}` }, 500);
+	}
+});
+
+app.get("/api/cross-chain-deposits", async c => {
+	const user = c.req.query("user");
+	const status = c.req.query("status");
+	const limit = parseInt(c.req.query("limit") || "100");
+
+	if (!user) {
+		return c.json({ error: "User parameter is required" }, 400);
+	}
+
+	try {
+		// Step 1: Find all ChainBalanceManager deposits for the user
+		const deposits = await db
+			.select()
+			.from(chainBalanceDeposits)
+			.where(eq(chainBalanceDeposits.recipient, user as `0x${string}`))
+			.orderBy(desc(chainBalanceDeposits.timestamp))
+			.limit(limit)
+			.execute();
+
+		if (!deposits || deposits.length === 0) {
+			return c.json({ items: [] });
+		}
+
+		// Step 2: For each deposit, find the corresponding dispatch message using transaction hash
+		const transactionHashes = deposits.map(deposit => deposit.transactionId);
+		const dispatchMessages = await db
+			.select()
+			.from(hyperlaneMessages)
+			.where(and(
+				inArray(hyperlaneMessages.transactionHash, transactionHashes),
+				eq(hyperlaneMessages.type, "DISPATCH")
+			))
+			.execute();
+
+		// Create a map for quick lookup of dispatch messages by transaction hash
+		const dispatchMessageMap = new Map(
+			dispatchMessages.map(msg => [msg.transactionHash, msg])
+		);
+
+		// Step 3: For each dispatch message, find the corresponding process message by message ID
+		const messageIds = dispatchMessages.map(msg => msg.messageId);
+		let processMessages: any[] = [];
+
+		if (messageIds.length > 0) {
+			processMessages = await db
+				.select()
+				.from(hyperlaneMessages)
+				.where(and(
+					inArray(hyperlaneMessages.messageId, messageIds),
+					eq(hyperlaneMessages.type, "PROCESS")
+				))
+				.execute();
+		}
+
+		// Create a map for quick lookup of process messages by message ID
+		const processMessageMap = new Map(
+			processMessages.map(msg => [msg.messageId, msg])
+		);
+
+		// Step 4: Compose the response in the same format as the existing GraphQL structure
+		const composedTransfers = deposits.map(deposit => {
+			const dispatchMessage = dispatchMessageMap.get(deposit.transactionId);
+			const processMessage = dispatchMessage ? processMessageMap.get(dispatchMessage.messageId) : null;
+
+			// Determine status based on message availability
+			let transferStatus = "PENDING";
+			let destinationChainId = null;
+			let destinationTransactionHash = null;
+			let destinationBlockNumber = null;
+			let destinationTimestamp = null;
+
+			if (processMessage) {
+				transferStatus = "RELAYED";
+				destinationChainId = processMessage.chainId;
+				destinationTransactionHash = processMessage.transactionHash;
+				destinationBlockNumber = processMessage.blockNumber;
+				destinationTimestamp = processMessage.timestamp;
+			} else if (dispatchMessage) {
+				transferStatus = "SENT";
+			}
+
+			return {
+				id: `transfer-${deposit.transactionId}`,
+				amount: deposit.amount?.toString() || "0",
+				destinationBlockNumber: destinationBlockNumber?.toString() || null,
+				destinationChainId: destinationChainId,
+				destinationTimestamp: destinationTimestamp,
+				destinationToken: null, // Synthetic token info not available in separate schemas
+				destinationTransactionHash: destinationTransactionHash,
+				dispatchMessage: dispatchMessage ? {
+					blockNumber: dispatchMessage.blockNumber?.toString() || null,
+					chainId: dispatchMessage.chainId,
+					id: dispatchMessage.id,
+					messageId: dispatchMessage.messageId,
+					sender: dispatchMessage.sender,
+					timestamp: dispatchMessage.timestamp,
+					type: dispatchMessage.type,
+					transactionHash: dispatchMessage.transactionHash
+				} : null,
+				direction: "DEPOSIT",
+				messageId: dispatchMessage?.messageId || null,
+				processMessage: processMessage ? {
+					blockNumber: processMessage.blockNumber?.toString() || null,
+					chainId: processMessage.chainId,
+					id: processMessage.id,
+					messageId: processMessage.messageId,
+					sender: processMessage.sender,
+					timestamp: processMessage.timestamp,
+					transactionHash: processMessage.transactionHash,
+					type: processMessage.type
+				} : null,
+				sourceToken: deposit.token,
+				sourceChainId: deposit.chainId,
+				sourceBlockNumber: deposit.blockNumber,
+				sender: deposit.depositor,
+				recipient: deposit.recipient,
+				sourceTransactionHash: deposit.transactionId,
+				status: transferStatus,
+				timestamp: deposit.timestamp
+			};
+		});
+
+		// Filter by status if provided
+		const filteredTransfers = status
+			? composedTransfers.filter(transfer => transfer.status === status)
+			: composedTransfers;
+
+		return c.json({ items: filteredTransfers });
+	} catch (error) {
+		console.error("Error fetching cross-chain transfers:", error);
+		return c.json({ error: `Failed to fetch cross-chain transfers: ${error}` }, 500);
+	}
+});
+
+app.get("/api/token-mappings", async c => {
+	const sourceChainId = c.req.query("sourceChainId");
+	const targetChainId = c.req.query("targetChainId");
+	const symbol = c.req.query("symbol");
+	const isActive = c.req.query("isActive");
+	const limit = parseInt(c.req.query("limit") || "100");
+
+	try {
+		let query = db.select().from(tokenMappings);
+
+		// Apply filters
+		const conditions = [];
+		if (sourceChainId) {
+			conditions.push(eq(tokenMappings.sourceChainId, parseInt(sourceChainId)));
+		}
+		if (targetChainId) {
+			conditions.push(eq(tokenMappings.targetChainId, parseInt(targetChainId)));
+		}
+		if (symbol) {
+			conditions.push(eq(tokenMappings.symbol, symbol));
+		}
+		if (isActive !== undefined) {
+			conditions.push(eq(tokenMappings.isActive, isActive === 'true'));
+		}
+
+		if (conditions.length > 0) {
+			query = query.where(and(...conditions));
+		}
+
+		const mappings = await query
+			.orderBy(desc(tokenMappings.timestamp))
+			.limit(limit)
+			.execute();
+
+		const formattedMappings = mappings.map(mapping => ({
+			id: mapping.id,
+			sourceChainId: mapping.sourceChainId,
+			sourceToken: mapping.sourceToken,
+			targetChainId: mapping.targetChainId,
+			syntheticToken: mapping.syntheticToken,
+			symbol: mapping.symbol,
+			sourceDecimals: mapping.sourceDecimals,
+			syntheticDecimals: mapping.syntheticDecimals,
+			isActive: mapping.isActive,
+			registeredAt: mapping.registeredAt,
+			transactionId: mapping.transactionId,
+			blockNumber: mapping.blockNumber?.toString(),
+			timestamp: mapping.timestamp,
+		}));
+
+		return c.json({ items: formattedMappings });
+	} catch (error) {
+		console.error("Error fetching token mappings:", error);
+		return c.json({ error: `Failed to fetch token mappings: ${error}` }, 500);
 	}
 });
 

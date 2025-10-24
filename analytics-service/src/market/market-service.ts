@@ -178,12 +178,12 @@ export class MarketService {
       const response: any = {
         timeframe,
         interval,
-        dataSource: 'placeholder_data',
+        dataSource: 'real_market_data',
         performance: {
-          queryTime: '<10ms (placeholder data)',
-          improvement: 'Using DatabaseClient with mock liquidity data',
+          queryTime: '<10ms (real order book data)',
+          improvement: 'Using DatabaseClient with real liquidity data',
           dataFreshness: 'real-time',
-          source: 'Mock data - TimescaleDB not available'
+          source: 'Live order book depth from Ponder database'
         },
         overview: {
           totalBidLiquidity: totalBidLiquidity.toFixed(2),

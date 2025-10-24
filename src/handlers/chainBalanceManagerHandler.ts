@@ -71,63 +71,46 @@ export async function handleDeposit({ event, context }: any) {
       throw new Error(`Failed to insert deposit: ${(error as Error).message}`);
     }
 
-    // Handle cross-chain transfer tracking
-    try {
-      const transferId = `transfer-${event.transaction.hash}`;
+  // Create cross-chain transfer record using sourceTransactionHash with conflict-based approach
+  try {
+    const transferId = `transfer-${event.transaction.hash}`;
+    
+    await db.insert(crossChainTransfers).values({
+      id: transferId,
+      sourceChainId: Number(chainId),
+      destinationChainId: null, // Will be set by cross-chain handlers
+      sender: depositor,
+      recipient: recipient,
+      sourceToken: token,
+      amount: BigInt(amount),
+      messageId: null, // Will be set by cross-chain handlers
+      sourceTransactionHash: event.transaction.hash,
+      destinationTransactionHash: null, // Will be set by PROCESS handler
+      sourceBlockNumber: BigInt(event.block.number),
+      destinationBlockNumber: null, // Will be set by PROCESS handler
+      timestamp: timestamp,
+      destinationTimestamp: null, // Will be set by PROCESS handler
+      status: "PENDING", // Initial status for deposits
+      direction: "DEPOSIT",
+    }).onConflictDoUpdate({
+      sourceChainId: Number(chainId),
+      sender: depositor,
+      recipient: recipient,
+      sourceToken: token,
+      amount: BigInt(amount),
+      sourceTransactionHash: event.transaction.hash,
+      sourceBlockNumber: BigInt(event.block.number),
+      timestamp: timestamp,
+      status: "PENDING",
+    });
 
-      const crossChainData = {
-        id: transferId,
-        sourceChainId: Number(chainId),
-        destinationChainId: 1918988905, // Always Rari for deposits
-        sender: depositor,
-        recipient: recipient,
-        sourceToken: token,
-        amount: BigInt(amount),
-        sourceTransactionHash: event.transaction.hash,
-        sourceBlockNumber: BigInt(event.block.number),
-        timestamp: timestamp,
-        status: "SENT",
-        direction: "DEPOSIT",
-        messageId: null,
-        destinationTransactionHash: null,
-        destinationBlockNumber: null,
-        destinationTimestamp: null,
-      };
+    console.log(`✅ Created transfer record from deposit: ${transferId}`);
+  } catch (error) {
+    console.error('Cross-chain transfer creation failed:', error);
+    // Don't throw error here as it's not critical for deposit processing
+  }
 
-      console.log(`💡 Creating/updating deposit record: ${transferId}`);
-
-      // Use Ponder's built-in upsert with conflict resolution
-      await db
-        .insert(crossChainTransfers)
-        .values(crossChainData)
-        .onConflictDoUpdate((row: any) => ({
-          // Update existing record (from DispatchId) with accurate deposit data
-          sender: crossChainData.sender,
-          recipient: crossChainData.recipient,
-          sourceToken: crossChainData.sourceToken,
-          amount: crossChainData.amount,
-          sourceChainId: crossChainData.sourceChainId,
-          destinationChainId: crossChainData.destinationChainId,
-          sourceTransactionHash: crossChainData.sourceTransactionHash,
-          sourceBlockNumber: crossChainData.sourceBlockNumber,
-          timestamp: crossChainData.timestamp,
-          direction: crossChainData.direction,
-          // Keep messageId and status from DispatchId if they exist
-          messageId: row.messageId || crossChainData.messageId,
-          status: row.status || crossChainData.status,
-          // Keep destination fields if ProcessId already updated them
-          destinationTransactionHash: row.destinationTransactionHash || crossChainData.destinationTransactionHash,
-          destinationBlockNumber: row.destinationBlockNumber || crossChainData.destinationBlockNumber,
-          destinationTimestamp: row.destinationTimestamp || crossChainData.destinationTimestamp,
-        }));
-
-      console.log(`✅ Upserted deposit record: ${transferId}`);
-    } catch (error) {
-      console.error('Cross-chain transfer insertion failed:', error);
-      throw new Error(`Failed to insert cross-chain transfer: ${(error as Error).message}`);
-    }
-
-    // Update or create balance state
+  // Update or create balance state
     const stateId = `${chainId}-${recipient.toLowerCase()}-${token.toLowerCase()}`;
     
     try {
