@@ -14,23 +14,40 @@ export async function handleTokenMappingRegistered({ event, context }: any) {
 		const id = `${sourceChainId}-${sourceToken}-${targetChainId}`;
 
 		try {
-			// Store token mapping record
-			await db.insert(tokenMappings).values({
-				id,
-				sourceChainId: Number(sourceChainId),
-				sourceToken: sourceToken.toLowerCase(),
-				targetChainId: Number(targetChainId),
-				syntheticToken: syntheticToken.toLowerCase(),
-				symbol: symbol,
-				sourceDecimals: 0, // Will be updated from the event args when available
-				syntheticDecimals: 0, // Will be updated from the event args when available
-				isActive: true,
-				registeredAt: timestamp,
-				transactionId: event.transaction.hash,
-				blockNumber: BigInt(event.block.number),
-				timestamp: timestamp,
-			});
-			console.log(`✅ Stored token mapping: ${symbol} from chain ${sourceChainId} to ${targetChainId}`);
+			// Store token mapping record with conflict handling
+			await db
+				.insert(tokenMappings)
+				.values({
+					id,
+					sourceChainId: Number(sourceChainId),
+					sourceToken: sourceToken.toLowerCase(),
+					targetChainId: Number(targetChainId),
+					syntheticToken: syntheticToken.toLowerCase(),
+					symbol: symbol,
+					sourceDecimals: 0,
+					syntheticDecimals: 0,
+					isActive: true,
+					registeredAt: timestamp,
+					transactionId: event.transaction.hash,
+					blockNumber: BigInt(event.block.number),
+					timestamp: timestamp,
+				})
+				.onConflictDoUpdate({
+					id,
+					sourceChainId: Number(sourceChainId),
+					sourceToken: sourceToken.toLowerCase(),
+					targetChainId: Number(targetChainId),
+					syntheticToken: syntheticToken.toLowerCase(),
+					symbol: symbol,
+					sourceDecimals: 0,
+					syntheticDecimals: 0,
+					isActive: true,
+					registeredAt: timestamp,
+					transactionId: event.transaction.hash,
+					blockNumber: BigInt(event.block.number),
+					timestamp: timestamp,
+				});
+			console.log(`✅ Stored/updated token mapping: ${symbol} from chain ${sourceChainId} to ${targetChainId}`);
 		} catch (error) {
 			console.error('Token mapping insertion failed:', error);
 			throw new Error(`Failed to insert token mapping: ${(error as Error).message}`);
@@ -55,7 +72,7 @@ export async function handleTokenMappingUpdated({ event, context }: any) {
 		try {
 			// Update existing token mapping
 			const existingMapping = await db.find(tokenMappings, { id });
-			
+
 			if (existingMapping) {
 				await db
 					.update(tokenMappings, { id })
@@ -93,7 +110,7 @@ export async function handleTokenMappingRemoved({ event, context }: any) {
 		try {
 			// Deactivate token mapping instead of removing for historical purposes
 			const existingMapping = await db.find(tokenMappings, { id });
-			
+
 			if (existingMapping) {
 				await db
 					.update(tokenMappings, { id })
@@ -131,7 +148,7 @@ export async function handleTokenStatusChanged({ event, context }: any) {
 		try {
 			// Update token mapping status
 			const existingMapping = await db.find(tokenMappings, { id });
-			
+
 			if (existingMapping) {
 				await db
 					.update(tokenMappings, { id })
