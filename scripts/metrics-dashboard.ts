@@ -59,18 +59,18 @@ function drawProgressBar(value: number, max: number, width: number = 20): string
   const percentage = max > 0 ? (value / max) * 100 : 0;
   const filledWidth = Math.round((percentage / 100) * width);
   const emptyWidth = width - filledWidth;
-  
+
   let color = colors.green;
   if (percentage > 70) color = colors.yellow;
   if (percentage > 90) color = colors.red;
-  
+
   return `${color}${'█'.repeat(filledWidth)}${colors.dim}${'░'.repeat(emptyWidth)}${colors.reset} ${percentage.toFixed(1)}%`;
 }
 
 // Clear the terminal screen
 function clearScreen(): void {
   const isTTY = Boolean(process.stdin.isTTY || process.stdout.isTTY);
-  
+
   if (isTTY) {
     console.clear();
     process.stdout.write('\x1Bc');
@@ -82,19 +82,19 @@ function clearScreen(): void {
 // Load metrics from log file
 function loadMetricsFromLog(): any {
   const logFilePath = path.join(__dirname, '..', 'logs', 'system-metrics.log');
-  
+
   if (!fs.existsSync(logFilePath)) {
     return null;
   }
-  
+
   try {
     const content = fs.readFileSync(logFilePath, 'utf8');
     const lines = content.split('\n').filter(line => !!line && line.trim() !== '');
-    
+
     if (lines.length === 0) {
       return null;
     }
-    
+
     const lastLine = lines[lines.length - 1];
     return JSON.parse(lastLine);
   } catch (error) {
@@ -106,40 +106,40 @@ function loadMetricsFromLog(): any {
 // Main dashboard function
 function showDashboard(): void {
   const metrics = loadMetricsFromLog();
-  
+
   if (!metrics) {
     console.log('No metrics data available. Please start the metrics collector first.');
     console.log('Run: pnpm monitor');
     return;
   }
-  
+
   // Clear screen
   clearScreen();
-  
+
   // Draw header
   const now = new Date();
-  const header = `${colors.bright}${colors.bgBlue}${colors.white} GTX Indexer Metrics Dashboard ${colors.reset} ${now.toLocaleString()}`;
+  const header = `${colors.bright}${colors.bgBlue}${colors.white} ScaleX Indexer Metrics Dashboard ${colors.reset} ${now.toLocaleString()}`;
   const uptimeStr = metrics.uptime ? `Uptime: ${formatUptime(metrics.uptime)}` : '';
-  
+
   console.log(header + (uptimeStr ? ' '.repeat(Math.max(0, 80 - header.length - uptimeStr.length)) + uptimeStr : ''));
   console.log('═'.repeat(80));
-  
+
   // System resources section
   console.log(`${colors.bright}${colors.cyan}System Resources${colors.reset}`);
-  
+
   // System Memory (get fresh data)
   const totalMem = os.totalmem() / (1024 * 1024 * 1024);
   const freeMem = os.freemem() / (1024 * 1024 * 1024);
   const usedMem = totalMem - freeMem;
   const percentUsed = (usedMem / totalMem) * 100;
-  
+
   // Note: This is raw memory usage that includes OS cache and buffers
   // and will appear higher than what tools like htop show as "used" memory
   const systemMemoryPercentBar = drawProgressBar(usedMem, totalMem);
   console.log(`${colors.yellow}🖥️  System Memory:  ${colors.reset}${systemMemoryPercentBar} ${usedMem.toFixed(2)} / ${totalMem.toFixed(2)} GB (${percentUsed.toFixed(1)}%)`);
   console.log(`${colors.dim}              Free: ${freeMem.toFixed(2)} GB${colors.reset}`);
   console.log(`${colors.dim}              Note: Includes OS cache & buffers (htop will show lower usage)${colors.reset}`);
-  
+
   // Process Memory
   if (metrics.memory) {
     console.log(`${colors.yellow}⚙️  Process Memory:  ${colors.reset}${drawProgressBar(metrics.memory.heapUsed, metrics.memory.heapTotal)} ${metrics.memory.heapUsed.toFixed(2)} / ${metrics.memory.heapTotal.toFixed(2)} MB`);
@@ -174,12 +174,12 @@ function showDashboard(): void {
     const totalSizeMB = metrics.logs.totalSizeBytes / (1024 * 1024);
     const fileCount = Object.keys(metrics.logs.files).length;
     console.log(`${colors.yellow}📄 Log Files:     ${colors.reset}${fileCount} files, ${totalSizeMB.toFixed(2)} MB total`);
-    
+
     // Display up to 3 largest log files
     const sortedFiles = Object.entries(metrics.logs.files)
       .sort(([, sizeA], [, sizeB]) => (Number(sizeB) - Number(sizeA)))
       .slice(0, 3);
-    
+
     for (const [filename, size] of sortedFiles) {
       const sizeMB = Number(size) / (1024 * 1024);
       console.log(`${colors.dim}              ${filename}: ${sizeMB.toFixed(2)} MB${colors.reset}`);
@@ -192,17 +192,17 @@ function showDashboard(): void {
     console.log(`${colors.dim}              Packets Received: ${formatNumber(metrics.network.totalReceived)}${colors.reset}`);
     console.log(`${colors.dim}              Packets Sent: ${formatNumber(metrics.network.totalSent)}${colors.reset}`);
   }
-  
+
   console.log('─'.repeat(80));
-  
+
   // Database
   if (metrics.database && typeof metrics.database.sizeMB === 'number') {
     console.log(`${colors.yellow}🗄️  Database Size: ${colors.reset}${metrics.database.sizeMB.toFixed(2)} MB`);
   }
-  
+
   // Record counts section
   console.log(`${colors.bright}${colors.cyan}Record Counts${colors.reset}`);
-  
+
   if (metrics.records) {
     const recordTypes = [
       { name: 'Pools', value: metrics.records.pools || 0 },
@@ -211,69 +211,69 @@ function showDashboard(): void {
       { name: 'Depth Levels', value: metrics.records.depth || 0 },
       { name: 'Balances', value: metrics.records.balances || 0 }
     ];
-    
+
     const maxRecords = Math.max(...recordTypes.map(r => r.value));
-    
+
     recordTypes.forEach(record => {
       const barWidth = 30;
       const filledWidth = maxRecords > 0 ? Math.max(1, Math.round((record.value / maxRecords) * barWidth)) : 0;
       const bar = '█'.repeat(filledWidth) + ' '.repeat(barWidth - filledWidth);
-      
+
       console.log(`${colors.yellow}${record.name.padEnd(12)}${colors.reset} ${record.value.toString().padStart(5)} ${colors.blue}${bar}${colors.reset}`);
     });
   }
-  
+
   console.log('─'.repeat(80));
-  
+
   // WebSocket stats
   if (metrics.websocket) {
     console.log(`${colors.bright}${colors.cyan}WebSocket Stats${colors.reset}`);
-    
+
     const activeConnections = metrics.websocket.activeConnections || 0;
     console.log(`${colors.yellow}🔌 Connections:   ${colors.reset}${activeConnections} active connections`);
-    
+
     const userConnections = metrics.websocket.userConnections || 0;
     const publicConnections = metrics.websocket.publicConnections || 0;
     console.log(`${colors.dim}              ${userConnections} user, ${publicConnections} public${colors.reset}`);
-    
+
     const totalSubscriptions = metrics.websocket.totalSubscriptions || 0;
     console.log(`${colors.dim}              ${totalSubscriptions} subscriptions${colors.reset}`);
-    
+
     // Display subscription types
     if (metrics.websocket.subscriptionTypes) {
       const subscriptionTypes = metrics.websocket.subscriptionTypes;
       const sortedTypes = Object.entries(subscriptionTypes)
         .sort(([, countA], [, countB]) => countB - countA);
-      
+
       for (const [type, count] of sortedTypes.slice(0, 3)) {
         if (count > 0) {
           console.log(`${colors.dim}              ${type}: ${count}${colors.reset}`);
         }
       }
     }
-    
+
     const messagesSent = metrics.websocket.messagesSentLastMinute || 0;
     const messagesReceived = metrics.websocket.messagesReceivedLastMinute || 0;
-    
+
     console.log(`${colors.yellow}📨 Messages:      ${colors.reset}${drawProgressBar(messagesSent, 1000)} ${messagesSent}/min sent`);
     console.log(`${colors.dim}              ${messagesReceived}/min received${colors.reset}`);
   } else {
     console.log(`${colors.dim}No WebSocket data available${colors.reset}`);
   }
-  
+
   console.log('═'.repeat(80));
-  
+
   // Display last updated timestamp
   if (metrics.timestamp) {
     const lastUpdate = new Date(metrics.timestamp);
     console.log(`${colors.dim}Last updated: ${lastUpdate.toLocaleString()}${colors.reset}`);
   }
-  
-  console.log(`${colors.dim}Auto-refreshing every ${dashboardState.REFRESH_INTERVAL_MS/1000} seconds. Press Ctrl+C to quit.${colors.reset}`);
+
+  console.log(`${colors.dim}Auto-refreshing every ${dashboardState.REFRESH_INTERVAL_MS / 1000} seconds. Press Ctrl+C to quit.${colors.reset}`);
 }
 
 // Initial dashboard display
-console.log('Starting GTX Indexer Dashboard...');
+console.log('Starting ScaleX Indexer Dashboard...');
 console.log(`Node.js version: ${process.version}`);
 console.log(`Platform: ${process.platform}`);
 

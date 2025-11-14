@@ -37,6 +37,13 @@ export const PonderEvents = {
   CHAIN_BALANCE_MANAGER_OWNERSHIP_TRANSFERRED: ponderEvent("ChainBalanceManager:OwnershipTransferred"),
   CHAIN_BALANCE_MANAGER_INITIALIZED: ponderEvent("ChainBalanceManager:Initialized"),
   
+  // Missing ChainBalanceManager Events (CRITICAL for cross-chain operations)
+  CHAIN_BALANCE_MANAGER_BRIDGE_TO_SYNTHETIC: ponderEvent("ChainBalanceManager:BridgeToSynthetic"),
+  CHAIN_BALANCE_MANAGER_WITHDRAW_MESSAGE_RECEIVED: ponderEvent("ChainBalanceManager:WithdrawMessageReceived"),
+  CHAIN_BALANCE_MANAGER_TOKEN_MAPPING_SET: ponderEvent("ChainBalanceManager:TokenMappingSet"),
+  CHAIN_BALANCE_MANAGER_CROSS_CHAIN_CONFIG_UPDATED: ponderEvent("ChainBalanceManager:CrossChainConfigUpdated"),
+  CHAIN_BALANCE_MANAGER_NONCE_INCREMENTED: ponderEvent("ChainBalanceManager:NonceIncremented"),
+  
   // Cross-Chain Events (Hyperlane)
   HYPERLANE_MAILBOX_DISPATCH_ID: ponderEvent("HyperlaneMailbox:DispatchId"),
   HYPERLANE_MAILBOX_PROCESS_ID: ponderEvent("HyperlaneMailbox:ProcessId"),

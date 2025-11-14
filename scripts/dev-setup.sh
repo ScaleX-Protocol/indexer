@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# GTX CLOB Development Setup Script
+# ScaleX CLOB Development Setup Script
 # This script sets up the entire development environment step by step
 
 set -e
@@ -35,7 +35,7 @@ if [ ! -f "package.json" ] || [ ! -d "websocket-service" ] || [ ! -d "analytics-
     exit 1
 fi
 
-log_info "Starting GTX CLOB Development Environment Setup..."
+log_info "Starting ScaleX CLOB Development Environment Setup..."
 
 # Step 1: Check prerequisites
 log_info "Step 1: Checking prerequisites..."
@@ -81,7 +81,7 @@ log_info "Step 3: Setting up environment files..."
 # Main indexer .env
 if [ ! -f ".env" ]; then
     cat > .env << EOF
-# GTX CLOB Indexer Configuration
+# ScaleX CLOB Indexer Configuration
 PONDER_DATABASE_URL=postgresql://postgres:password@localhost:5433/ponder
 REDIS_URL=redis://localhost:6380
 ENABLE_EVENT_PUBLISHING=true
@@ -220,7 +220,7 @@ echo "4. View logs:"
 echo "   ${GREEN}./scripts/microservices.sh logs${NC}"
 echo
 echo "Available URLs (after starting services):"
-echo "  • WebSocket: wss://core-devnet.gtxdex.xyz/ws"
+echo "  • WebSocket: wss://core-devnet.scalex.money/ws"
 echo "  • Analytics API: http://localhost:3001/api"
 echo "  • WebSocket Health: http://localhost:8080/health"
 echo "  • Analytics Health: http://localhost:3001/health"

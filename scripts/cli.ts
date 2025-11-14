@@ -412,7 +412,7 @@ class CLI {
   private displayHeader(): void {
     console.clear();
     console.log(chalk.cyan.bold('╔══════════════════════════════════════════════╗'));
-    console.log(chalk.cyan.bold('║') + '  ' + chalk.white.bold('GTX Indexer Development CLI') + '                 ' + chalk.cyan.bold('║'));
+    console.log(chalk.cyan.bold('║') + '  ' + chalk.white.bold('ScaleX Indexer Development CLI') + '                 ' + chalk.cyan.bold('║'));
     console.log(chalk.cyan.bold('╚══════════════════════════════════════════════╝'));
     console.log();
   }
@@ -851,7 +851,7 @@ class CLI {
         type: 'input',
         name: 'url',
         message: 'WebSocket server URL:',
-        default: 'wss://core-devnet.gtxdex.xyz'
+        default: 'wss://core-devnet.scalex.money'
       },
       {
         type: 'checkbox',

@@ -42,3 +42,54 @@ export function createBalanceId(chainId: number, currency: Address, user: string
 export function createCurrencyId(chainId: number, address: string): string {
 	return createHash("sha256").update(`${chainId}_${address}`).digest("hex");
 }
+
+// Lending protocol utility functions
+export function createLendingPositionId(
+	chainId: number,
+	user: string,
+	collateralToken: string,
+	debtToken: string
+): string {
+	return createHash("sha256").update(`${chainId}_${user}_${collateralToken}_${debtToken}`).digest("hex");
+}
+
+export function createLendingEventId(
+	chainId: number,
+	txHash: string,
+	action: string,
+	user: string,
+	timestamp: number
+): string {
+	return createHash("sha256").update(`${chainId}_${txHash}_${action}_${user}_${timestamp}`).digest("hex");
+}
+
+export function createYieldAccrualId(
+	chainId: number,
+	user: string,
+	token: string,
+	yieldType: string,
+	timestamp: number
+): string {
+	return createHash("sha256").update(`${chainId}_${user}_${token}_${yieldType}_${timestamp}`).digest("hex");
+}
+
+export function createLiquidationId(
+	chainId: number,
+	txHash: string,
+	liquidatedUser: string,
+	timestamp: number
+): string {
+	return createHash("sha256").update(`${chainId}_${txHash}_${liquidatedUser}_${timestamp}`).digest("hex");
+}
+
+export function createSyntheticTokenId(chainId: number, address: string): string {
+	return createHash("sha256").update(`${chainId}_synthetic_${address}`).digest("hex");
+}
+
+export function createOraclePriceId(
+	chainId: number,
+	token: string,
+	timestamp: number
+): string {
+	return createHash("sha256").update(`${chainId}_${token}_${timestamp}`).digest("hex");
+}

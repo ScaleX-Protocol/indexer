@@ -1,7 +1,7 @@
 {
-  "name": "gtx-analytics-service",
+  "name": "scalex-analytics-service",
   "version": "1.0.0",
-  "description": "GTX CLOB Analytics Service - Portfolio and Market Analytics",
+  "description": "ScaleX CLOB Analytics Service - Portfolio and Market Analytics",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

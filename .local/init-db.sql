@@ -11,4 +11,4 @@ SET timezone = 'UTC';
 -- These will be created by Ponder automatically, but can be pre-created here if needed
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON DATABASE ponder_gtx TO ponder;
+GRANT ALL PRIVILEGES ON DATABASE ponder_scalex TO ponder;

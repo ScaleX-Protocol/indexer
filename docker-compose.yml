@@ -15,7 +15,7 @@ services:
       - postgres
       - redis
     networks:
-      - gtx-network
+      - scalex-network
     volumes:
       - ./logs:/app/logs
 
@@ -42,7 +42,7 @@ services:
       - postgres
       - redis
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
 
   # Analytics service
@@ -70,7 +70,7 @@ services:
       - timescaledb
       - redis
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
 
   # PostgreSQL database (Main indexer DB)
@@ -85,7 +85,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
 
   # TimescaleDB for Analytics
@@ -102,7 +102,7 @@ services:
       - ./analytics-service/init:/docker-entrypoint-initdb.d
     command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
 
   # Redis for caching and message queuing
@@ -113,7 +113,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
     command: redis-server --appendonly yes
 
@@ -130,7 +130,7 @@ services:
       - websocket-service
       - analytics-service
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
 
   # Monitoring services
@@ -147,7 +147,7 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
 
   grafana:
@@ -163,7 +163,7 @@ services:
     depends_on:
       - prometheus
     networks:
-      - gtx-network
+      - scalex-network
     restart: unless-stopped
 
   # Redis Commander for Redis management (dev only)
@@ -176,7 +176,7 @@ services:
     depends_on:
       - redis
     networks:
-      - gtx-network
+      - scalex-network
     profiles:
       - dev
     restart: unless-stopped
@@ -189,5 +189,5 @@ volumes:
   grafana_data:
 
 networks:
-  gtx-network:
+  scalex-network:
     driver: bridge

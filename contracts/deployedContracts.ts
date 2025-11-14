@@ -12,7 +12,7 @@ import {
 	SyntheticTokenFactoryABI,
 	ChainRegistryABI,
 	PoolManagerABI,
-	GTXRouterABI,
+	ScaleXRouterABI,
 	OrderBookABI,
 	UpgradeableBeaconABI,
 	BeaconProxyABI,
@@ -31,6 +31,70 @@ interface DeployedContracts {
 }
 
 export const deployedContracts: DeployedContracts = {
+	// Local Anvil (Chain ID: 84532)
+	84532: {
+		BalanceManager: {
+			address: "0xf201fFeA8447AB3d43c98Da3349e0749813C9009",
+			abi: BalanceManagerABI,
+		},
+		PoolManager: {
+			address: "0x04f1A5b9BD82a5020C49975ceAd160E98d8B77Af",
+			abi: PoolManagerABI,
+		},
+		TokenRegistry: {
+			address: "0xD5bFeBDce5c91413E41cc7B24C8402c59A344f7c",
+			abi: TokenRegistryABI,
+		},
+		SyntheticTokenFactory: {
+			address: "0x04d7478fDF318C3C22cECE62Da9D78ff94807D77",
+			abi: SyntheticTokenFactoryABI,
+		},
+		Oracle: {
+			address: "0x05bB67cB592C1753425192bF8f34b95ca8649f09",
+			abi: OrderBookABI, // Using OrderBookABI as placeholder, should use OracleABI
+		},
+		LendingManager: {
+			address: "0x64f5219563e28EeBAAd91Ca8D31fa3b36621FD4f",
+			abi: BalanceManagerABI, // Using BalanceManagerABI as placeholder, should use LendingManagerABI
+		},
+		ScaleXRouter: {
+			address: "0x38F6F2caE52217101D7CA2a5eC040014b4164E6C",
+			abi: ScaleXRouterABI,
+		},
+		USDC: {
+			address: "0x46d4674578a2daBbD0CEAB0500c6c7867999db34",
+			abi: ERC20ABI,
+		},
+		WETH: {
+			address: "0x9155497EAE31D432C0b13dBCc0615a37f55a2c87",
+			abi: ERC20ABI,
+		},
+		WBTC: {
+			address: "0xfB12F7170FF298CDed84C793dAb9aBBEcc01E798",
+			abi: ERC20ABI,
+		},
+		gsUSDC: {
+			address: "0x88d747caa7ef7048712b0a5bf6482ca25d067789",
+			abi: SyntheticTokenABI,
+		},
+		gsWETH: {
+			address: "0xd4ff1c216ca5d4c420e59f5c2f1ba3f982e3f1e5",
+			abi: SyntheticTokenABI,
+		},
+		gsWBTC: {
+			address: "0xf001679570b5da3eb7183efd4e15f393f8096ed1",
+			abi: SyntheticTokenABI,
+		},
+		WETH_USDC_Pool: {
+			address: "0x000000000000000000000000ca9b5decb353e67d",
+			abi: OrderBookABI,
+		},
+		WBTC_USDC_Pool: {
+			address: "0x000000000000000000000000b4ed917028bfcacd",
+			abi: OrderBookABI,
+		},
+	},
+
 	// Rari Testnet (Destination Chain)
 	1918988905: {
 		BalanceManager: {
@@ -67,7 +131,7 @@ export const deployedContracts: DeployedContracts = {
 		},
 		Router: {
 			address: "0xF38489749c3e65c82a9273c498A8c6614c34754b",
-			abi: GTXRouterABI,
+			abi: ScaleXRouterABI,
 		},
 		BalanceManagerBeacon: {
 			address: "0xF1A53bC852bB9e139a8200003B55164592695395",

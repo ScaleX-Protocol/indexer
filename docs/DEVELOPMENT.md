@@ -1,4 +1,4 @@
-# GTX CLOB Development Guide
+# ScaleX CLOB Development Guide
 
 Complete guide for running the entire microservices system in development mode.
 
@@ -24,7 +24,7 @@ git --version
 
 ```bash
 # Clone the repository (if not already done)
-cd /Users/renaka/Documents/learn/eth/gtx/clob/clob-indexer
+cd /Users/renaka/Documents/learn/eth/scalex/clob/clob-indexer
 
 # Make the script executable
 chmod +x ./scripts/microservices.sh
@@ -84,7 +84,7 @@ Once everything is running, you'll have access to:
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| **WebSocket** | `wss://core-devnet.gtxdex.xyz/ws` | Real-time market data |
+| **WebSocket** | `wss://core-devnet.scalex.money/ws` | Real-time market data |
 | **Analytics API** | `http://localhost:3001/api` | Portfolio & market APIs |
 | **WebSocket Health** | `http://localhost:8080/health` | WebSocket service health |
 | **Analytics Health** | `http://localhost:3001/health` | Analytics service health |
@@ -200,7 +200,7 @@ npm run ws-client
 
 Or test manually:
 ```javascript
-const ws = new WebSocket('wss://core-devnet.gtxdex.xyz/ws');
+const ws = new WebSocket('wss://core-devnet.scalex.money/ws');
 
 ws.onopen = () => {
   // Subscribe to trade stream

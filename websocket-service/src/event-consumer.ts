@@ -21,7 +21,7 @@ export class EventConsumer {
   constructor(redis: Redis, wsServer: WebSocketServer, chainId?: string) {
     this.redis = redis;
     this.wsServer = wsServer;
-    this.chainId = chainId || process.env.DEFAULT_CHAIN_ID || '31337';
+    this.chainId = chainId || process.env.DEFAULT_CHAIN_ID || '84532';
     this.consumerGroup = process.env.CONSUMER_GROUP || `websocket-consumers-${this.chainId}`;
     this.consumerId = process.env.CONSUMER_ID || `ws-consumer-${this.chainId}-${Date.now()}`;
   }
@@ -166,9 +166,9 @@ export class EventConsumer {
   }
 
   private async handleEvent(stream: string, data: { [key: string]: string }) {
-    // Extract stream type from chain-specific stream key (chain:31337:trades -> trades)
+    // Extract stream type from chain-specific stream key (chain:84532:trades -> trades)
     const streamType = stream.split(':').pop() || stream;
-    
+
     switch (streamType) {
       case 'trades':
         await this.handleTradeEvent(data as any);

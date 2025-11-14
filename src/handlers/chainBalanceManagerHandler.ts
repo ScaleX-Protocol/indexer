@@ -24,7 +24,7 @@ async function publishChainBalanceEvent(
 ) {
   try {
     const eventPublisher = getEventPublisher();
-    
+
     await eventPublisher.publishChainBalanceUpdate({
       eventType,
       userId: user.toLowerCase(),
@@ -71,48 +71,48 @@ export async function handleDeposit({ event, context }: any) {
       throw new Error(`Failed to insert deposit: ${(error as Error).message}`);
     }
 
-  // Create cross-chain transfer record using sourceTransactionHash with conflict-based approach
-  try {
-    const transferId = `transfer-${event.transaction.hash}`;
-    
-    await db.insert(crossChainTransfers).values({
-      id: transferId,
-      sourceChainId: Number(chainId),
-      destinationChainId: null, // Will be set by cross-chain handlers
-      sender: depositor,
-      recipient: recipient,
-      sourceToken: token,
-      amount: BigInt(amount),
-      messageId: null, // Will be set by cross-chain handlers
-      sourceTransactionHash: event.transaction.hash,
-      destinationTransactionHash: null, // Will be set by PROCESS handler
-      sourceBlockNumber: BigInt(event.block.number),
-      destinationBlockNumber: null, // Will be set by PROCESS handler
-      timestamp: timestamp,
-      destinationTimestamp: null, // Will be set by PROCESS handler
-      status: "PENDING", // Initial status for deposits
-      direction: "DEPOSIT",
-    }).onConflictDoUpdate({
-      sourceChainId: Number(chainId),
-      sender: depositor,
-      recipient: recipient,
-      sourceToken: token,
-      amount: BigInt(amount),
-      sourceTransactionHash: event.transaction.hash,
-      sourceBlockNumber: BigInt(event.block.number),
-      timestamp: timestamp,
-      status: "PENDING",
-    });
+    // Create cross-chain transfer record using sourceTransactionHash with conflict-based approach
+    try {
+      const transferId = `transfer-${event.transaction.hash}`;
 
-    console.log(`✅ Created transfer record from deposit: ${transferId}`);
-  } catch (error) {
-    console.error('Cross-chain transfer creation failed:', error);
-    // Don't throw error here as it's not critical for deposit processing
-  }
+      await db.insert(crossChainTransfers).values({
+        id: transferId,
+        sourceChainId: Number(chainId),
+        destinationChainId: null,
+        sender: depositor,
+        recipient: recipient,
+        sourceToken: token,
+        amount: BigInt(amount),
+        messageId: null,
+        sourceTransactionHash: event.transaction.hash,
+        destinationTransactionHash: null,
+        sourceBlockNumber: BigInt(event.block.number),
+        destinationBlockNumber: null,
+        timestamp: timestamp,
+        destinationTimestamp: null,
+        status: "PENDING",
+        direction: "DEPOSIT",
+      }).onConflictDoUpdate({
+        sourceChainId: Number(chainId),
+        sender: depositor,
+        recipient: recipient,
+        sourceToken: token,
+        amount: BigInt(amount),
+        sourceTransactionHash: event.transaction.hash,
+        sourceBlockNumber: BigInt(event.block.number),
+        timestamp: timestamp,
+        status: "PENDING",
+      });
 
-  // Update or create balance state
+      console.log(`✅ Created transfer record from deposit: ${transferId}`);
+    } catch (error) {
+      console.error('Cross-chain transfer creation failed:', error);
+      // Don't throw error here as it's not critical for deposit processing
+    }
+
+    // Update or create balance state
     const stateId = `${chainId}-${recipient.toLowerCase()}-${token.toLowerCase()}`;
-    
+
     try {
       // Try to get existing state
       const existingState = await db.find(chainBalanceStates, {
@@ -199,7 +199,7 @@ export async function handleWithdraw({ event, context }: any) {
 
     // Update balance state
     const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
-    
+
     try {
       const existingState = await db.find(chainBalanceStates, {
         id: stateId
@@ -272,7 +272,7 @@ export async function handleUnlock({ event, context }: any) {
 
     // Update balance state (move from balance to unlockedBalance)
     const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
-    
+
     try {
       const existingState = await db.find(chainBalanceStates, {
         id: stateId
@@ -347,7 +347,7 @@ export async function handleClaim({ event, context }: any) {
 
     // Update balance state (reduce unlockedBalance)
     const stateId = `${chainId}-${user.toLowerCase()}-${token.toLowerCase()}`;
-    
+
     try {
       const existingState = await db.find(chainBalanceStates, {
         id: stateId

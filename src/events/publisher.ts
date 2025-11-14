@@ -7,6 +7,10 @@ import {
   KlineEvent,
   ExecutionReportEvent,
   ChainBalanceEvent,
+  LendingEvent,
+  LiquidationEvent,
+  PriceUpdateEvent,
+  YieldAccrualEvent,
   EventStreams,
   getStreamKey
 } from './types.js';
@@ -19,7 +23,7 @@ export class EventPublisher {
   constructor(redis: Redis, chainId?: string) {
     this.redis = redis;
     this.isEnabled = process.env.ENABLE_EVENT_PUBLISHING !== 'false';
-    this.chainId = chainId || process.env.DEFAULT_CHAIN_ID || '31337';
+    this.chainId = chainId || process.env.DEFAULT_CHAIN_ID || '84532';
   }
 
   async publishTrade(trade: TradeEvent): Promise<void> {
@@ -180,6 +184,112 @@ export class EventPublisher {
       );
     } catch (error) {
       console.error('Failed to publish execution report event:', error);
+    }
+  }
+
+  // Lending protocol event publishers
+  async publishLendingEvent(lending: LendingEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    try {
+      const streamKey = getStreamKey(EventStreams.LENDING, this.chainId);
+      const fields = [
+        'action', lending.action,
+        'user', lending.user,
+        'token', lending.token,
+        'amount', lending.amount,
+        'timestamp', lending.timestamp,
+        'chainId', this.chainId
+      ];
+
+      // Add optional fields if they exist
+      if (lending.collateralToken) fields.push('collateralToken', lending.collateralToken);
+      if (lending.debtToken) fields.push('debtToken', lending.debtToken);
+      if (lending.healthFactor) fields.push('healthFactor', lending.healthFactor);
+      if (lending.interestRate) fields.push('interestRate', lending.interestRate);
+      if (lending.liquidator) fields.push('liquidator', lending.liquidator);
+      if (lending.debtRepaid) fields.push('debtRepaid', lending.debtRepaid);
+      if (lending.liquidationBonus) fields.push('liquidationBonus', lending.liquidationBonus);
+      if (lending.interestPaid) fields.push('interestPaid', lending.interestPaid);
+      if (lending.interestEarned) fields.push('interestEarned', lending.interestEarned);
+
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*', ...fields);
+    } catch (error) {
+      console.error('Failed to publish lending event:', error);
+    }
+  }
+
+  async publishLiquidation(liquidation: LiquidationEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    try {
+      const streamKey = getStreamKey(EventStreams.LIQUIDATIONS, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
+        'liquidatedUser', liquidation.liquidatedUser,
+        'liquidator', liquidation.liquidator,
+        'collateralToken', liquidation.collateralToken,
+        'debtToken', liquidation.debtToken,
+        'collateralAmount', liquidation.collateralAmount,
+        'debtAmount', liquidation.debtAmount,
+        'healthFactor', liquidation.healthFactor,
+        'price', liquidation.price,
+        'timestamp', liquidation.timestamp,
+        'chainId', this.chainId
+      );
+    } catch (error) {
+      console.error('Failed to publish liquidation event:', error);
+    }
+  }
+
+  async publishPriceUpdate(priceUpdate: PriceUpdateEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    try {
+      const streamKey = getStreamKey(EventStreams.PRICE_UPDATES, this.chainId);
+      const fields = [
+        'token', priceUpdate.token,
+        'price', priceUpdate.price,
+        'decimals', priceUpdate.decimals,
+        'source', priceUpdate.source,
+        'timestamp', priceUpdate.timestamp,
+        'chainId', this.chainId
+      ];
+
+      if (priceUpdate.confidence) {
+        fields.push('confidence', priceUpdate.confidence);
+      }
+
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*', ...fields);
+    } catch (error) {
+      console.error('Failed to publish price update event:', error);
+    }
+  }
+
+  async publishYieldAccrual(yieldAccrual: YieldAccrualEvent): Promise<void> {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    try {
+      const streamKey = getStreamKey(EventStreams.YIELD_ACCRUALS, this.chainId);
+      await this.redis.xadd(streamKey, 'MAXLEN', '~', '1000', '*',
+        'user', yieldAccrual.user,
+        'token', yieldAccrual.token,
+        'yieldType', yieldAccrual.yieldType,
+        'amount', yieldAccrual.amount,
+        'interestRate', yieldAccrual.interestRate,
+        'timestamp', yieldAccrual.timestamp,
+        'cumulativeYield', yieldAccrual.cumulativeYield,
+        'chainId', this.chainId
+      );
+    } catch (error) {
+      console.error('Failed to publish yield accrual event:', error);
     }
   }
 

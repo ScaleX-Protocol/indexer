@@ -57,15 +57,15 @@ show_help() {
     echo "  ./start-chains.sh stop              # Stop all processes"
     echo ""
     echo -e "${YELLOW}CONFIGURATIONS:${NC}"
-    echo -e "  ${CYAN}Core Chain:${NC}  Chain 31337, Port $CORE_PORT, DB: $CORE_DB"
+    echo -e "  ${CYAN}Core Chain:${NC}  Chain 84532, Port $CORE_PORT, DB: $CORE_DB"
     echo -e "  ${CYAN}              ${NC}  URL: http://localhost:$CORE_PORT"
-    echo -e "  ${CYAN}Side Chain:${NC}  Chain 31338, Port $SIDE_PORT, DB: $SIDE_DB"
+    echo -e "  ${CYAN}Side Chain:${NC}  Chain 84532, Port $SIDE_PORT, DB: $SIDE_DB"
     echo -e "  ${CYAN}              ${NC}  URL: http://localhost:$SIDE_PORT"
     echo ""
     echo -e "${YELLOW}REDIS:${NC}"
     echo -e "  ${CYAN}Shared Redis:${NC} localhost:6379 with chain-specific keys"
-    echo -e "  ${CYAN}Core Keys:${NC}    chain:31337:*"
-    echo -e "  ${CYAN}Side Keys:${NC}    chain:31338:*"
+    echo -e "  ${CYAN}Core Keys:${NC}    chain:84532:*"
+    echo -e "  ${CYAN}Side Keys:${NC}    chain:84532:*"
 }
 
 # Function to check if process is running
@@ -99,8 +99,8 @@ start_core() {
     local mode="$2"
     
     echo -e "${BLUE}🚀 Starting Core Chain Configuration...${NC}"
-    echo -e "${CYAN}  Chain ID: 31337, Port: $CORE_PORT, DB: $CORE_DB${NC}"
-    echo -e "${CYAN}  Redis Keys: chain:31337:*${NC}"
+    echo -e "${CYAN}  Chain ID: 84532, Port: $CORE_PORT, DB: $CORE_DB${NC}"
+    echo -e "${CYAN}  Redis Keys: chain:84532:*${NC}"
     echo -e "${CYAN}  URL: http://localhost:$CORE_PORT${NC}"
     
     if [[ "$use_pm2" == "true" ]]; then
@@ -159,8 +159,8 @@ start_side() {
     local mode="$2"
     
     echo -e "${BLUE}🚀 Starting Side Chain Configuration...${NC}"
-    echo -e "${CYAN}  Chain ID: 31338, Port: $SIDE_PORT, DB: $SIDE_DB${NC}"
-    echo -e "${CYAN}  Redis Keys: chain:31338:*${NC}"
+    echo -e "${CYAN}  Chain ID: 84532, Port: $SIDE_PORT, DB: $SIDE_DB${NC}"
+    echo -e "${CYAN}  Redis Keys: chain:84532:*${NC}"
     echo -e "${CYAN}  URL: http://localhost:$SIDE_PORT${NC}"
     
     if [[ "$use_pm2" == "true" ]]; then
@@ -289,8 +289,8 @@ show_status() {
     echo -e "  Core DB: $CORE_DB (Port: $CORE_PORT)"
     echo -e "  Side DB: $SIDE_DB (Port: $SIDE_PORT)"
     echo -e "  Redis: localhost:6379 (shared with chain-specific keys)"
-    echo -e "  Core Keys: chain:31337:*"
-    echo -e "  Side Keys: chain:31338:*"
+    echo -e "  Core Keys: chain:84532:*"
+    echo -e "  Side Keys: chain:84532:*"
 }
 
 # Function to stop all processes

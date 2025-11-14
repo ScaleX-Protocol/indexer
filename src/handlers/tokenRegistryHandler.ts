@@ -1,6 +1,56 @@
-import { tokenMappings } from "ponder:schema";
+import { tokenMappings, currencies } from "ponder:schema";
+import { createCurrencyId } from "@/utils";
+import { sql } from "ponder";
 
 // TokenRegistry event handlers
+
+// Helper function to insert currencies when tokens are registered
+async function insertCurrency(context: any, chainId: number, address: string, data: {
+	symbol: string;
+	name?: string;
+	decimals: number;
+	tokenType?: "underlying" | "synthetic";
+	sourceChainId?: number;
+	underlyingTokenAddress?: string;
+	registeredAt?: number;
+}) {
+	try {
+		const currencyId = createCurrencyId(chainId, address);
+		
+		await context.db
+			.insert(currencies)
+			.values({
+				id: currencyId,
+				chainId,
+				address: address.toLowerCase(),
+				name: data.name || data.symbol,
+				symbol: data.symbol,
+				decimals: data.decimals,
+				tokenType: data.tokenType || "underlying",
+				sourceChainId: data.sourceChainId,
+				underlyingTokenAddress: data.underlyingTokenAddress?.toLowerCase(),
+				isActive: true,
+				registeredAt: data.registeredAt || Math.floor(Date.now() / 1000),
+			})
+			.onConflictDoUpdate({
+				id: currencyId,
+				chainId,
+				address: address.toLowerCase(),
+				name: data.name || data.symbol,
+				symbol: data.symbol,
+				decimals: data.decimals,
+				tokenType: data.tokenType || "underlying",
+				sourceChainId: data.sourceChainId,
+				underlyingTokenAddress: data.underlyingTokenAddress?.toLowerCase(),
+				isActive: true,
+				registeredAt: data.registeredAt || Math.floor(Date.now() / 1000),
+			});
+			
+		console.log(`✅ Recorded currency: ${data.symbol} (${address}) on chain ${chainId} [${data.tokenType || "underlying"}]`);
+	} catch (error) {
+		console.error(`❌ Failed to record currency ${data.symbol}:`, error);
+	}
+}
 
 export async function handleTokenMappingRegistered({ event, context }: any) {
 	try {
@@ -48,6 +98,28 @@ export async function handleTokenMappingRegistered({ event, context }: any) {
 					timestamp: timestamp,
 				});
 			console.log(`✅ Stored/updated token mapping: ${symbol} from chain ${sourceChainId} to ${targetChainId}`);
+
+			// Record currencies in the currencies table
+			// Record the source token (underlying token)
+			await insertCurrency(context, Number(sourceChainId), sourceToken, {
+				symbol: symbol,
+				name: `${symbol} Token`,
+				decimals: 0, // Will be updated when we have the actual decimals
+				tokenType: "underlying",
+				registeredAt: timestamp,
+			});
+
+			// Record the synthetic token
+			await insertCurrency(context, Number(targetChainId), syntheticToken, {
+				symbol: `gs${symbol}`,
+				name: `Gateway Synthetic ${symbol}`,
+				decimals: 0, // Will be updated when we have the actual decimals
+				tokenType: "synthetic",
+				sourceChainId: Number(sourceChainId),
+				underlyingTokenAddress: sourceToken,
+				registeredAt: timestamp,
+			});
+
 		} catch (error) {
 			console.error('Token mapping insertion failed:', error);
 			throw new Error(`Failed to insert token mapping: ${(error as Error).message}`);

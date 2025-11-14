@@ -4,6 +4,8 @@ import * as poolManagerHandler from "./handlers/poolManagerHandler";
 import * as balanceManagerHandler from "./handlers/balanceManagerHandler";
 import * as crossChainHandler from "./handlers/crossChainHandler";
 import * as tokenRegistryHandler from "./handlers/tokenRegistryHandler";
+import * as lendingManagerHandler from "./handlers/lendingManagerHandler";
+import * as oracleHandler from "./handlers/oracleHandler";
 import { PonderEvents } from "./types/ponder-core-chain";
 
 // Pool Manager Events
@@ -35,5 +37,17 @@ ponder.on(PonderEvents.TOKEN_STATUS_CHANGED, tokenRegistryHandler.handleTokenSta
 ponder.on(PonderEvents.TOKEN_OWNERSHIP_TRANSFERRED, tokenRegistryHandler.handleOwnershipTransferred);
 ponder.on(PonderEvents.TOKEN_INITIALIZED, tokenRegistryHandler.handleInitialized);
 
-console.log("✅ Core Chain indexer initialized - Chain ID: 31337");
+// LendingManager Events - Testing one by one
+ponder.on(PonderEvents.LENDING_MANAGER_SUPPLY, lendingManagerHandler.handleSupply);
+ponder.on(PonderEvents.LENDING_MANAGER_BORROW, lendingManagerHandler.handleBorrow);
+ponder.on(PonderEvents.LENDING_MANAGER_REPAY, lendingManagerHandler.handleRepay);
+ponder.on(PonderEvents.LENDING_MANAGER_WITHDRAW, lendingManagerHandler.handleWithdraw);
+ponder.on(PonderEvents.LENDING_MANAGER_LIQUIDATION, lendingManagerHandler.handleLiquidation);
+ponder.on(PonderEvents.LENDING_MANAGER_ASSET_CONFIGURED, lendingManagerHandler.handleAssetConfigured);
+
+// Oracle Events - Temporarily disabled due to telemetry issue
+ponder.on(PonderEvents.ORACLE_PRICE_UPDATED, oracleHandler.handleOraclePriceUpdate);
+
+console.log("✅ Core Chain indexer initialized - Chain ID: 84532");
 console.log("📊 Monitoring: OrderBook, PoolManager, Hyperlane cross-chain events, TokenRegistry mappings");
+console.log("🏦 Monitoring: LendingManager and Oracle events for lending protocol data");

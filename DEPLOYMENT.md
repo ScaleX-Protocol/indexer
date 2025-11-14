@@ -5,8 +5,8 @@ This guide covers deployment scripts and procedures for the CLOB Indexer system.
 ## Overview
 
 The CLOB Indexer consists of multiple components:
-- **Core Chain** (Chain ID 31337, Port 42070): OrderBook, PoolManager events
-- **Side Chain** (Chain ID 31338, Port 42071): ChainBalanceManager, Hyperlane cross-chain events
+- **Core Chain** (Chain ID 84532, Port 42070): OrderBook, PoolManager events
+- **Side Chain** (Chain ID 84532, Port 42071): ChainBalanceManager, Hyperlane cross-chain events
 - **WebSocket Service**: Real-time event broadcasting
 - **Database**: PostgreSQL for data persistence
 
@@ -48,7 +48,7 @@ PGPASSWORD=password psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE po
 ```
 
 **Configuration:**
-- Chain ID: 31337
+- Chain ID: 84532
 - Port: 42070
 - Database: `ponder_core`
 - Process Name: `chain-core`
@@ -66,7 +66,7 @@ PGPASSWORD=password psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE po
 ```
 
 **Configuration:**
-- Chain ID: 31338
+- Chain ID: 84532
 - Port: 42071
 - Database: `ponder_side`
 - Process Name: `chain-side`
@@ -97,7 +97,7 @@ cd websocket-service && pnpm dev
 
 **Configuration:**
 - Port: 42080
-- Process Name: `gtx-websocket-service`
+- Process Name: `scalex-websocket-service`
 
 ## Monitoring and Management
 
@@ -121,7 +121,7 @@ pm2 status
 # Specific process logs
 pm2 logs chain-core
 pm2 logs chain-side
-pm2 logs gtx-websocket-service
+pm2 logs scalex-websocket-service
 ```
 
 ### Stop Services
@@ -132,7 +132,7 @@ pm2 logs gtx-websocket-service
 # Stop specific PM2 process
 pm2 stop chain-core
 pm2 stop chain-side
-pm2 stop gtx-websocket-service
+pm2 stop scalex-websocket-service
 ```
 
 ### Restart Services
@@ -140,7 +140,7 @@ pm2 stop gtx-websocket-service
 # Restart specific PM2 process
 pm2 restart chain-core
 pm2 restart chain-side
-pm2 restart gtx-websocket-service
+pm2 restart scalex-websocket-service
 ```
 
 ## Environment Configuration
@@ -149,13 +149,13 @@ pm2 restart gtx-websocket-service
 File: `.env.core-chain`
 - Database: `postgresql://postgres:password@localhost:5433/ponder_core`
 - Port: 42070
-- Chain ID: 31337
+- Chain ID: 84532
 
 ### Side Chain Environment
 File: `.env.side-chain`
 - Database: `postgresql://postgres:password@localhost:5433/ponder_side`
 - Port: 42071
-- Chain ID: 31338
+- Chain ID: 84532
 
 ### WebSocket Environment
 File: `websocket-service/.env`
@@ -209,13 +209,13 @@ pm2 startup
    - [ ] Test endpoints:
      - Core Chain: http://localhost:42070
      - Side Chain: http://localhost:42071
-     - WebSocket: wss://core-devnet.gtxdex.xyz
+     - WebSocket: wss://core-devnet.scalex.money
 
 ## URL Endpoints
 
 - **Core Chain GraphQL:** http://localhost:42070
 - **Side Chain GraphQL:** http://localhost:42071
-- **WebSocket Service:** wss://core-devnet.gtxdex.xyz
+- **WebSocket Service:** wss://core-devnet.scalex.money
 
 ## Package.json Scripts Reference
 

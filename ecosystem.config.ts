@@ -28,7 +28,7 @@ const config: Pm2Config = {
         },
         {
             name: "run-anvil",
-            script: "./run-gtx-anvil.sh",
+            script: "./run-scalex-anvil.sh",
             args: "",
             autorestart: true,
             watch: false,

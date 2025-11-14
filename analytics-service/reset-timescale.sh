@@ -28,7 +28,7 @@ if [ -z "$TIMESCALE_CONTAINER" ]; then
     echo "❌ TimescaleDB container not found. Available containers:"
     docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
     echo ""
-    echo "💡 Make sure to run: cd /Users/renaka/gtx/clob-indexer && docker-compose up -d timescaledb"
+    echo "💡 Make sure to run: cd /Users/renaka/scalex/clob-indexer && docker-compose up -d timescaledb"
     exit 1
 fi
 

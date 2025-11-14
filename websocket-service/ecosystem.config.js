@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'gtx-websocket',
+      name: 'scalex-websocket',
       script: 'dist/index.js',
       instances: 1,
       exec_mode: 'fork',
@@ -11,7 +11,7 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         PORT: process.env.WEBSOCKET_PORT || 8080,
-        DEFAULT_CHAIN_ID: '31337',
+        DEFAULT_CHAIN_ID: '84532',
         REDIS_URL: 'redis://localhost:6380',
         DB_HOST: 'localhost',
         DB_PORT: 5432,
@@ -24,7 +24,7 @@ module.exports = {
       env_production: {
         NODE_ENV: 'production',
         PORT: process.env.WEBSOCKET_PORT || process.env.PORT || 8080,
-        DEFAULT_CHAIN_ID: process.env.DEFAULT_CHAIN_ID || '31337',
+        DEFAULT_CHAIN_ID: process.env.DEFAULT_CHAIN_ID || '84532',
         REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6380',
         DB_HOST: process.env.DB_HOST || 'localhost',
         DB_PORT: process.env.DB_PORT || 5432,
@@ -58,7 +58,7 @@ module.exports = {
     
     // Side chain websocket service (if needed)
     {
-      name: 'gtx-websocket-side',
+      name: 'scalex-websocket-side',
       script: 'dist/index.js',
       instances: 1,
       exec_mode: 'fork',
@@ -68,7 +68,7 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         PORT: process.env.WEBSOCKET_SIDE_PORT || 8081,
-        DEFAULT_CHAIN_ID: '31338',
+        DEFAULT_CHAIN_ID: '84532',
         REDIS_URL: 'redis://localhost:6380',
         DB_HOST: 'localhost',
         DB_PORT: 5432,
@@ -81,7 +81,7 @@ module.exports = {
       env_production: {
         NODE_ENV: 'production',
         PORT: process.env.WEBSOCKET_SIDE_PORT || 8081,
-        DEFAULT_CHAIN_ID: '31338',
+        DEFAULT_CHAIN_ID: '84532',
         REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6380',
         DB_HOST: process.env.DB_HOST || 'localhost',
         DB_PORT: process.env.DB_PORT || 5432,
@@ -120,7 +120,7 @@ module.exports = {
       host: ['your-production-server.com'],
       ref: 'origin/main',
       repo: 'your-git-repo-url',
-      path: '/var/www/gtx-websocket',
+      path: '/var/www/scalex-websocket',
       'post-deploy': 'npm install && npm run build && pm2 startOrRestart ecosystem.config.js --env production'
     }
   }

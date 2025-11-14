@@ -21,17 +21,17 @@ const STATIC_TOKEN_DATA: Record<string, { symbol: string; name: string; decimals
 	// Actual deployed token addresses from .env.core-chain
 	"0x274bcac65b190d41bf866aa04e984e677675d500": {
 		symbol: "gsWETH",
-		name: "GTX Synthetic WETH",
+		name: "ScaleX Synthetic WETH",
 		decimals: 18
 	},
 	"0x32eadcc3e41d18a1941044525a3ce23ab12e5c23": {
 		symbol: "gsUSDC",
-		name: "GTX Synthetic USDC",
+		name: "ScaleX Synthetic USDC",
 		decimals: 6
 	},
 	"0xfbd1863c7e6d7b64fa456f79fa3a0aad2d1d2a3d": {
 		symbol: "gsWBTC",
-		name: "GTX Synthetic WBTC",
+		name: "ScaleX Synthetic WBTC",
 		decimals: 8
 	}
 };
@@ -124,49 +124,13 @@ async function insertCurrency(context: any, chainId: number, address: Address, d
 }
 
 export async function handlePoolCreated({ event, context }: any) {
-	const shouldDebug = await shouldEnableWebSocket(Number(event.block.number), 'handlePoolCreated');
-	const logger = createLogger('poolManagerHandler.ts', 'handlePoolCreated');
-
-	if (shouldDebug) {
-		console.log(logger.log(event, '=== POOL CREATION DEBUG START ==='));
-	}
-
 	try {
-		if (shouldDebug) {
-			console.log(`${logger.log(event, '1. Raw event data')}: ${safeStringify({
-				eventType: 'PoolCreated',
-				blockNumber: event.block.number,
-				blockHash: event.block.hash,
-				txHash: event.transaction.hash,
-				logIndex: event.log.logIndex,
-				contractAddress: event.log.address
-			})}`);
-		}
-
 		const { client, db } = context;
 		const chainId = context.network.chainId;
-
-		if (shouldDebug) {
-			console.log(`${logger.log(event, '2. Context validation')}: ${safeStringify({
-				hasClient: !!client,
-				hasDb: !!db,
-				chainId,
-				networkName: context.network.name
-			})}`);
-		}
 
 		if (!client) throw new Error('Client context is null or undefined');
 		if (!db) throw new Error('Database context is null or undefined');
 		if (!chainId) throw new Error('Chain ID is missing from context');
-
-		if (shouldDebug) {
-			console.log(`${logger.log(event, '3. Event args validation')}: ${safeStringify({
-				args: event.args,
-				hasBaseCurrency: !!event.args.baseCurrency,
-				hasQuoteCurrency: !!event.args.quoteCurrency,
-				hasOrderBook: !!event.args.orderBook
-			})}`);
-		}
 
 		if (!event.args.baseCurrency) throw new Error('Missing baseCurrency in event args');
 		if (!event.args.quoteCurrency) throw new Error('Missing quoteCurrency in event args');
@@ -175,80 +139,29 @@ export async function handlePoolCreated({ event, context }: any) {
 		const baseCurrency = getAddress(event.args.baseCurrency);
 		const quoteCurrency = getAddress(event.args.quoteCurrency);
 
-		if (shouldDebug) {
-			console.log(`${logger.log(event, '4. Address conversion')}: ${safeStringify({
-				baseCurrency,
-				quoteCurrency,
-				rawBaseCurrency: event.args.baseCurrency,
-				rawQuoteCurrency: event.args.quoteCurrency
-			})}`);
-		}
-
-		if (shouldDebug) {
-			console.log(logger.log(event, '5. Fetching token data...'));
-		}
-
+		// Currencies are now recorded during token registration, not pool creation
+		// Skip the currency insertion here to avoid duplicate work
 		let baseData, quoteData;
 		try {
 			baseData = await fetchTokenData(client, baseCurrency);
-			if (shouldDebug) {
-				console.log(`${logger.log(event, '5a. Base token data fetched')}: ${safeStringify({
-					address: baseCurrency,
-					symbol: baseData.symbol,
-					name: baseData.name,
-					decimals: baseData.decimals
-				})}`);
-			}
 		} catch (error) {
-			if (shouldDebug) {
-				console.error(`${logger.log(event, '5a. Base token data fetch failed')}: ${safeStringify(error)}`);
-			}
-			throw new Error(`Failed to fetch base token data: ${(error as Error).message}`);
+			// If token data fetch fails, use fallback data for pool creation
+			baseData = {
+				symbol: `BASE_${baseCurrency.slice(-6)}`,
+				name: `Base Token`,
+				decimals: 18
+			};
 		}
 
 		try {
 			quoteData = await fetchTokenData(client, quoteCurrency);
-			if (shouldDebug) {
-				console.log(`${logger.log(event, '5b. Quote token data fetched')}: ${safeStringify({
-					address: quoteCurrency,
-					symbol: quoteData.symbol,
-					name: quoteData.name,
-					decimals: quoteData.decimals
-				})}`);
-			}
 		} catch (error) {
-			if (shouldDebug) {
-				console.error(`${logger.log(event, '5b. Quote token data fetch failed')}: ${safeStringify(error)}`);
-			}
-			throw new Error(`Failed to fetch quote token data: ${(error as Error).message}`);
-		}
-
-		if (shouldDebug) {
-			console.log(logger.log(event, '6. Inserting currencies...'));
-		}
-
-		try {
-			await insertCurrency(context, chainId, baseCurrency, baseData);
-			if (shouldDebug) {
-				console.log(`${logger.log(event, '6a. Base currency inserted successfully')}: ${safeStringify({ currencyId: createCurrencyId(chainId, baseCurrency) })}`);
-			}
-		} catch (error) {
-			if (shouldDebug) {
-				console.error(`${logger.log(event, '6a. Base currency insertion failed')}: ${safeStringify(error)}`);
-			}
-			throw new Error(`Failed to insert base currency: ${(error as Error).message}`);
-		}
-
-		try {
-			await insertCurrency(context, chainId, quoteCurrency, quoteData);
-			if (shouldDebug) {
-				console.log(`${logger.log(event, '6b. Quote currency inserted successfully')}: ${safeStringify({ currencyId: createCurrencyId(chainId, quoteCurrency) })}`);
-			}
-		} catch (error) {
-			if (shouldDebug) {
-				console.error(`${logger.log(event, '6b. Quote currency insertion failed')}: ${safeStringify(error)}`);
-			}
-			throw new Error(`Failed to insert quote currency: ${(error as Error).message}`);
+			// If token data fetch fails, use fallback data for pool creation
+			quoteData = {
+				symbol: `QUOTE_${quoteCurrency.slice(-6)}`,
+				name: `Quote Token`,
+				decimals: 18
+			};
 		}
 
 		const coin = `${baseData.symbol}/${quoteData.symbol}`;
@@ -278,9 +191,6 @@ export async function handlePoolCreated({ event, context }: any) {
 					.values(poolData)
 					.onConflictDoNothing();
 			} else {
-				if (shouldDebug) {
-					console.log(logger.log(event, '9a. Using Ponder stores API for pool insertion'));
-				}
 				await context.db
 					.insert(pools)
 					.values(poolData)
@@ -294,9 +204,7 @@ export async function handlePoolCreated({ event, context }: any) {
 			const cacheKey = createPoolCacheKey(orderBook, chainId);
 			await setChainCachedData(cacheKey, poolData, chainId, REDIS_CACHE_TTL, Number(event.block.number), 'handlePoolCreated');
 		} catch (error) {
-			if (shouldDebug) {
-				console.error(`${logger.log(event, '10. Pool data caching failed')}: ${safeStringify(error)}`);
-			}
+			// Silently handle caching errors
 		}
 
 		try {
@@ -313,19 +221,6 @@ export async function handlePoolCreated({ event, context }: any) {
 		}
 
 	} catch (error) {
-		if (shouldDebug) {
-			console.error(`${logger.log(event, 'POOL CREATION DEBUG FAILED')}: ${safeStringify({
-				message: (error as Error).message,
-				stack: (error as Error).stack,
-				name: (error as Error).name,
-				eventContext: {
-					blockNumber: event?.block?.number,
-					txHash: event?.transaction?.hash,
-					contractAddress: event?.log?.address,
-					args: event?.args
-				}
-			})}`);
-		}
 		throw error;
 	}
 }

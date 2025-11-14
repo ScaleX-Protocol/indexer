@@ -1,8 +1,8 @@
 import { ponder } from "ponder:registry";
-import * as crossChainHandler from "../handlers/crossChainHandler";
-import * as chainBalanceManagerHandler from "../handlers/chainBalanceManagerHandler";
-import * as faucetHandler from "../handlers/faucetHandler";
-import { PonderEvents } from "../types/ponder-side-chain";
+import * as crossChainHandler from "./handlers/crossChainHandler";
+import * as chainBalanceManagerHandler from "./handlers/chainBalanceManagerHandler";
+import * as faucetHandler from "./handlers/faucetHandler";
+import { PonderEvents } from "./types/ponder-side-chain";
 
 // Chain Balance Manager Events - PRIMARY SIDE CHAIN FUNCTIONALITY
 ponder.on(PonderEvents.CHAIN_BALANCE_MANAGER_DEPOSIT, chainBalanceManagerHandler.handleDeposit);
@@ -23,5 +23,5 @@ ponder.on(PonderEvents.ADD_TOKEN, faucetHandler.handleAddToken);
 ponder.on(PonderEvents.REQUEST_TOKEN, faucetHandler.handleRequestToken);
 ponder.on(PonderEvents.DEPOSIT_TOKEN, faucetHandler.handleDepositToken);
 
-console.log("✅ Side Chain indexer initialized - Chain ID: 31338");
+console.log("✅ Side Chain indexer initialized - Chain ID: 84532");
 console.log("🔗 Monitoring: ChainBalanceManager, Hyperlane cross-chain events, Faucet events");

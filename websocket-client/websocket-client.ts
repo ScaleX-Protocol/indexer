@@ -7,7 +7,7 @@ dotenv.config();
 const DEFAULT_USER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
 const config = {
-  url: process.env.WEBSOCKET_URL || 'wss://core-devnet.gtxdex.xyz',
+  url: process.env.WEBSOCKET_URL || 'wss://core-devnet.scalex.money',
   autoReconnect: process.env.AUTO_RECONNECT === "true",
   reconnectInterval: Number(process.env.RECONNECT_INTERVAL) || 3000,
   pingInterval: Number(process.env.PING_INTERVAL) || 30000,

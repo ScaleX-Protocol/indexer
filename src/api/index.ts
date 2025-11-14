@@ -1,11 +1,11 @@
 import { initializeEventPublisher } from "@/events";
 import { initIORedisClient } from "@/utils/redis";
-import { bootstrapGateway } from "@/websocket/websocket-server";
 import dotenv from "dotenv";
 import { Hono } from "hono";
 import { and, asc, client, desc, eq, graphql, gt, gte, inArray, lte, or, sql } from "ponder";
 import { db } from "ponder:api";
 import schema, {
+	assetConfigurations,
 	balances,
 	chainBalanceDeposits,
 	currencies,
@@ -13,19 +13,118 @@ import schema, {
 	fiveMinuteBuckets,
 	hourBuckets,
 	hyperlaneMessages,
+	lendingPositions,
 	minuteBuckets,
 	orderBookDepth,
 	orderBookTrades,
 	orders,
+	poolLendingStats,
 	pools,
 	thirtyMinuteBuckets,
-	tokenMappings,
+	tokenMappings
 } from "ponder:schema";
 import { systemMonitor } from "../utils/systemMonitor";
 
 dotenv.config();
 
 const app = new Hono();
+
+// Formatting helper functions
+function formatAmount(rawAmount: string | bigint, decimals: number): string {
+	const amount = Number(rawAmount) / Math.pow(10, decimals);
+
+	// For very small amounts (< 0.01), show more precision
+	if (amount < 0.01 && amount > 0) {
+		return amount.toLocaleString('en-US', {
+			minimumFractionDigits: 6,
+			maximumFractionDigits: 6
+		});
+	}
+
+	// For normal amounts, show 2-6 decimal places
+	return amount.toLocaleString('en-US', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 6
+	});
+}
+
+function formatUSD(value: string | bigint, decimals: number): string {
+	const amount = Number(value) / Math.pow(10, decimals);
+	return `$${amount.toLocaleString('en-US', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2
+	})}`;
+}
+
+function formatAPY(apyDecimal: string | number): string {
+	const apy = Number(apyDecimal);
+	// Input is already in basis points (e.g., 150 = 1.5%), so divide by 100
+	return `${(apy / 100).toFixed(1)}%`;
+}
+
+function formatSymbol(symbol: string): string {
+	// Convert synthetic token symbols to clean underlying symbols
+	if (symbol.startsWith('gs')) {
+		return symbol.substring(2);
+	}
+	return symbol;
+}
+
+// Helper function to fetch token information from currencies table
+async function getTokenInfo(tokenAddress: string, chainId?: number) {
+	try {
+		const tokenInfo = await db
+			.select({
+				symbol: currencies.symbol,
+				name: currencies.name,
+				decimals: currencies.decimals,
+			})
+			.from(currencies)
+			.where(and(
+				eq(currencies.address, tokenAddress as `0x${string}`),
+				chainId ? eq(currencies.chainId, chainId) : sql`1=1`
+			))
+			.limit(1)
+			.execute();
+
+		return tokenInfo[0] || { symbol: "UNKNOWN", name: "Unknown Token", decimals: 18 };
+	} catch (error) {
+		console.error(`Error fetching token info for ${tokenAddress}:`, error);
+		return { symbol: "UNKNOWN", name: "Unknown Token", decimals: 18 };
+	}
+}
+
+// Helper function to fetch multiple token information at once
+async function getMultipleTokenInfo(tokenAddresses: string[], chainId?: number) {
+	try {
+		const tokenInfoMap = new Map();
+
+		if (tokenAddresses.length === 0) return tokenInfoMap;
+
+		const tokenInfos = await db
+			.select({
+				address: currencies.address,
+				symbol: currencies.symbol,
+				name: currencies.name,
+				decimals: currencies.decimals,
+			})
+			.from(currencies)
+			.where(and(
+				inArray(currencies.address, tokenAddresses as `0x${string}`[]),
+				chainId ? eq(currencies.chainId, chainId) : sql`1=1`
+			))
+			.execute();
+
+		tokenInfos.forEach(info => {
+			tokenInfoMap.set(info.address.toLowerCase(), info);
+		});
+
+		return tokenInfoMap;
+	} catch (error) {
+		console.error("Error fetching multiple token info:", error);
+		return new Map();
+	}
+}
 
 app.use("/sql/*", client({ db, schema }));
 
@@ -1011,6 +1110,273 @@ app.get("/api/account", async c => {
 	}
 });
 
+// Personal Lending Dashboard API
+app.get("/api/lending/dashboard/:user", async c => {
+	const { user } = c.req.param();
+	const { chainId } = c.req.query();
+
+	if (!user) {
+		return c.json({ error: "User address is required" }, 400);
+	}
+
+	const targetChainId = chainId ? Number(chainId) : 84532;
+
+	try {
+		// Execute all main queries in parallel with proper error handling
+		const [userPositions, poolStats, assetConfigs] = await Promise.allSettled([
+			db.select()
+				.from(lendingPositions)
+				.where(and(
+					eq(lendingPositions.user, user as `0x${string}`),
+					eq(lendingPositions.chainId, targetChainId)
+				))
+				.execute(),
+			db.select({
+				token: poolLendingStats.token,
+				supplyRate: poolLendingStats.supplyRate,
+				borrowRate: poolLendingStats.borrowRate,
+			})
+				.from(poolLendingStats)
+				.where(eq(poolLendingStats.chainId, targetChainId))
+				.execute(),
+			db.select({
+				token: assetConfigurations.token,
+				collateralFactor: assetConfigurations.collateralFactor,
+				liquidationThreshold: assetConfigurations.liquidationThreshold,
+			})
+				.from(assetConfigurations)
+				.where(and(
+					eq(assetConfigurations.chainId, targetChainId),
+					eq(assetConfigurations.isActive, true)
+				))
+				.execute()
+		]);
+
+		// Extract results with fallbacks
+		const positions = userPositions.status === 'fulfilled' ? userPositions.value : [];
+		const stats = poolStats.status === 'fulfilled' ? poolStats.value : [];
+		const configs = assetConfigs.status === 'fulfilled' ? assetConfigs.value : [];
+
+		// Log any errors but continue processing
+		if (userPositions.status === 'rejected') {
+			console.error("Error fetching user positions:", userPositions.reason);
+		}
+		if (poolStats.status === 'rejected') {
+			console.error("Error fetching pool stats:", poolStats.reason);
+		}
+		if (assetConfigs.status === 'rejected') {
+			console.error("Error fetching asset configs:", assetConfigs.reason);
+		}
+
+		// Create maps for efficient lookup
+		const ratesMap = new Map();
+		const assetConfigMap: Record<string, { collateralFactor: number, liquidationThreshold: number }> = {};
+
+		// Process asset configurations
+		configs.forEach(config => {
+			const tokenLower = config.token.toLowerCase();
+			assetConfigMap[tokenLower] = {
+				collateralFactor: config.collateralFactor / 100,
+				liquidationThreshold: config.liquidationThreshold / 100
+			};
+		});
+
+		// Process pool stats
+		stats.forEach(stat => {
+			const assetConfig = assetConfigMap[stat.token.toLowerCase()];
+			ratesMap.set(stat.token, {
+				supplyRate: Number(stat.supplyRate || 0),
+				borrowRate: Number(stat.borrowRate || 0),
+				collateralFactor: assetConfig?.collateralFactor || 0,
+				liquidationThreshold: assetConfig?.liquidationThreshold || 0,
+			});
+		});
+
+		// Collect unique token addresses for batch lookup
+		const uniqueTokenAddresses = new Set<string>();
+		positions.forEach(position => {
+			if (position.collateralToken) uniqueTokenAddresses.add(position.collateralToken);
+			if (position.debtToken) uniqueTokenAddresses.add(position.debtToken);
+		});
+		configs.forEach(config => {
+			uniqueTokenAddresses.add(config.token);
+		});
+
+		// Fetch token information with error handling
+		let tokenInfoMap = new Map();
+		if (uniqueTokenAddresses.size > 0) {
+			try {
+				tokenInfoMap = await getMultipleTokenInfo(Array.from(uniqueTokenAddresses), targetChainId);
+			} catch (tokenError) {
+				console.error("Error fetching token info:", tokenError);
+			}
+		}
+
+		// Process positions into supplies and borrows
+		const supplies: any[] = [];
+		const borrows: any[] = [];
+
+		positions.forEach((position, index) => {
+			try {
+				// Process supplies
+				if (position.collateralAmount && Number(position.collateralAmount) > 0) {
+					const collateralTokenInfo = tokenInfoMap.get(position.collateralToken.toLowerCase()) || { decimals: 18, symbol: "UNKNOWN" };
+					const assetRates = ratesMap.get(position.collateralToken) || { supplyRate: 0 };
+					const cleanSymbol = formatSymbol(collateralTokenInfo.symbol);
+					const collateralAmount = position.collateralAmount.toString();
+
+					supplies.push({
+						id: position.id || `supply-${index}`,
+						asset: cleanSymbol,
+						assetAddress: position.collateralToken,
+						suppliedAmount: formatAmount(collateralAmount, collateralTokenInfo.decimals),
+						currentValue: formatUSD(collateralAmount, collateralTokenInfo.decimals),
+						apy: formatAPY(assetRates.supplyRate),
+						earnings: formatUSD("0", collateralTokenInfo.decimals),
+						canWithdraw: position.isActive !== false,
+						collateralUsed: formatAmount(collateralAmount, collateralTokenInfo.decimals)
+					});
+				}
+
+				// Process borrows
+				if (position.debtAmount && Number(position.debtAmount) > 0) {
+					const debtTokenInfo = tokenInfoMap.get(position.debtToken.toLowerCase()) || { decimals: 18, symbol: "UNKNOWN" };
+					const assetRates = ratesMap.get(position.debtToken) || { borrowRate: 0 };
+					const cleanSymbol = formatSymbol(debtTokenInfo.symbol);
+					const debtAmount = position.debtAmount.toString();
+					const healthFactorRaw = Number(position.healthFactor) || 10000;
+					const healthFactor = healthFactorRaw / 100;
+
+					let healthStatus: 'safe' | 'warning' | 'danger' = 'safe';
+					if (healthFactor < 1.5) healthStatus = 'danger';
+					else if (healthFactor < 2.0) healthStatus = 'warning';
+
+					borrows.push({
+						id: position.id || `borrow-${index}`,
+						asset: cleanSymbol,
+						assetAddress: position.debtToken,
+						borrowedAmount: formatAmount(debtAmount, debtTokenInfo.decimals),
+						currentDebt: formatUSD(debtAmount, debtTokenInfo.decimals),
+						apy: formatAPY(assetRates.borrowRate),
+						interestAccrued: formatUSD("0", debtTokenInfo.decimals),
+						collateralRatio: (assetRates.collateralFactor || 0).toString(),
+						healthFactor: healthFactor.toFixed(2),
+						healthStatus,
+						canRepay: position.isActive !== false
+					});
+				}
+			} catch (processError) {
+				console.error(`Error processing position ${index}:`, processError);
+			}
+		});
+
+		// Generate available assets to supply
+		const availableToSupply = configs.map(config => {
+			try {
+				const tokenInfo = tokenInfoMap.get(config.token.toLowerCase()) || { decimals: 18, symbol: "UNKNOWN" };
+				const assetInfo = ratesMap.get(config.token) || { supplyRate: 0 };
+				const cleanSymbol = formatSymbol(tokenInfo.symbol);
+				const existingSupply = supplies.find(s => s.assetAddress?.toLowerCase() === config.token.toLowerCase());
+
+				return {
+					asset: cleanSymbol,
+					assetAddress: config.token,
+					userBalance: formatAmount("0", tokenInfo.decimals),
+					suppliedAmount: existingSupply?.suppliedAmount || "0",
+					availableAmount: formatAmount("0", tokenInfo.decimals),
+					apy: formatAPY(assetInfo.supplyRate),
+					canSupply: true,
+					recommended: cleanSymbol === "USDC"
+				};
+			} catch (processError) {
+				console.error(`Error processing supply config for ${config.token}:`, processError);
+				return null;
+			}
+		}).filter(Boolean);
+
+		// Calculate borrowing power
+		const totalCollateralValueRaw = supplies.reduce((sum, s) => sum + Number(s.currentValue.replace(/[$,]/g, '')), 0);
+		const availableToBorrow = [];
+
+		if (totalCollateralValueRaw > 0) {
+			configs.forEach(config => {
+				try {
+					const tokenInfo = tokenInfoMap.get(config.token.toLowerCase()) || { decimals: 18, symbol: "UNKNOWN" };
+					const assetRates = ratesMap.get(config.token) || { borrowRate: 0 };
+					const cleanSymbol = formatSymbol(tokenInfo.symbol);
+					const ltv = config.collateralFactor / 10000;
+
+					if (ltv > 0) {
+						const borrowingPower = Math.floor(totalCollateralValueRaw * ltv).toString();
+						const recommended = cleanSymbol === "USDC" || cleanSymbol.includes("USD");
+
+						availableToBorrow.push({
+							asset: cleanSymbol,
+							assetAddress: config.token,
+							availableAmount: formatAmount(borrowingPower, tokenInfo.decimals),
+							currentBorrowed: formatAmount("0", tokenInfo.decimals),
+							apy: formatAPY(assetRates.borrowRate),
+							collateralFactor: (ltv * 100).toString(),
+							liquidationThreshold: ((config.liquidationThreshold / 10000) * 100).toString(),
+							canBorrow: true,
+							recommended
+						});
+					}
+				} catch (processError) {
+					console.error(`Error processing borrow config for ${config.token}:`, processError);
+				}
+			});
+		}
+
+		// Calculate summary statistics
+		const parseCurrency = (currencyString: string) => Number(currencyString.replace(/[$,]/g, '')) || 0;
+
+		const totalSuppliedRaw = supplies.reduce((sum, s) => sum + parseCurrency(s.currentValue), 0);
+		const totalBorrowedRaw = borrows.reduce((sum, b) => sum + parseCurrency(b.currentDebt), 0);
+		const totalEarningsRaw = supplies.reduce((sum, s) => sum + parseCurrency(s.earnings), 0);
+
+		// Calculate weighted average APY
+		let weightedAPY = 0;
+		if (totalSuppliedRaw > 0) {
+			const totalWeightedRate = supplies.reduce((sum, supply) => {
+				const apyMatch = supply.apy.match(/([\d.]+)%/);
+				if (apyMatch) {
+					const apyValue = parseFloat(apyMatch[1]);
+					const supplyValue = parseCurrency(supply.currentValue);
+					return sum + apyValue * supplyValue;
+				}
+				return sum;
+			}, 0);
+			weightedAPY = totalWeightedRate / totalSuppliedRaw;
+		}
+
+		const healthFactor = borrows.length > 0 ?
+			Math.min(...borrows.map(b => Number(b.healthFactor))).toString() : "999999";
+
+		return c.json({
+			supplies,
+			borrows,
+			availableToSupply,
+			availableToBorrow,
+			summary: {
+				totalSupplied: totalSuppliedRaw.toFixed(2),
+				totalBorrowed: totalBorrowedRaw.toFixed(2),
+				netAPY: weightedAPY.toFixed(1),
+				totalEarnings: totalEarningsRaw.toFixed(2),
+				healthFactor,
+				borrowingPower: (totalCollateralValueRaw * 0.8).toFixed(2) // Simplified calculation
+			}
+		});
+
+	} catch (error) {
+		console.error("Critical error in lending dashboard:", error);
+		return c.json({
+			error: "Failed to fetch lending dashboard data",
+			details: error instanceof Error ? error.message : String(error)
+		}, 500);
+	}
+});
+
 // Function to format our bucket data into Binance Kline format
 function formatKlineData(bucket: BucketData): BinanceKlineData {
 	// Binance Kline format is an array with specific index positions:
@@ -1044,11 +1410,6 @@ function formatKlineData(bucket: BucketData): BinanceKlineData {
 		"0",
 	];
 }
-
-// Only start WebSocket gateway if enabled
-// if (process.env.ENABLE_WEBSOCKET === 'true') {
-//   bootstrapGateway(app);
-// }
 
 // Initialize event publisher
 async function initializeServices() {

@@ -37,9 +37,6 @@ async function safeReadContract(client: any, address: string, functionName: stri
 
 export async function handleRequestToken({ event, context }: any) {
   const chainId = Number(context.network.chainId);
-  const chainName = context.network.name;
-  
-  console.log(`[Faucet] RequestToken event on ${chainName} (chainId: ${chainId})`);
 
   await context.db.insert(faucetRequests).values({
     id: `${chainId}-${event.transaction.hash}-${event.logIndex}`,
@@ -56,9 +53,6 @@ export async function handleRequestToken({ event, context }: any) {
 
 export async function handleDepositToken({ event, context }: any) {
   const chainId = Number(context.network.chainId);
-  const chainName = context.network.name;
-  
-  console.log(`[Faucet] DepositToken event on ${chainName} (chainId: ${chainId})`);
 
   await context.db.insert(faucetDeposits).values({
     id: `${chainId}-${event.transaction.hash}-${event.logIndex}`,
@@ -74,44 +68,24 @@ export async function handleDepositToken({ event, context }: any) {
 
 export async function handleAddToken({ event, context }: any) {
   const chainId = Number(context.network.chainId);
-  const chainName = context.network.name;
   const { client } = context;
-  
-  console.log(`[Faucet] AddToken event on ${chainName} (chainId: ${chainId})`);
 
   if (!client) throw new Error('Client context is null or undefined');
   if (!event.args.token) throw new Error('Missing token address in event args');
 
   const tokenAddress = getAddress(event.args.token);
-  
-  console.log(`[Faucet] Fetching token data for ${tokenAddress}`);
-  
+
   // Fetch token symbol, name and decimals with enhanced error handling
   let tokenData;
   try {
     tokenData = await fetchTokenData(client, tokenAddress);
-    console.log(`[Faucet] Token data fetched: symbol=${tokenData.symbol}, name=${tokenData.name}, decimals=${tokenData.decimals}`);
   } catch (error) {
-    console.error(`[Faucet] Failed to fetch token data for ${tokenAddress} on chain ${chainId}:`, error);
-    
-    // For appchain testnet, use known token symbols as fallback
-    let fallbackSymbol = "";
-    if (chainId === 4661) {
-      const knownTokens: Record<string, string> = {
-        "0x1362dd75d8f1579a0ebd62df92d8f3852c3a7516": "USDT",
-        "0x02950119c4ccd1993f7938a55b8ab8384c3cce4f": "WETH", 
-        "0xb2e9eabb827b78e2ac66be17327603778d117d18": "WBTC"
-      };
-      fallbackSymbol = knownTokens[tokenAddress.toLowerCase()] || "";
-    }
-    
+    // Fallback to empty token data if fetching fails
     tokenData = {
-      symbol: fallbackSymbol,
-      name: fallbackSymbol ? `Faucet ${fallbackSymbol}` : "",
+      symbol: "",
+      name: "",
       decimals: 18
     };
-    
-    console.log(`[Faucet] Using fallback token data: symbol=${tokenData.symbol}, name=${tokenData.name}, decimals=${tokenData.decimals}`);
   }
 
   await context.db.insert(faucetTokens).values({
@@ -124,6 +98,4 @@ export async function handleAddToken({ event, context }: any) {
     blockNumber: event.block.number,
     transactionId: event.transaction.hash,
   });
-
-  console.log(`[Faucet] Token added to database: ${tokenData.symbol} (${tokenData.name}) at ${tokenAddress} with ${tokenData.decimals} decimals`);
 }

@@ -1,6 +1,6 @@
-# GTX CLOB Microservices Architecture
+# ScaleX CLOB Microservices Architecture
 
-This document describes the microservices architecture for the GTX CLOB (Central Limit Order Book) system.
+This document describes the microservices architecture for the ScaleX CLOB (Central Limit Order Book) system.
 
 ## Architecture Overview
 
@@ -115,8 +115,8 @@ cd clob-indexer
 ## Service Endpoints
 
 ### WebSocket Service
-- **WebSocket**: `wss://core-devnet.gtxdex.xyz/ws`
-- **User WebSocket**: `wss://core-devnet.gtxdex.xyz/ws/{userId}`
+- **WebSocket**: `wss://core-devnet.scalex.money/ws`
+- **User WebSocket**: `wss://core-devnet.scalex.money/ws/{userId}`
 - **Health**: `http://localhost:8080/health`
 
 ### Analytics Service
@@ -170,7 +170,7 @@ GET /api/market/sentiment                 # Market sentiment
 ```
 
 ### User Streams
-Connect to `wss://core-devnet.gtxdex.xyz/ws/{userAddress}` to receive:
+Connect to `wss://core-devnet.scalex.money/ws/{userAddress}` to receive:
 - Balance updates
 - Execution reports
 - Order status changes

@@ -15,6 +15,8 @@ export interface BalanceUpdateEvent {
   token: string;
   available: string;
   locked: string;
+  synthetic?: string; // Synthetic token balance
+  collateral?: string; // Collateral amount
   timestamp: string;
 }
 
@@ -76,6 +78,54 @@ export interface ExecutionReportEvent {
   executionType: 'new' | 'trade' | 'cancelled';
 }
 
+export interface LendingEvent {
+  action: 'supply' | 'borrow' | 'repay' | 'withdraw' | 'liquidate';
+  user: string;
+  token: string;
+  amount: string;
+  timestamp: string;
+  collateralToken?: string;
+  debtToken?: string;
+  healthFactor?: string;
+  interestRate?: string;
+  liquidator?: string;
+  debtRepaid?: string;
+  liquidationBonus?: string;
+  interestPaid?: string;
+  interestEarned?: string;
+}
+
+export interface LiquidationEvent {
+  liquidatedUser: string;
+  liquidator: string;
+  collateralToken: string;
+  debtToken: string;
+  collateralAmount: string;
+  debtAmount: string;
+  healthFactor: string;
+  price: string;
+  timestamp: string;
+}
+
+export interface PriceUpdateEvent {
+  token: string;
+  price: string;
+  decimals: string;
+  source: string;
+  timestamp: string;
+  confidence?: string;
+}
+
+export interface YieldAccrualEvent {
+  user: string;
+  token: string;
+  yieldType: 'lending' | 'borrowing';
+  amount: string;
+  interestRate: string;
+  timestamp: string;
+  cumulativeYield: string;
+}
+
 export enum EventStreams {
   TRADES = 'trades',
   BALANCES = 'balances',
@@ -83,12 +133,16 @@ export enum EventStreams {
   DEPTH = 'depth',
   KLINES = 'klines',
   EXECUTION_REPORTS = 'execution_reports',
-  CHAIN_BALANCES = 'chain_balances'
+  CHAIN_BALANCES = 'chain_balances',
+  LENDING = 'lending',
+  LIQUIDATIONS = 'liquidations',
+  YIELD_ACCRUALS = 'yield_accruals',
+  PRICE_UPDATES = 'price_updates'
 }
 
 // Helper function to create chain-specific stream keys
 export function getStreamKey(stream: EventStreams, chainId?: string): string {
-  const defaultChainId = process.env.DEFAULT_CHAIN_ID || '31337';
+  const defaultChainId = process.env.DEFAULT_CHAIN_ID || '84532';
   const actualChainId = chainId || defaultChainId;
   return `chain:${actualChainId}:${stream}`;
 }

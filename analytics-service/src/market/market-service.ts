@@ -277,36 +277,6 @@ export class MarketService {
     }
   }
 
-  private getTimeframeHours(timeframe: string): number | null {
-    switch (timeframe) {
-      case '1h': return 1;
-      case '24h': return 24;
-      case '7d': return 168;
-      case '30d': return 720;
-      case '1y': return 8760;
-      case 'all': return null;
-      default: return 24;
-    }
-  }
-
-
-  private calculateSymbolLiquidityScore(bidDepth: number, askDepth: number, spread: number): number {
-    // Depth component (0-50 points)
-    const totalDepth = bidDepth + askDepth;
-    const depthScore = Math.min(50, Math.log10(totalDepth + 1) * 10);
-
-    // Spread component (0-30 points, lower spread = higher score)
-    const spreadScore = spread < 0.1 ? 30 : spread < 0.5 ? 20 : spread < 1.0 ? 10 : 0;
-
-    // Balance component (0-20 points, balanced order book = higher score)
-    const balanceRatio = Math.min(bidDepth, askDepth) / Math.max(bidDepth, askDepth);
-    const balanceScore = balanceRatio * 20;
-
-    return depthScore + spreadScore + balanceScore;
-  }
-
-
-
   private getLiquidityRating(score: number): string {
     if (score >= 80) return 'Excellent';
     if (score >= 60) return 'Good';
@@ -333,18 +303,4 @@ export class MarketService {
       throw error;
     }
   }
-
-
-
-  async getArbitrageOpportunities(): Promise<any[]> {
-    try {
-      // TODO: Implement cross-market arbitrage detection
-      // This would require comparing prices across different pools/markets
-      return [];
-    } catch (error) {
-      console.error('Error getting arbitrage opportunities:', error);
-      throw error;
-    }
-  }
-
 }

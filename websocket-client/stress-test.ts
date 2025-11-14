@@ -311,7 +311,7 @@ class StressTestRunner {
   }
 
   private drawHeader(elapsedSeconds: number): void {
-    const title = 'GTX WebSocket Stress Test Dashboard';
+    const title = 'ScaleX WebSocket Stress Test Dashboard';
     const uptime = this.formatUptime(elapsedSeconds);
     const timestamp = new Date().toLocaleTimeString();
 
@@ -744,7 +744,7 @@ const TIMING_SYNC = {
 
 // Default configuration
 const defaultConfig: StressTestConfig = {
-  url: process.env.WEBSOCKET_URL || 'wss://core-devnet.gtxdex.xyz',
+  url: process.env.WEBSOCKET_URL || 'wss://core-devnet.scalex.money',
   numClients: 10,
   streams: ['gswethgsusdc@trade', 'gswethgsusdc@kline_1m', 'gswethgsusdc@depth', 'gswethgsusdc@miniTicker'],
   pingInterval: TIMING_SYNC.pingInterval * 1000, // 60 seconds in ms
@@ -802,7 +802,7 @@ Usage: npm run stress-test [options]
 
 Options:
   -c, --clients <n>      Number of concurrent clients (default: 10)
-  -u, --url <url>        WebSocket server URL (default: wss://core-devnet.gtxdex.xyz)
+  -u, --url <url>        WebSocket server URL (default: wss://core-devnet.scalex.money)
   -s, --streams <list>   Comma-separated list of streams (default: gswethgsusdc@trade,gswethgsusdc@depth)
   -d, --duration <sec>   Test duration in seconds (default: unlimited)
   --delay <ms>           Delay between connections in ms (default: 100)

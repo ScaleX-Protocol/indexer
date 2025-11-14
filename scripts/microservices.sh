@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# GTX CLOB Microservices Management Script
+# ScaleX CLOB Microservices Management Script
 
 set -e
 
@@ -28,7 +28,7 @@ else
     exit 1
 fi
 
-PROJECT_NAME="gtx-clob"
+PROJECT_NAME="scalex-clob"
 
 # Helper functions
 log_info() {
@@ -226,7 +226,7 @@ case "$1" in
         show_status
         echo
         log_info "Services available at:"
-        echo "  • WebSocket: wss://core-devnet.gtxdex.xyz/ws"
+        echo "  • WebSocket: wss://core-devnet.scalex.money/ws"
         echo "  • Analytics API: http://localhost:42090/api"
         echo "  • PostgreSQL: localhost:5433 (indexer data)"
         echo "  • TimescaleDB: localhost:5434 (analytics data)"
@@ -255,7 +255,7 @@ case "$1" in
         cleanup
         ;;
     *)
-        echo "GTX CLOB Microservices Management"
+        echo "ScaleX CLOB Microservices Management"
         echo ""
         echo "Usage: $0 {build|setup|start|stop|restart|logs|status|dev|clean}"
         echo ""

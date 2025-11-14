@@ -1,6 +1,6 @@
-# 📡 GTX WebSocket CLI
+# 📡 ScaleX WebSocket CLI
 
-Tiny TypeScript console client for testing the GTX DEX real-time gateway.
+Tiny TypeScript console client for testing the ScaleX DEX real-time gateway.
 
 ---
 
@@ -51,7 +51,7 @@ To receive your own order/trade and balance events, run:
 > user 0xYourWalletAddress
 
 This opens a second socket to:
-  wss://core-devnet.gtxdex.xyz/ws/0xYourWalletAddress
+  wss://core-devnet.scalex.money/ws/0xYourWalletAddress
 
 No `subscribe` command is needed. Server pushes:
   • executionReport   (order status, fills)

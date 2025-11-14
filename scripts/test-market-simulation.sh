@@ -60,7 +60,7 @@ fi
 echo ""
 echo "🎉 Market simulation completed!"
 echo "📊 Check the WebSocket metrics now:"
-echo "   cd /Users/renaka/Documents/learn/eth/gtx/clob/clob-indexer"
+echo "   cd /Users/renaka/Documents/learn/eth/scalex/clob/clob-indexer"
 echo "   npm run metrics:dashboard"
 echo ""
 echo "📈 You should now see WebSocket messages sent > 0/min in the dashboard"

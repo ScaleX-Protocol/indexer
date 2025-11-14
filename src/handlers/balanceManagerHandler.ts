@@ -96,8 +96,17 @@ export async function handleDeposit({ event, context }: any) {
 		}));
 
 	// Record deposit event for analytics
-	const depositId = `${event.transaction.hash}-${event.logIndex}`;
+	const depositId = `${event.transaction.hash}-${event.args.id}`;
 	await db.insert(deposits).values({
+		id: depositId,
+		chainId: chainId,
+		user: user,
+		currency: currency,
+		amount: BigInt(event.args.amount),
+		timestamp: timestamp,
+		transactionId: event.transaction.hash,
+		blockNumber: BigInt(event.block.number),
+	}).onConflictDoUpdate({
 		id: depositId,
 		chainId: chainId,
 		user: user,
@@ -128,8 +137,17 @@ export async function handleWithdrawal({ event, context }: any) {
 	}));
 
 	// Record withdrawal event for analytics
-	const withdrawalId = `${event.transaction.hash}-${event.logIndex}`;
+	const withdrawalId = `${event.transaction.hash}-${event.args.id}`;
 	await db.insert(withdrawals).values({
+		id: withdrawalId,
+		chainId: chainId,
+		user: user,
+		currency: currency,
+		amount: BigInt(event.args.amount),
+		timestamp: timestamp,
+		transactionId: event.transaction.hash,
+		blockNumber: BigInt(event.block.number),
+	}).onConflictDoUpdate({
 		id: withdrawalId,
 		chainId: chainId,
 		user: user,

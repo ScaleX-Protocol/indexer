@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# GTX CLOB System Test Script
+# ScaleX CLOB System Test Script
 # Tests all microservices to ensure they're working correctly
 
 set -e
@@ -50,7 +50,7 @@ run_test() {
     fi
 }
 
-echo "🧪 GTX CLOB System Tests"
+echo "🧪 ScaleX CLOB System Tests"
 echo "========================"
 
 # Test 1: Check if infrastructure is running

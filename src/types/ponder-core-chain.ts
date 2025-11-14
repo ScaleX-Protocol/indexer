@@ -60,6 +60,18 @@ export const PonderEvents = {
   TOKEN_STATUS_CHANGED: ponderEvent("TokenRegistry:TokenStatusChanged"),
   TOKEN_OWNERSHIP_TRANSFERRED: ponderEvent("TokenRegistry:OwnershipTransferred"),
   TOKEN_INITIALIZED: ponderEvent("TokenRegistry:Initialized"),
+  
+  // LendingManager Events
+  LENDING_MANAGER_SUPPLY: ponderEvent("LendingManager:LiquidityDeposited"),
+  LENDING_MANAGER_BORROW: ponderEvent("LendingManager:Borrowed"),
+  LENDING_MANAGER_REPAY: ponderEvent("LendingManager:Repaid"),
+  LENDING_MANAGER_WITHDRAW: ponderEvent("LendingManager:LiquidityWithdrawn"),
+  LENDING_MANAGER_LIQUIDATION: ponderEvent("LendingManager:Liquidated"),
+  LENDING_MANAGER_BALANCE_MANAGER_SET: ponderEvent("LendingManager:BalanceManagerSet"),
+  LENDING_MANAGER_ASSET_CONFIGURED: ponderEvent("LendingManager:AssetConfigured"),
+  
+  // Oracle Events
+  ORACLE_PRICE_UPDATED: ponderEvent("Oracle:PriceUpdated"),
 };
 
 /**

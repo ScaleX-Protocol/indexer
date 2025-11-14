@@ -1,12 +1,12 @@
-# 📊 GTX CLOB DEX Indexer
+# 📊 ScaleX CLOB DEX Indexer
 
 > 🚀 Supercharge your DEX experience with real-time order book data indexing
 
-A high-performance blockchain indexer powered by [Ponder](https://ponder.sh) that processes events from the GTX CLOB DEX (Central Limit Order Book Decentralized Exchange). It also exposes a real‑time WebSocket API so front‑ends can stream depth, trades, tickers, and personal order reports without polling.
+A high-performance blockchain indexer powered by [Ponder](https://ponder.sh) that processes events from the ScaleX CLOB DEX (Central Limit Order Book Decentralized Exchange). It also exposes a real‑time WebSocket API so front‑ends can stream depth, trades, tickers, and personal order reports without polling.
 
 ## 🌟 Overview
 
-This indexer is the backbone of the GTX CLOB DEX, processing and storing on-chain events in real-time. It maintains a structured database of all trading activities and market data for seamless DeFi operations.
+This indexer is the backbone of the ScaleX CLOB DEX, processing and storing on-chain events in real-time. It maintains a structured database of all trading activities and market data for seamless DeFi operations.
 
 ## 🔧 Core Components
 
@@ -32,7 +32,7 @@ This indexer is the backbone of the GTX CLOB DEX, processing and storing on-chai
 
 ## 🔌 Real-time WebSocket Gateway
 
-The indexer spins up a WebSocket gateway on **wss://core-devnet.gtxdex.xyz**.
+The indexer spins up a WebSocket gateway on **wss://core-devnet.scalex.money**.
 
 ### 📡 Market Streams
 
@@ -75,7 +75,7 @@ List subscriptions:
 Connect to:
 
 ```
-wss://core-devnet.gtxdex.xyz/ws/<walletAddress>
+wss://core-devnet.scalex.money/ws/<walletAddress>
 ```
 
 No subscription message is required. You will automatically receive:
@@ -138,7 +138,7 @@ Sent when balances change (deposit, withdrawal, fill, lock/unlock).
 
 ### 📦 Typical Workflow
 
-1. Connect to wss://core-devnet.gtxdex.xyz/ws/<wallet>
+1. Connect to wss://core-devnet.scalex.money/ws/<wallet>
 2. Place an order → receive executionReport (NEW)
 3. Order fills → receive executionReport (TRADE) and balanceUpdate
 4. Cancel an order → receive executionReport (CANCELED)
@@ -338,7 +338,7 @@ During development, you can use these tools together to:
 This workflow helps ensure your WebSocket server can handle the expected load and provides visibility into system performance.
 
 **User streams**  
-Open a second socket to `wss://core-devnet.gtxdex.xyz/ws/<walletAddress>` to receive:
+Open a second socket to `wss://core-devnet.scalex.money/ws/<walletAddress>` to receive:
 
 - `executionReport` – order status & fills
 - `balanceUpdate` – deposits, withdrawals, fee distributions

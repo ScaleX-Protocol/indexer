@@ -7,14 +7,14 @@ services:
     environment:
       POSTGRES_USER: ponder
       POSTGRES_PASSWORD: ponder123
-      POSTGRES_DB: ponder_gtx
+      POSTGRES_DB: ponder_scalex
     ports:
       - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ponder -d ponder_gtx"]
+      test: ["CMD-SHELL", "pg_isready -U ponder -d ponder_scalex"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,7 +31,7 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=development
-      - PONDER_DATABASE_URL=postgresql://ponder:ponder123@postgres:5432/ponder_gtx
+      - PONDER_DATABASE_URL=postgresql://ponder:ponder123@postgres:5432/ponder_scalex
     ports:
       - "42069:42069"
       - "42080:42080"
