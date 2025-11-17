@@ -11,10 +11,10 @@ const sslConfig = process.env.DATABASE_CA ? {
   }
 } : {};
 
-// Using connection string from PONDER_DATABASE_URL
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/gtx_api';
+// Using dedicated database for API/faucet functionality
+const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5435/scalex_api';
 
-const pool = new Pool({ 
+const pool = new Pool({
   connectionString,
   ...sslConfig,
 });

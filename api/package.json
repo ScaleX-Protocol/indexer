@@ -1,5 +1,5 @@
 {
-  "name": "gtx-api",
+  "name": "scalex-api",
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -15,7 +15,8 @@
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.4",
     "elysia": "latest",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "viem": "^2.39.0"
   },
   "devDependencies": {
     "bun-types": "latest"

@@ -1,11 +1,53 @@
 version: '3.8'
 
+# Docker Compose Environment Configuration
+# Uses .env.core-chain for service environment variables
+
 services:
+  # SCALEX API service
+  scalex-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./.env.core-chain
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@scalex-postgres:5432/scalex_api
+      - NODE_ENV=production
+      - PORT=3000
+    depends_on:
+      - scalex-postgres
+      - redis
+    networks:
+      - scalex-network
+    restart: unless-stopped
+    volumes:
+      - ./api/logs:/app/logs
+
+  # SCALEX API database
+  scalex-postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=scalex_api
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5435:5432"
+    volumes:
+      - scalex_postgres_data:/var/lib/postgresql/data
+    networks:
+      - scalex-network
+    restart: unless-stopped
+
   # Core indexer service (existing)
   clob-indexer:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - ./.env.core-chain
     environment:
       - PONDER_DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder_core
       - REDIS_URL=redis://redis:6379
@@ -23,10 +65,12 @@ services:
   websocket-service:
     build:
       context: ./websocket-service
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "42080:42080"  
       - "8080:8080"    
+    env_file:
+      - ./.env.core-chain
     environment:
       - PORT=42080
       - HEALTH_PORT=8080
@@ -49,9 +93,11 @@ services:
   analytics-service:
     build:
       context: ./analytics-service
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "42090:42090"
+    env_file:
+      - ./.env.core-chain
     environment:
       - PORT=42090
       - REDIS_URL=redis://redis:6379
@@ -117,54 +163,55 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
-  # Nginx reverse proxy (optional)
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - websocket-service
-      - analytics-service
-    networks:
-      - scalex-network
-    restart: unless-stopped
+  # Nginx reverse proxy (optional - COMMENTED OUT)
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./nginx/ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - websocket-service
+  #     - analytics-service
+  #     - scalex-api
+  #   networks:
+  #     - scalex-network
+  #   restart: unless-stopped
 
-  # Monitoring services
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-    networks:
-      - scalex-network
-    restart: unless-stopped
+  # Monitoring services (COMMENTED OUT)
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.console.libraries=/etc/prometheus/console_libraries'
+  #     - '--web.console.templates=/etc/prometheus/consoles'
+  #   networks:
+  #     - scalex-network
+  #   restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
-    depends_on:
-      - prometheus
-    networks:
-      - scalex-network
-    restart: unless-stopped
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3001:3000"  # Changed from 3000 to avoid conflict with scalex-api
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #     - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+  #     - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - scalex-network
+  #   restart: unless-stopped
 
   # Redis Commander for Redis management (dev only)
   redis-commander:
@@ -183,10 +230,11 @@ services:
 
 volumes:
   postgres_data:
+  scalex_postgres_data:
   timescale_data:
   redis_data:
-  prometheus_data:
-  grafana_data:
+  # prometheus_data:
+  # grafana_data:
 
 networks:
   scalex-network:

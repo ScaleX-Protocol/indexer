@@ -145,7 +145,6 @@ export async function handlePoolCreated({ event, context }: any) {
 		try {
 			baseData = await fetchTokenData(client, baseCurrency);
 		} catch (error) {
-			// If token data fetch fails, use fallback data for pool creation
 			baseData = {
 				symbol: `BASE_${baseCurrency.slice(-6)}`,
 				name: `Base Token`,
@@ -156,7 +155,6 @@ export async function handlePoolCreated({ event, context }: any) {
 		try {
 			quoteData = await fetchTokenData(client, quoteCurrency);
 		} catch (error) {
-			// If token data fetch fails, use fallback data for pool creation
 			quoteData = {
 				symbol: `QUOTE_${quoteCurrency.slice(-6)}`,
 				name: `Quote Token`,
@@ -185,17 +183,10 @@ export async function handlePoolCreated({ event, context }: any) {
 		};
 
 		try {
-			if (USE_RAW_SQL) {
-				await context.db.sql
-					.insert(pools)
-					.values(poolData)
-					.onConflictDoNothing();
-			} else {
-				await context.db
-					.insert(pools)
-					.values(poolData)
-					.onConflictDoNothing();
-			}
+			await context.db
+				.insert(pools)
+				.values(poolData)
+				.onConflictDoNothing();
 		} catch (error) {
 			throw new Error(`Failed to insert pool: ${(error as Error).message}`);
 		}

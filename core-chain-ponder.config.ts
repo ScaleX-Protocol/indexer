@@ -1,22 +1,22 @@
-// core-chain-ponder.config.ts - Configuration for Core Chain (coreDevnet/84532)
+// core-chain-ponder.config.ts - Configuration for Core Chain (coreDevnet/31337)
 import dotenv from "dotenv";
 import { factory } from "ponder";
 import { fallback, getAddress, http, parseAbiItem } from "viem";
-import { BalanceManagerABI, FaucetABI, ScaleXRouterABI, LendingManagerABI, MailboxABI, OracleABI, OrderBookABI, PoolManagerABI, TokenRegistryABI, SyntheticTokenFactoryABI } from "./abis";
+import { BalanceManagerABI, LendingManagerABI, MailboxABI, OracleABI, OrderBookABI, PoolManagerABI, ScaleXRouterABI, SyntheticTokenFactoryABI, TokenRegistryABI } from "./abis";
 
 dotenv.config({ path: ".env.core-chain" });
 
 const default_address = getAddress("0x0000000000000000000000000000000000000000");
 
 const contracts: any = {
-	// BalanceManager exists on ScaleX Anvil (core chain - 84532)
+	// BalanceManager exists on ScaleX Anvil (core chain - 31337)
 	BalanceManager: {
 		abi: BalanceManagerABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.BALANCEMANAGER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.BALANCEMANAGER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -26,9 +26,9 @@ const contracts: any = {
 		abi: MailboxABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.MAILBOX_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.MAILBOX_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -38,9 +38,9 @@ const contracts: any = {
 		abi: PoolManagerABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.POOLMANAGER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.POOLMANAGER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -51,14 +51,14 @@ const contracts: any = {
 		network: {
 			coreDevnet: {
 				address: factory({
-					address: getAddress((process.env.POOLMANAGER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+					address: getAddress((process.env.POOLMANAGER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
 					event: parseAbiItem(
 						"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency)"
 					),
 					parameter: "orderBook",
 				}),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -68,21 +68,9 @@ const contracts: any = {
 		abi: ScaleXRouterABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.ScaleXROUTER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
-			},
-		},
-	},
-
-	// Faucet exists on ScaleX Anvil (core chain)
-	Faucet: {
-		abi: FaucetABI || [],
-		network: {
-			coreDevnet: {
-				address: getAddress((process.env.FAUCET_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.FAUCET_START_BLOCK) || 0,
-				endBlock: Number(process.env.FAUCET_END_BLOCK) || undefined,
+				address: getAddress((process.env.ScaleXROUTER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -92,9 +80,9 @@ const contracts: any = {
 		abi: [], // Add ChainRegistry ABI if available
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.CHAINREGISTRY_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.CHAINREGISTRY_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -104,9 +92,9 @@ const contracts: any = {
 		abi: TokenRegistryABI,
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.TOKENREGISTRY_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.TOKENREGISTRY_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -116,9 +104,9 @@ const contracts: any = {
 		abi: SyntheticTokenFactoryABI || [], // Add SyntheticTokenFactory ABI if available
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.SYNTHETICTOKENFACTORY_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.SYNTHETICTOKENFACTORY_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -128,9 +116,9 @@ const contracts: any = {
 		abi: OracleABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.ORACLE_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.ORACLE_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -140,9 +128,9 @@ const contracts: any = {
 		abi: LendingManagerABI || [],
 		network: {
 			coreDevnet: {
-				address: getAddress((process.env.LENDINGMANAGER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
-				startBlock: Number(process.env.ScaleX_CORE_DEVNET_START_BLOCK) || 0,
-				endBlock: Number(process.env.ScaleX_CORE_DEVNET_END_BLOCK) || undefined,
+				address: getAddress((process.env.LENDINGMANAGER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),
+				startBlock: Number(process.env.SCALEX_CORE_DEVNET_START_BLOCK) || 0,
+				endBlock: Number(process.env.SCALEX_CORE_DEVNET_END_BLOCK) || undefined,
 			},
 		},
 	},
@@ -151,14 +139,14 @@ const contracts: any = {
 export function getCoreChainConfig() {
 	const config = {
 		networks: {
-			// ScaleX Anvil (Core Chain - 84532) - Main trading chain
+			// ScaleX Anvil (Core Chain - 31337) - Main trading chain
 			coreDevnet: {
-				chainId: 84532,
+				chainId: 31337,
 				transport: fallback([
 					http(process.env.CORE_DEVNET_ENDPOINT),
 				]),
-				pollingInterval: Number(process.env.ScaleX_CORE_DEVNET_POLLING_INTERVAL) || 1000,
-				maxRequestsPerSecond: Number(process.env.ScaleX_CORE_DEVNET_MAX_REQUESTS_PER_SECOND) || 50,
+				pollingInterval: Number(process.env.SCALEX_CORE_DEVNET_POLLING_INTERVAL) || 1000,
+				maxRequestsPerSecond: Number(process.env.SCALEX_CORE_DEVNET_MAX_REQUESTS_PER_SECOND) || 50,
 				// Anvil-specific optimizations
 				retryCount: Number(process.env.MAX_RETRIES) || 3,
 				retryDelay: Number(process.env.RETRY_DELAY) || 1000,
@@ -189,13 +177,13 @@ export function getCoreChainConfig() {
 export function validateCoreChainEnvironment(): boolean {
 	const requiredVars = [
 		"CORE_DEVNET_ENDPOINT",
-		"BALANCEMANAGER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS",
-		"POOLMANAGER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS",
-		"ScaleXROUTER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS",
-		"TOKENREGISTRY_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS",
-		"SYNTHETICTOKENFACTORY_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS",
-		"ORACLE_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS",
-		"LENDINGMANAGER_CONTRACT_ScaleX_CORE_DEVNET_ADDRESS",
+		"BALANCEMANAGER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS",
+		"POOLMANAGER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS",
+		"ScaleXROUTER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS",
+		"TOKENREGISTRY_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS",
+		"SYNTHETICTOKENFACTORY_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS",
+		"ORACLE_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS",
+		"LENDINGMANAGER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS",
 	];
 
 	const missing = requiredVars.filter(varName => !process.env[varName]);

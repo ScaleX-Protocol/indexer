@@ -5,3 +5,4 @@ export * from './orderBookDepth';
 export * from './dailyBuckets';
 export * from './minuteBuckets';
 export * from './balances';
+export * from './faucet.schema';

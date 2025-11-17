@@ -4,7 +4,7 @@
       "items": [
         {
           "baseDecimals": 18,
-          "chainId": 84532,
+          "chainId": 31337,
           "coin": "gsWETH/gsUSDC",
           "id": "36ef20379961d0fc2dcb42d4454ddb6276a7d83fe25113ac9c310df4177b8e8a",
           "orderBook": "0xf65849ed2f979766117a7f45b854296f37ed7870",
@@ -15,7 +15,7 @@
           "volumeInQuote": "1980000",
           "baseCurrency": {
             "address": "0x274bcac65b190d41bf866aa04e984e677675d500",
-            "chainId": 84532,
+            "chainId": 31337,
             "decimals": 18,
             "name": "ScaleX Synthetic WETH",
             "id": "b1498fb432250f31c1f4ae5ac6191173a19e0eb53c7485e9a751e583eee3abe8",
@@ -23,7 +23,7 @@
           },
           "quoteCurrency": {
             "address": "0x32eadcc3e41d18a1941044525a3ce23ab12e5c23",
-            "chainId": 84532,
+            "chainId": 31337,
             "id": "7efac1ba39f18ed1947935676bee0ac5480c645994797979b7af6f1d00aa31fc",
             "decimals": 6,
             "name": "ScaleX Synthetic USDC",
@@ -32,7 +32,7 @@
         },
         {
           "baseDecimals": 8,
-          "chainId": 84532,
+          "chainId": 31337,
           "coin": "gsWBTC/gsUSDC",
           "id": "77d1a2574463a3d336635c5aee14d81e94be28d7d4ef21f4d318548fe9ca47b8",
           "orderBook": "0xce66c8700aff2e7c1d337425654815ebf419a12b",
@@ -43,7 +43,7 @@
           "volumeInQuote": "0",
           "baseCurrency": {
             "address": "0xfbd1863c7e6d7b64fa456f79fa3a0aad2d1d2a3d",
-            "chainId": 84532,
+            "chainId": 31337,
             "decimals": 8,
             "name": "ScaleX Synthetic WBTC",
             "id": "f4cd203044d9eea59b2c0307f2d0f55e9b9e997e121e38d513c33ef0f5cd6b08",
@@ -51,7 +51,7 @@
           },
           "quoteCurrency": {
             "address": "0x32eadcc3e41d18a1941044525a3ce23ab12e5c23",
-            "chainId": 84532,
+            "chainId": 31337,
             "id": "7efac1ba39f18ed1947935676bee0ac5480c645994797979b7af6f1d00aa31fc",
             "decimals": 6,
             "name": "ScaleX Synthetic USDC",

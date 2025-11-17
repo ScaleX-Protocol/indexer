@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 42069
 EXPOSE 42080
 
-CMD ["bun", "run", "start", "--config", "pg-ponder.config.ts", "--disable-ui", "--schema", "public"]
+CMD ["bun", "run", "dev:core-chain"]
