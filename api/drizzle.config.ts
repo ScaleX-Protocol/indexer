@@ -5,7 +5,7 @@ export default defineConfig({
   schema: './src/schema/index.ts',
   out: './drizzle',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/gtx_api',
+    url: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5435/scalex_api',
     ssl: process.env.DATABASE_CA ? {
       rejectUnauthorized: true,
       ca: require('fs').readFileSync(process.env.DATABASE_CA).toString(),

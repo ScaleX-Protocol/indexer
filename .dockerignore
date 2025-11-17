@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Database files
+*.sqlite
+*.db
+
+# Lock files (keep pnpm-lock.yaml for package manager)
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Monitoring
+monitoring/grafana-dashboards/
+monitoring/grafana-datasources/
+monitoring/prometheus.yml
+
+# SSL certificates
+nginx/ssl/
+
+# Development scripts
+scripts/development/
+
+# Analytics logs and data
+analytics-service/logs/
+analytics-service/*.log

@@ -15,8 +15,6 @@ export interface BalanceUpdateEvent {
   token: string;
   available: string;
   locked: string;
-  synthetic?: string; // Synthetic token balance
-  collateral?: string; // Collateral amount
   timestamp: string;
 }
 
@@ -142,7 +140,7 @@ export enum EventStreams {
 
 // Helper function to create chain-specific stream keys
 export function getStreamKey(stream: EventStreams, chainId?: string): string {
-  const defaultChainId = process.env.DEFAULT_CHAIN_ID || '84532';
+  const defaultChainId = process.env.DEFAULT_CHAIN_ID || '31337';
   const actualChainId = chainId || defaultChainId;
   return `chain:${actualChainId}:${stream}`;
 }

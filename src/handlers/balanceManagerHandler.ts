@@ -181,7 +181,7 @@ export async function handleTransferFrom({ event, context }: any) {
 
 	// Track sender user activity
 	await upsertUserActivity(db, chainId, event.args.sender, timestamp);
-	
+
 	await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()), Number(event.block.number));
 
 	// Update or insert receiver balance

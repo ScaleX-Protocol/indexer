@@ -5,8 +5,8 @@ This guide covers deployment scripts and procedures for the CLOB Indexer system.
 ## Overview
 
 The CLOB Indexer consists of multiple components:
-- **Core Chain** (Chain ID 84532, Port 42070): OrderBook, PoolManager events
-- **Side Chain** (Chain ID 84532, Port 42071): ChainBalanceManager, Hyperlane cross-chain events
+- **Core Chain** (Chain ID 31337, Port 42070): OrderBook, PoolManager events
+- **Side Chain** (Chain ID 31337, Port 42071): ChainBalanceManager, Hyperlane cross-chain events
 - **WebSocket Service**: Real-time event broadcasting
 - **Database**: PostgreSQL for data persistence
 
@@ -48,7 +48,7 @@ PGPASSWORD=password psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE po
 ```
 
 **Configuration:**
-- Chain ID: 84532
+- Chain ID: 31337
 - Port: 42070
 - Database: `ponder_core`
 - Process Name: `chain-core`
@@ -66,7 +66,7 @@ PGPASSWORD=password psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE po
 ```
 
 **Configuration:**
-- Chain ID: 84532
+- Chain ID: 31337
 - Port: 42071
 - Database: `ponder_side`
 - Process Name: `chain-side`
@@ -149,13 +149,13 @@ pm2 restart scalex-websocket-service
 File: `.env.core-chain`
 - Database: `postgresql://postgres:password@localhost:5433/ponder_core`
 - Port: 42070
-- Chain ID: 84532
+- Chain ID: 31337
 
 ### Side Chain Environment
 File: `.env.side-chain`
 - Database: `postgresql://postgres:password@localhost:5433/ponder_side`
 - Port: 42071
-- Chain ID: 84532
+- Chain ID: 31337
 
 ### WebSocket Environment
 File: `websocket-service/.env`

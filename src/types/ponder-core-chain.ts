@@ -27,51 +27,46 @@ export function createPonderHandler<T>(handler: (args: any) => Promise<void>): (
  * These are kept as constants for documentation and to avoid typos
  */
 export const PonderEvents = {
-  // Pool Manager Events
-  POOL_CREATED: ponderEvent("PoolManager:PoolCreated"),
-  
-  // Balance Manager Events
-  DEPOSIT: ponderEvent("BalanceManager:Deposit"),
-  WITHDRAWAL: ponderEvent("BalanceManager:Withdrawal"),
-  TRANSFER_FROM: ponderEvent("BalanceManager:TransferFrom"),
-  TRANSFER_LOCKED_FROM: ponderEvent("BalanceManager:TransferLockedFrom"),
-  LOCK: ponderEvent("BalanceManager:Lock"),
-  UNLOCK: ponderEvent("BalanceManager:Unlock"),
-  
-  // Order Book Events
-  ORDER_PLACED: ponderEvent("OrderBook:OrderPlaced"),
-  ORDER_MATCHED: ponderEvent("OrderBook:OrderMatched"),
-  ORDER_CANCELLED: ponderEvent("OrderBook:OrderCancelled"),
-  UPDATE_ORDER: ponderEvent("OrderBook:UpdateOrder"),
-  
-  // Faucet Events
-  ADD_TOKEN: ponderEvent("Faucet:AddToken"),
-  REQUEST_TOKEN: ponderEvent("Faucet:RequestToken"),
-  DEPOSIT_TOKEN: ponderEvent("Faucet:DepositToken"),
-  
-  // Hyperlane Mailbox Events (cross-chain)
-  HYPERLANEMAILBOX_DISPATCH_ID: ponderEvent("HyperlaneMailbox:DispatchId"),
-  HYPERLANEMAILBOX_PROCESS_ID: ponderEvent("HyperlaneMailbox:ProcessId"),
-  
-  // TokenRegistry Events
-  TOKEN_MAPPING_REGISTERED: ponderEvent("TokenRegistry:TokenMappingRegistered"),
-  TOKEN_MAPPING_UPDATED: ponderEvent("TokenRegistry:TokenMappingUpdated"),
-  TOKEN_MAPPING_REMOVED: ponderEvent("TokenRegistry:TokenMappingRemoved"),
-  TOKEN_STATUS_CHANGED: ponderEvent("TokenRegistry:TokenStatusChanged"),
-  TOKEN_OWNERSHIP_TRANSFERRED: ponderEvent("TokenRegistry:OwnershipTransferred"),
-  TOKEN_INITIALIZED: ponderEvent("TokenRegistry:Initialized"),
-  
-  // LendingManager Events
-  LENDING_MANAGER_SUPPLY: ponderEvent("LendingManager:LiquidityDeposited"),
-  LENDING_MANAGER_BORROW: ponderEvent("LendingManager:Borrowed"),
-  LENDING_MANAGER_REPAY: ponderEvent("LendingManager:Repaid"),
-  LENDING_MANAGER_WITHDRAW: ponderEvent("LendingManager:LiquidityWithdrawn"),
-  LENDING_MANAGER_LIQUIDATION: ponderEvent("LendingManager:Liquidated"),
-  LENDING_MANAGER_BALANCE_MANAGER_SET: ponderEvent("LendingManager:BalanceManagerSet"),
-  LENDING_MANAGER_ASSET_CONFIGURED: ponderEvent("LendingManager:AssetConfigured"),
-  
-  // Oracle Events
-  ORACLE_PRICE_UPDATED: ponderEvent("Oracle:PriceUpdated"),
+	// Pool Manager Events
+	POOL_CREATED: ponderEvent("PoolManager:PoolCreated"),
+
+	// Balance Manager Events
+	DEPOSIT: ponderEvent("BalanceManager:Deposit"),
+	WITHDRAWAL: ponderEvent("BalanceManager:Withdrawal"),
+	TRANSFER_FROM: ponderEvent("BalanceManager:TransferFrom"),
+	TRANSFER_LOCKED_FROM: ponderEvent("BalanceManager:TransferLockedFrom"),
+	LOCK: ponderEvent("BalanceManager:Lock"),
+	UNLOCK: ponderEvent("BalanceManager:Unlock"),
+
+	// Order Book Events
+	ORDER_PLACED: ponderEvent("OrderBook:OrderPlaced"),
+	ORDER_MATCHED: ponderEvent("OrderBook:OrderMatched"),
+	ORDER_CANCELLED: ponderEvent("OrderBook:OrderCancelled"),
+	UPDATE_ORDER: ponderEvent("OrderBook:UpdateOrder"),
+
+	// Hyperlane Mailbox Events (cross-chain)
+	HYPERLANEMAILBOX_DISPATCH_ID: ponderEvent("HyperlaneMailbox:DispatchId"),
+	HYPERLANEMAILBOX_PROCESS_ID: ponderEvent("HyperlaneMailbox:ProcessId"),
+
+	// TokenRegistry Events
+	TOKEN_MAPPING_REGISTERED: ponderEvent("TokenRegistry:TokenMappingRegistered"),
+	TOKEN_MAPPING_UPDATED: ponderEvent("TokenRegistry:TokenMappingUpdated"),
+	TOKEN_MAPPING_REMOVED: ponderEvent("TokenRegistry:TokenMappingRemoved"),
+	TOKEN_STATUS_CHANGED: ponderEvent("TokenRegistry:TokenStatusChanged"),
+	TOKEN_OWNERSHIP_TRANSFERRED: ponderEvent("TokenRegistry:OwnershipTransferred"),
+	TOKEN_INITIALIZED: ponderEvent("TokenRegistry:Initialized"),
+
+	// LendingManager Events
+	LENDING_MANAGER_SUPPLY: ponderEvent("LendingManager:LiquidityDeposited"),
+	LENDING_MANAGER_BORROW: ponderEvent("LendingManager:Borrowed"),
+	LENDING_MANAGER_REPAY: ponderEvent("LendingManager:Repaid"),
+	LENDING_MANAGER_WITHDRAW: ponderEvent("LendingManager:LiquidityWithdrawn"),
+	LENDING_MANAGER_LIQUIDATION: ponderEvent("LendingManager:Liquidated"),
+	LENDING_MANAGER_BALANCE_MANAGER_SET: ponderEvent("LendingManager:BalanceManagerSet"),
+	LENDING_MANAGER_ASSET_CONFIGURED: ponderEvent("LendingManager:AssetConfigured"),
+
+	// Oracle Events
+	ORACLE_PRICE_UPDATED: ponderEvent("Oracle:PriceUpdated"),
 };
 
 /**

@@ -100,7 +100,7 @@ export const orderBookDepth = onchainTable(
 );
 
 export const ordersRelations = relations(orders, ({ many, one }) => ({
-		pool: one(pools, {
+	pool: one(pools, {
 		fields: [orders.poolId, orders.chainId],
 		references: [pools.id, pools.chainId],
 	}),
@@ -222,8 +222,6 @@ export const balances = onchainTable(
 		currency: t.hex(),
 		amount: t.bigint(),
 		lockedAmount: t.bigint(),
-		syntheticBalance: t.bigint(), // Synthetic token balance
-		collateralAmount: t.bigint(), // Amount used as collateral
 		lastUpdated: t.integer(),
 	}),
 	table => ({
@@ -343,6 +341,7 @@ export const balancesCurrenciesRelations = relations(balances, ({ one }) => ({
 	}),
 }));
 
+// Legacy onchain faucet tables (for blockchain event tracking)
 export const faucetRequests = onchainTable(
 	"faucet_requests",
 	t => ({
@@ -384,22 +383,40 @@ export const faucetDeposits = onchainTable(
 	})
 );
 
-export const faucetTokens = onchainTable(
-	"faucet_tokens",
+// API-based faucet request tracking (new improved schema)
+export const faucetApiRequests = onchainTable(
+	"faucet_api_requests",
 	t => ({
-		id: t.text().primaryKey(),
+		id: t.text().primaryKey(), // Format: {chainId}-{transactionHash}-{timestamp}
 		chainId: t.integer().notNull(),
-		token: t.hex().notNull(),
-		symbol: t.varchar(),
-		decimals: t.integer(),
-		timestamp: t.integer(),
-		transactionId: t.text(),
-		blockNumber: t.text(),
+		requesterAddress: t.hex().notNull(), // Address requesting tokens
+		receiverAddress: t.hex().notNull(), // Address receiving tokens (usually same as requester)
+		tokenAddress: t.hex().notNull(), // Token contract address
+		tokenSymbol: t.varchar().notNull(), // Token symbol from blockchain
+		tokenDecimals: t.integer().notNull(), // Token decimals from blockchain
+		amount: t.bigint().notNull(), // Amount requested (in smallest unit)
+		amountFormatted: t.varchar().notNull(), // Human-readable amount
+		status: t.varchar().notNull(), // "pending", "completed", "failed"
+		transactionHash: t.text(), // Transaction hash if completed
+		gasUsed: t.bigint(), // Gas used for the transaction
+		gasPrice: t.bigint(), // Gas price used
+		errorMessage: t.text(), // Error message if failed
+		requestTimestamp: t.integer().notNull(), // When the API request was made (as Unix timestamp)
+		completedTimestamp: t.integer(), // When the transaction was confirmed (as Unix timestamp)
+		ipAddress: t.text(), // Client IP address for rate limiting
+		userAgent: t.text(), // User agent string
 	}),
-	table => ({
-		tokenIdx: index().on(table.token),
+	(table: any) => ({
+		requesterAddressIdx: index().on(table.requesterAddress),
+		tokenAddressIdx: index().on(table.tokenAddress),
 		chainIdIdx: index().on(table.chainId),
-		timestampIdx: index().on(table.timestamp),
+		statusIdx: index().on(table.status),
+		requestTimestampIdx: index().on(table.requestTimestamp),
+		ipAddressIdx: index().on(table.ipAddress),
+		transactionHashIdx: index().on(table.transactionHash),
+		requesterChainIdx: index().on(table.requesterAddress, table.chainId),
+		requesterStatusIdx: index().on(table.requesterAddress, table.status),
+		chainStatusIdx: index().on(table.chainId, table.status),
 	})
 );
 
@@ -594,7 +611,7 @@ export const chainBalanceTokenWhitelist = onchainTable(
 		timestamp: t.integer().notNull(),
 		transactionId: t.text().notNull(),
 		blockNumber: t.text().notNull(),
-		action: t.varchar().notNull(), 
+		action: t.varchar().notNull(),
 	}),
 	table => ({
 		tokenIdx: index().on(table.token),
@@ -752,7 +769,7 @@ export const lendingPositions = onchainTable(
 		debtToken: t.hex().notNull(),
 		collateralAmount: t.bigint().notNull(),
 		debtAmount: t.bigint().notNull(),
-				lastYieldClaim: t.integer(),
+		lastYieldClaim: t.integer(),
 		lastUpdated: t.integer().notNull(),
 		isActive: t.boolean().default(true),
 	}),
@@ -781,7 +798,7 @@ export const lendingEvents = onchainTable(
 		amount: t.bigint().notNull(),
 		collateralToken: t.hex(), // For borrow/repay events
 		debtToken: t.hex(), // For supply/withdraw events
-				healthFactor: t.bigint(), // Health factor after action
+		healthFactor: t.bigint(), // Health factor after action
 		timestamp: t.integer().notNull(),
 		transactionId: t.text().notNull(),
 		blockNumber: t.bigint().notNull(),
@@ -1021,7 +1038,7 @@ export const lendingPositionsRelations = relations(lendingPositions, ({ one, man
 		fields: [lendingPositions.debtToken, lendingPositions.chainId],
 		references: [currencies.address, currencies.chainId],
 	}),
-		}));
+}));
 
 export const lendingEventsRelations = relations(lendingEvents, ({ one }) => ({
 	user: one(users, {
@@ -1039,7 +1056,7 @@ export const syntheticTokensRelations = relations(syntheticTokens, ({ one, many 
 		fields: [syntheticTokens.underlyingToken, syntheticTokens.sourceChainId],
 		references: [currencies.address, currencies.chainId],
 	}),
-		}));
+}));
 
 export const liquidationsRelations = relations(liquidations, ({ one }) => ({
 	liquidatedUser: one(users, {

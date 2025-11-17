@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "faucet_rate_limits_identifier_type_idx" ON "faucet_rate_limits" USING btree ("identifier","identifier_type");

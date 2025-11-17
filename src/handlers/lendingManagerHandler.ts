@@ -198,10 +198,8 @@ export async function handleSupply({ event, context }: any) {
       await eventPublisher.publishBalanceUpdate({
         userId: balance.user,
         token: balance.currency,
-        available: (balance.amount - balance.lockedAmount).toString(),
-        locked: balance.lockedAmount.toString(),
-        synthetic: balance.syntheticBalance.toString(),
-        collateral: balance.collateralAmount.toString(),
+        available: (balance.amount ?? BigInt(0)).toString(),
+        locked: (balance.lockedAmount ?? BigInt(0)).toString(),
         timestamp: timestamp.toString()
       });
     }
@@ -268,7 +266,7 @@ export async function handleBorrow({ event, context }: any) {
     // Update user stats
     await upsertUserLendingStats(db, chainId, user, "BORROW", amount, timestamp);
 
-    // Update user balance to reflect debt
+    // Update user balance to reflect debt (negative balance indicates debt)
     const balanceId = createBalanceId(chainId, token, user);
     await db
       .insert(balances)
@@ -279,12 +277,10 @@ export async function handleBorrow({ event, context }: any) {
         currency: token,
         amount: BigInt(0),
         lockedAmount: BigInt(0),
-        syntheticBalance: amount,
-        collateralAmount: BigInt(0),
         lastUpdated: timestamp,
       })
       .onConflictDoUpdate({
-        syntheticBalance: sql`${balances.syntheticBalance} + ${amount}`,
+        amount: sql`${balances.amount} - ${amount}`,
         lastUpdated: timestamp,
       });
 
@@ -335,7 +331,7 @@ export async function handleRepay({ event, context }: any) {
   await db
     .update(balances, { id: balanceId })
     .set({
-      syntheticBalance: sql`${balances.syntheticBalance} - ${amount}`,
+      amount: sql`${balances.amount} + ${amount}`,
       lastUpdated: timestamp,
     });
 
@@ -388,8 +384,7 @@ export async function handleWithdraw({ event, context }: any) {
   await db
     .update(balances, { id: balanceId })
     .set({
-      syntheticBalance: sql`${balances.syntheticBalance} - ${amount}`,
-      collateralAmount: sql`${balances.collateralAmount} - ${amount}`,
+      amount: sql`${balances.amount} - ${amount}`,
       lastUpdated: timestamp,
     });
 
@@ -558,7 +553,7 @@ export async function handleAssetConfigured({ event, context }: any) {
       isActive: true,
     }));
 
-  await initializePoolLendingStats(db, chainId, token, collateralFactor, liquidationThreshold, reserveFactor, timestamp);
+  await initializePoolLendingStats(db, chainId, token, collateralFactor, reserveFactor, timestamp);
 }
 
 // Initialize pool lending stats with calculated APY rates
