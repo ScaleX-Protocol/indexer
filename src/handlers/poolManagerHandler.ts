@@ -1,8 +1,5 @@
 import { createCurrencyId, createPoolId } from "@/utils";
-import { createLogger, safeStringify } from "@/utils/logger";
-import { shouldEnableWebSocket } from "@/utils/syncState";
 import dotenv from "dotenv";
-import { sql } from "ponder";
 import { currencies, pools } from "ponder:schema";
 import { Address, getAddress } from "viem";
 import { ERC20ABI } from "../../abis/ERC20";
@@ -18,20 +15,36 @@ dotenv.config();
 
 // Static token data mapping for core chain tokens to avoid RPC calls
 const STATIC_TOKEN_DATA: Record<string, { symbol: string; name: string; decimals: number }> = {
-	// Actual deployed token addresses from .env.core-chain
-	"0x274bcac65b190d41bf866aa04e984e677675d500": {
+	// Actual deployed token addresses from deployments/84532.json (all lowercase for comparison)
+	"0x835c8aa033972e372865fcc933c9de0a48b6ae23": {
 		symbol: "gsWETH",
 		name: "ScaleX Synthetic WETH",
 		decimals: 18
 	},
-	"0x32eadcc3e41d18a1941044525a3ce23ab12e5c23": {
+	"0x22f9a3898c3db2a0008fe9a7524a4a41d8a789df": {
 		symbol: "gsUSDC",
 		name: "ScaleX Synthetic USDC",
 		decimals: 6
 	},
-	"0xfbd1863c7e6d7b64fa456f79fa3a0aad2d1d2a3d": {
+	"0xadfc4fca478e6fa614724bb3177afb8a8a7b5cc6": {
 		symbol: "gsWBTC",
 		name: "ScaleX Synthetic WBTC",
+		decimals: 8
+	},
+	// Regular tokens
+	"0x544ab44d27fd12b48caff00c61b3c7ad3f8d8401": {
+		symbol: "WETH",
+		name: "Wrapped Ether",
+		decimals: 18
+	},
+	"0xca5fffa56d6d63f72b87ce0cd4894730149cf646": {
+		symbol: "USDC",
+		name: "USD Coin",
+		decimals: 6
+	},
+	"0x325f62b6d1bdacc7ad0a602dc71aae150238635b": {
+		symbol: "WBTC",
+		name: "Wrapped Bitcoin",
 		decimals: 8
 	}
 };
@@ -41,6 +54,8 @@ async function fetchTokenData(client: any, address: string) {
 	if (USE_STATIC_TOKEN_DATA) {
 		const normalizedAddress = address.toLowerCase();
 		const staticData = STATIC_TOKEN_DATA[normalizedAddress];
+
+		console.log(`Fetching token data for ${address}: ${staticData ? 'Using static data' : 'Using RPC call'}`);
 
 		if (staticData) {
 			console.log(`Using static token data for ${address}: ${staticData.symbol}`);
