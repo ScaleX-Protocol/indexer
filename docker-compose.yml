@@ -46,20 +46,25 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    # Use host networking to connect to localhost:5433
+    network_mode: "host"
     env_file:
       - ./.env.core-chain
     environment:
-      - PONDER_DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder_core
-      - REDIS_URL=redis://redis:6379
+      - PONDER_DATABASE_URL=postgresql://postgres:password@localhost:5433/ponder_core
+      - REDIS_URL=redis://localhost:6380
       - ENABLE_EVENT_PUBLISHING=true
       - ENABLE_WEBSOCKET=false  # Disabled in favor of separate websocket service
+      - PONDER_PORT=42070
     depends_on:
       - postgres
       - redis
-    networks:
-      - scalex-network
     volumes:
       - ./logs:/app/logs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.base-sepolia-indexer.rule=Host(`base-sepolia-indexer.scalex.money`)"
+      - "traefik.http.services.base-sepolia-indexer.loadbalancer.server.port=42070"
 
   # WebSocket service
   websocket-service:
@@ -67,8 +72,8 @@ services:
       context: ./websocket-service
       dockerfile: Dockerfile
     ports:
-      - "42080:42080"  
-      - "8080:8080"    
+      - "42080:42080"
+      - "42084:8080"  # Health port changed to avoid conflict    
     env_file:
       - ./.env.core-chain
     environment:
@@ -163,22 +168,36 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
-  # Nginx reverse proxy (optional - COMMENTED OUT)
-  # nginx:
-  #   image: nginx:alpine
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-  #     - ./nginx/ssl:/etc/nginx/ssl:ro
-  #   depends_on:
-  #     - websocket-service
-  #     - analytics-service
-  #     - scalex-api
-  #   networks:
-  #     - scalex-network
-  #   restart: unless-stopped
+  # Traefik reverse proxy for indexer domain
+  traefik:
+    image: traefik:v3.1
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=renaka@scalex.money"
+      - "--certificatesresolvers.letsencrypt.storage=/acme.json"
+      - "--certificatesresolvers.letsencrypt.httpchallenge.entrypoint=web"
+      - "--providers.file.filename=/traefik.yml"
+    ports:
+      - "42081:80"   # HTTP (alternative port to avoid conflict)
+      - "42082:443"  # HTTPS (alternative port to avoid conflict)
+      - "42083:8080" # Traefik dashboard (alternative port)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/acme.json:/acme.json
+      - ./traefik/traefik.yml:/traefik.yml:ro
+    networks:
+      - scalex-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.base-sepolia-indexer.scalex.money`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
 
   # Monitoring services (COMMENTED OUT)
   # prometheus:
@@ -239,3 +258,5 @@ volumes:
 networks:
   scalex-network:
     driver: bridge
+  coolify:
+    external: true

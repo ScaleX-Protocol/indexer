@@ -1,18 +1,20 @@
 # Use official Node.js image
-FROM oven/bun:1.2-slim
+FROM node:18-alpine
 
 # Set workdir
 WORKDIR /app
 
+# Install pnpm and postgres client
+RUN npm install -g pnpm && apk update && apk add --no-cache postgresql-client
+
 # Copy package files and install dependencies
 COPY package.json pnpm-lock.yaml* ./
-RUN bun install
+RUN pnpm install --no-frozen-lockfile
 
 # Copy the rest of the app
 COPY . .
 
 # Expose ponder port
-EXPOSE 42069
-EXPOSE 42080
+EXPOSE 42070
 
-CMD ["bun", "run", "dev:core-chain"]
+CMD ["pnpm", "run", "dev:core-chain"]
