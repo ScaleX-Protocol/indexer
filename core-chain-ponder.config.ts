@@ -139,9 +139,9 @@ const contracts: any = {
 export function getCoreChainConfig() {
 	const config = {
 		networks: {
-			// ScaleX Anvil (Core Chain - 31337) - Main trading chain
+			// ScaleX Core Chain - Main trading chain
 			coreDevnet: {
-				chainId: 31337,
+				chainId: Number(process.env.SCALEX_CORE_DEVNET_CHAIN_ID) || 84532,
 				transport: fallback([
 					http(process.env.CORE_DEVNET_ENDPOINT),
 				]),
