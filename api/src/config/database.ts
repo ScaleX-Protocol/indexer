@@ -11,7 +11,7 @@ const sslConfig = process.env.DATABASE_CA ? {
   }
 } : {};
 
-// Using dedicated database for API/faucet functionality
+// Primary database for API/faucet functionality
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5435/scalex_api';
 
 const pool = new Pool({
@@ -20,3 +20,13 @@ const pool = new Pool({
 });
 
 export const db = drizzle(pool, { schema });
+
+// Secondary database for Ponder data (currencies, etc.)
+const ponderConnectionString = process.env.PONDER_DATABASE_URL || 'postgresql://postgres:password@localhost:5433/ponder_core';
+
+const ponderPool = new Pool({
+  connectionString: ponderConnectionString,
+  ...sslConfig,
+});
+
+export const ponderDb = drizzle(ponderPool, { schema });

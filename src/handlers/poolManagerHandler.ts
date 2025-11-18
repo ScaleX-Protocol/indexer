@@ -158,7 +158,7 @@ export async function handlePoolCreated({ event, context }: any) {
 		// Skip the currency insertion here to avoid duplicate work
 		let baseData, quoteData;
 		try {
-			baseData = await fetchTokenData(client, baseCurrency);
+			baseData = await fetchTokenData(client, baseCurrency)
 		} catch (error) {
 			baseData = {
 				symbol: `BASE_${baseCurrency.slice(-6)}`,

@@ -137,14 +137,21 @@ const contracts: any = {
 };
 
 export function getCoreChainConfig() {
+	// Handle multiple HTTP endpoints from comma-separated string
+	if (!process.env.CORE_DEVNET_ENDPOINT) {
+		throw new Error("CORE_DEVNET_ENDPOINT environment variable is required");
+	}
+	
+	const coreDevnetEndpoints = process.env.CORE_DEVNET_ENDPOINT
+		.split(",")
+		.map(endpoint => http(endpoint.trim()));
+
 	const config = {
 		networks: {
 			// ScaleX Core Chain - Main trading chain
 			coreDevnet: {
 				chainId: Number(process.env.SCALEX_CORE_DEVNET_CHAIN_ID) || 84532,
-				transport: fallback([
-					http(process.env.CORE_DEVNET_ENDPOINT),
-				]),
+				transport: fallback(coreDevnetEndpoints),
 				pollingInterval: Number(process.env.SCALEX_CORE_DEVNET_POLLING_INTERVAL) || 1000,
 				maxRequestsPerSecond: Number(process.env.SCALEX_CORE_DEVNET_MAX_REQUESTS_PER_SECOND) || 50,
 				// Anvil-specific optimizations
