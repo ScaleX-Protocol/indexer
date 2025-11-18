@@ -101,19 +101,27 @@ export async function handleTokenMappingRegistered({ event, context }: any) {
 
 			// Record currencies in the currencies table
 			// Record the source token (underlying token)
+			let sourceDecimals = 18; // Default
+			if (symbol === "USDC") sourceDecimals = 6;
+			else if (symbol === "WBTC") sourceDecimals = 8;
+			
 			await insertCurrency(context, Number(sourceChainId), sourceToken, {
 				symbol: symbol,
 				name: `${symbol} Token`,
-				decimals: 0, // Will be updated when we have the actual decimals
+				decimals: sourceDecimals,
 				tokenType: "underlying",
 				registeredAt: timestamp,
 			});
 
 			// Record the synthetic token
+			let syntheticDecimals = 18; // Default
+			if (symbol === "USDC") syntheticDecimals = 6;
+			else if (symbol === "WBTC") syntheticDecimals = 8;
+			
 			await insertCurrency(context, Number(targetChainId), syntheticToken, {
-				symbol: `gs${symbol}`,
-				name: `Gateway Synthetic ${symbol}`,
-				decimals: 0, // Will be updated when we have the actual decimals
+				symbol: symbol.startsWith('gs') ? symbol : `gs${symbol}`,
+				name: `ScaleX Synthetic ${symbol.replace('gs', '')}`,
+				decimals: syntheticDecimals,
 				tokenType: "synthetic",
 				sourceChainId: Number(sourceChainId),
 				underlyingTokenAddress: sourceToken,
