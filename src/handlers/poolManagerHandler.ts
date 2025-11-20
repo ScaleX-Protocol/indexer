@@ -109,35 +109,6 @@ async function safeReadContract(client: any, address: string, functionName: stri
 	}
 }
 
-async function insertCurrency(context: any, chainId: number, address: Address, data: any) {
-	if (USE_RAW_SQL) {
-		const currencyId = createCurrencyId(chainId, address);
-		await context.db.sql
-			.insert(currencies)
-			.values({
-				id: currencyId,
-				address: address,
-				chainId,
-				name: data.name,
-				symbol: data.symbol,
-				decimals: data.decimals,
-			})
-			.onConflictDoNothing();
-	} else {
-		await context.db
-			.insert(currencies)
-			.values({
-				id: createCurrencyId(chainId, address),
-				address: address,
-				chainId,
-				name: data.name,
-				symbol: data.symbol,
-				decimals: data.decimals,
-			})
-			.onConflictDoNothing();
-	}
-}
-
 export async function handlePoolCreated({ event, context }: any) {
 	try {
 		const { client, db } = context;
@@ -154,8 +125,7 @@ export async function handlePoolCreated({ event, context }: any) {
 		const baseCurrency = getAddress(event.args.baseCurrency);
 		const quoteCurrency = getAddress(event.args.quoteCurrency);
 
-		// Currencies are now recorded during token registration, not pool creation
-		// Skip the currency insertion here to avoid duplicate work
+			// Currencies are now recorded during token registration, not pool creation
 		let baseData, quoteData;
 		try {
 			baseData = await fetchTokenData(client, baseCurrency)

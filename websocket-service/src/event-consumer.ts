@@ -160,7 +160,9 @@ export class EventConsumer {
   private parseEventData(fields: string[]): { [key: string]: string } {
     const data: { [key: string]: string } = {};
     for (let i = 0; i < fields.length; i += 2) {
-      data[fields[i]] = fields[i + 1];
+      if (i + 1 < fields.length) {
+        data[fields[i]] = fields[i + 1];
+      }
     }
     return data;
   }

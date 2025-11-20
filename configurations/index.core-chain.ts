@@ -1,12 +1,12 @@
 import { ponder } from "ponder:registry";
-import * as orderBookHandler from "./handlers/orderBookHandler";
-import * as poolManagerHandler from "./handlers/poolManagerHandler";
-import * as balanceManagerHandler from "./handlers/balanceManagerHandler";
-import * as crossChainHandler from "./handlers/crossChainHandler";
-import * as tokenRegistryHandler from "./handlers/tokenRegistryHandler";
-import * as lendingManagerHandler from "./handlers/lendingManagerHandler";
-import * as oracleHandler from "./handlers/oracleHandler";
-import { PonderEvents } from "./types/ponder-core-chain";
+import * as orderBookHandler from "../src/handlers/orderBookHandler";
+import * as poolManagerHandler from "../src/handlers/poolManagerHandler";
+import * as balanceManagerHandler from "../src/handlers/balanceManagerHandler";
+import * as crossChainHandler from "../src/handlers/crossChainHandler";
+import * as tokenRegistryHandler from "../src/handlers/tokenRegistryHandler";
+import * as lendingManagerHandler from "../src/handlers/lendingManagerHandler";
+import * as oracleHandler from "../src/handlers/oracleHandler";
+import { PonderEvents } from "../src/types/ponder-core-chain";
 
 // Pool Manager Events
 ponder.on(PonderEvents.POOL_CREATED, poolManagerHandler.handlePoolCreated);

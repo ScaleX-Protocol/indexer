@@ -1,4 +1,5 @@
 import { Elysia, ValidationError } from "elysia";
+import { cors } from '@elysiajs/cors';
 import { tradeRoutes, marketRoutes, faucetRoutes } from './routes';
 import { currenciesRoutes } from './routes/currencies.routes';
 import { app as appConfig} from './config/app';
@@ -7,6 +8,18 @@ import { createErrorResponse } from './utils/response.utils';
 import { HttpStatus } from './enums';
 
 const app = new Elysia()
+  .use(cors({
+    origin: [
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3000',
+      /^https:\/\/.*\.vercel\.app$/,
+      /^https:\/\/.*\.netlify\.app$/
+    ],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+  }))
   .onError(({ code, error, set }) => {
     if (code === 'VALIDATION') {
       set.status = 400;

@@ -112,7 +112,7 @@ export class FaucetController {
 
       if (result.success && requestId) {
         // Update request as completed
-        await this.updateFaucetRequest(requestId, {
+        await this.updateFaucetRequest(requestId.toString(), {
           status: 'completed',
           transactionHash: result.transactionHash || '',
           tokenSymbol: result.tokenSymbol || 'UNKNOWN',
@@ -147,7 +147,7 @@ export class FaucetController {
         };
       } else if (requestId) {
         // Update request as failed
-        await this.updateFaucetRequest(requestId, {
+        await this.updateFaucetRequest(requestId.toString(), {
           status: 'failed',
           errorMessage: result.error || 'Unknown error',
           completedTimestamp: new Date()
@@ -200,28 +200,28 @@ export class FaucetController {
   ): Promise<{ success: boolean; data?: any[]; error?: string }> {
     try {
       console.log('📜 Debug: Fetching faucet history', { address, chainId, limit });
-      let query = db
-        .select()
-        .from(faucetRequests)
-        .orderBy(faucetRequests.requestTimestamp)
-        .limit(limit);
-
-      // Apply filters
+      
+      // Build where conditions
+      const conditions = [];
       if (address && chainId) {
-        query = query.where(
+        conditions.push(
           and(
             eq(faucetRequests.requesterAddress, address.toLowerCase() as string),
             eq(faucetRequests.chainId, chainId)
           )
         );
       } else if (address) {
-        query = query.where(eq(faucetRequests.requesterAddress, address.toLowerCase() as string));
+        conditions.push(eq(faucetRequests.requesterAddress, address.toLowerCase() as string));
       } else if (chainId) {
-        query = query.where(eq(faucetRequests.chainId, chainId));
+        conditions.push(eq(faucetRequests.chainId, chainId));
       }
 
-      console.log('🔍 Debug: Executing query...');
-      const results = await query;
+      const results = await db
+        .select()
+        .from(faucetRequests)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(faucetRequests.requestTimestamp)
+        .limit(limit);
       console.log('📊 Debug: Query results:', results.length, 'records');
 
       // Convert BigInt to string for JSON serialization
@@ -245,7 +245,7 @@ export class FaucetController {
     }
   }
 
-  private async recordFaucetRequest(request: NewFaucetRequest): Promise<string | null> {
+  private async recordFaucetRequest(request: NewFaucetRequest): Promise<number | null> {
     try {
       const result = await db.insert(faucetRequests).values(request).returning({ id: faucetRequests.id });
       return result[0]?.id || null;

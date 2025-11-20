@@ -18,9 +18,13 @@ const currentLogLevel = process.env.NODE_ENV === 'production'
 
 export class SimpleLogger {
   private logger: ReturnType<typeof createLogger>;
+  private moduleName: string;
+  private functionName: string;
   
   constructor(module: string, functionName?: string) {
-    this.logger = createLogger(module, functionName);
+    this.moduleName = module;
+    this.functionName = functionName || '';
+    this.logger = createLogger(module, this.functionName);
   }
 
   private shouldLog(level: keyof typeof LOG_LEVELS): boolean {
@@ -30,29 +34,42 @@ export class SimpleLogger {
   // Only log critical errors
   error(message: string, error?: Error, meta?: Record<string, any>) {
     if (this.shouldLog('ERROR')) {
-      this.logger.error(message, error, meta);
+      this.logger.writeError(error || new Error(message), meta);
     }
   }
 
   // Only log important warnings
   warn(message: string, meta?: Record<string, any>) {
     if (this.shouldLog('WARN')) {
-      this.logger.warn(message, meta);
+      console.warn(`[${this.moduleName}:${this.functionName}] ${message}`, meta);
     }
   }
 
   // Only log important business events
   info(message: string, meta?: Record<string, any>) {
     if (this.shouldLog('INFO')) {
-      this.logger.info(message, meta);
+      console.info(`[${this.moduleName}:${this.functionName}] ${message}`, meta);
     }
   }
 
   // Minimal debug logging for troubleshooting
   debug(message: string, meta?: Record<string, any>) {
     if (this.shouldLog('DEBUG')) {
-      this.logger.debug(message, meta);
+      console.debug(`[${this.moduleName}:${this.functionName}] ${message}`, meta);
     }
+  }
+
+  // Original methods for backward compatibility
+  log(event: any, step: string) {
+    return this.logger.log(event, step);
+  }
+
+  logSimple(blockNumber: number | undefined, step: string) {
+    return this.logger.logSimple(blockNumber, step);
+  }
+
+  writeError(error: Error, functionParameters?: any, event?: any) {
+    return this.logger.writeError(error, functionParameters, event);
   }
 }
 

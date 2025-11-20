@@ -66,29 +66,33 @@ export const CONFIG = {
 
 // Helper functions for getting configuration values
 export const getCacheTtl = (customTtl?: string | number, type: 'short' | 'medium' | 'long' | 'default' = 'default'): number => {
+  const ttlKey = `REDIS_TTL_${type.toUpperCase()}` as keyof typeof CONFIG.CACHE;
   if (customTtl) {
     const parsed = parseInt(customTtl.toString());
-    return isNaN(parsed) ? CONFIG.CACHE[`REDIS_TTL_${type.toUpperCase()}`] : parsed;
+    return isNaN(parsed) ? CONFIG.CACHE[ttlKey] : parsed;
   }
-  return CONFIG.CACHE[`REDIS_TTL_${type.toUpperCase()}`];
+  return CONFIG.CACHE[ttlKey];
 };
 
 export const getApiLimit = (providedLimit?: string | number, type: 'small' | 'medium' | 'large' = 'medium'): number => {
+  const maxKey = `MAX_LIMIT_${type.toUpperCase()}` as keyof typeof CONFIG.API;
+  const defaultKey = `DEFAULT_LIMIT_${type.toUpperCase()}` as keyof typeof CONFIG.API;
   if (providedLimit) {
     const parsed = parseInt(providedLimit.toString());
     if (!isNaN(parsed) && parsed > 0) {
-      return Math.min(parsed, CONFIG.API[`MAX_LIMIT_${type.toUpperCase()}`]);
+      return Math.min(parsed, CONFIG.API[maxKey]);
     }
   }
-  return CONFIG.API[`DEFAULT_LIMIT_${type.toUpperCase()}`];
+  return CONFIG.API[defaultKey];
 };
 
 export const getNetworkInterval = (customInterval?: string | number, type: 'ping' | 'monitor' = 'ping', production = false): number => {
+  const intervalKey = `WS_${type.toUpperCase()}_INTERVAL_${production ? 'PRODUCTION' : 'DEFAULT'}` as keyof typeof CONFIG.NETWORK;
   if (customInterval) {
     const parsed = parseInt(customInterval.toString());
-    return isNaN(parsed) ? CONFIG.NETWORK[`WS_${type.toUpperCase()}_INTERVAL_${production ? 'PRODUCTION' : 'DEFAULT'}`] : parsed;
+    return isNaN(parsed) ? CONFIG.NETWORK[intervalKey] : parsed;
   }
-  return CONFIG.NETWORK[`WS_${type.toUpperCase()}_INTERVAL_${production ? 'PRODUCTION' : 'DEFAULT'}`];
+  return CONFIG.NETWORK[intervalKey];
 };
 
 export const getLiquidityThreshold = (totalLiquidity: number): {

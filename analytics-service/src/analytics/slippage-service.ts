@@ -59,7 +59,7 @@ export class SlippageService {
 
       const baseAnalytics = {
         data: volumeData.data.map((item, index) => {
-          const tradeCount = parseInt(item.trade_count);
+          const tradeCount = parseInt(item.trade_count.toString());
           const itemVolume = parseFloat(item.volume || '0');
 
           // Add deterministic time-based variation based on trading patterns
@@ -111,10 +111,10 @@ export class SlippageService {
           avgSlippage: parseFloat(point.avgSlippage || '0').toFixed(4),
           medianSlippage: parseFloat(point.medianSlippage || '0').toFixed(4),
           maxSlippage: parseFloat(point.maxSlippage || '0').toFixed(4),
-          slippageStdDev: parseFloat(point.avgSlippage * 0.3 || '0').toFixed(4), // Calculate std dev as 30% of avg
-          tradeCount: parseInt(point.totalTrades || '0'),
-          impactedTrades: Math.floor(parseInt(point.totalTrades || '0') * 0.15), // 15% of trades have impact
-          impactRate: parseFloat((parseInt(point.totalTrades || '0') > 0 ? 15 : 0)).toFixed(2)
+          slippageStdDev: parseFloat((parseFloat(point.avgSlippage) * 0.3).toString() || '0').toFixed(4), // Calculate std dev as 30% of avg
+          tradeCount: parseInt(point.totalTrades.toString()),
+          impactedTrades: Math.floor(parseInt(point.totalTrades.toString()) * 0.15), // 15% of trades have impact
+          impactRate: parseFloat((parseInt(point.totalTrades.toString()) > 0 ? '15' : '0')).toFixed(2)
         })),
 
         // Get slippage by symbol breakdown (based on real data)

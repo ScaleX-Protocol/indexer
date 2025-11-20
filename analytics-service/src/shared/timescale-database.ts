@@ -737,18 +737,6 @@ export class TimescaleDatabaseClient {
     `;
   }
 
-  private getTimeframeHours(timeframe: string): number | null {
-    switch (timeframe) {
-      case '1h': return 1;
-      case '24h': return 24;
-      case '7d': return 168;
-      case '30d': return 720;
-      case '1y': return 8760;
-      case 'all': return null;
-      default: return 24;
-    }
-  }
-
   // ===========================================
   // Slippage Analytics ETL Methods
   // ===========================================

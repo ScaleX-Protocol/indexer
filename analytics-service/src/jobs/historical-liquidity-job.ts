@@ -32,8 +32,8 @@ export class HistoricalLiquidityJob {
 
   constructor() {
     // Use ponder_core database for accessing order data
-    this.ponderDb = new DatabaseClient(process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5433/ponder_core');
-    this.timescaleDb = new TimescaleDatabaseClient();
+    this.ponderDb = new DatabaseClient();
+    this.timescaleDb = TimescaleDatabaseClient.getInstance();
   }
 
   /**

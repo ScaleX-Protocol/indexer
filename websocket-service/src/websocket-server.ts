@@ -220,6 +220,8 @@ export class WebSocketServer {
     try {
       // Extract symbol from stream (e.g., "btcusdt@depth" -> "btcusdt")
       const symbol = stream.split('@')[0];
+      if (!symbol) return;
+      
       const pool = await this.db.getPoolBySymbol(symbol.toUpperCase());
       
       if (pool) {

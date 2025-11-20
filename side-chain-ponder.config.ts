@@ -2,7 +2,7 @@
 import dotenv from "dotenv";
 import { factory } from "ponder";
 import { fallback, getAddress, http, parseAbiItem } from "viem";
-import { ChainBalanceManagerABI, FaucetABI, MailboxABI } from "./abis";
+import { ChainBalanceManagerABI, MailboxABI } from "./abis";
 
 dotenv.config({ path: ".env.side-chain" });
 

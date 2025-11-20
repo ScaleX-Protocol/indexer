@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Generated files
+generated/
+abis/
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# SSL certificates
+nginx/ssl/
+
+# Development files
+scripts/development/
+
+# Analytics logs
+analytics-service/logs/
+analytics-service/*.log
+websocket-service/logs/
+api/logs/
