@@ -55,16 +55,16 @@ export class OutflowService {
           tradingOutflow: '0.00', // Not applicable for balance-based analytics
           outflowRate: balanceData.data.length > 0 ?
             (parseFloat(balanceData.summary.total_outflows) / balanceData.data.length).toFixed(6) : '0.00',
-          trend: parseInt(balanceData.summary.total_withdrawals) > 10 ? 'declining' :
-            parseInt(balanceData.summary.total_withdrawals) > 5 ? 'stable' : 'low'
+          trend: parseInt(balanceData.summary.total_withdrawals.toString()) > 10 ? 'declining' :
+            parseInt(balanceData.summary.total_withdrawals.toString()) > 5 ? 'stable' : 'low'
         }],
 
         // Get outflow trends analysis
         outflowTrends: {
-          trend: parseInt(balanceData.summary.total_withdrawals) > 10 ? 'declining' : 'stable',
+          trend: parseInt(balanceData.summary.total_withdrawals.toString()) > 10 ? 'declining' : 'stable',
           changePercent: '0.0%', // Would need historical comparison
-          momentum: parseInt(balanceData.summary.total_withdrawals) > 5 ? 'moderate' : 'low',
-          riskLevel: parseInt(balanceData.summary.total_withdrawals) > 20 ? 'high' : 'low'
+          momentum: parseInt(balanceData.summary.total_withdrawals.toString()) > 5 ? 'moderate' : 'low',
+          riskLevel: parseInt(balanceData.summary.total_withdrawals.toString()) > 20 ? 'high' : 'low'
         },
 
         summary: {
@@ -72,14 +72,14 @@ export class OutflowService {
           avgDailyOutflow: balanceData.summary.avg_daily_outflow,
           peakDailyOutflow: balanceData.data.length > 0 ?
             Math.max(...balanceData.data.map(d => parseFloat(d.total_outflow))).toFixed(6) : '0.00',
-          netOutflowTrend: parseInt(balanceData.summary.total_withdrawals) > 10 ? 'declining' : 'stable'
+          netOutflowTrend: parseInt(balanceData.summary.total_withdrawals.toString()) > 10 ? 'declining' : 'stable'
         },
 
         insights: {
           description: this.generateOutflowInsights(balanceData.summary),
           recommendation: this.generateOutflowRecommendation(balanceData.summary),
           highestOutflowMarkets: [symbol || 'all'],
-          outflowRisks: parseInt(balanceData.summary.total_withdrawals) > 20 ? ['High withdrawal activity'] : []
+          outflowRisks: parseInt(balanceData.summary.total_withdrawals.toString()) > 20 ? ['High withdrawal activity'] : []
         },
 
         timestamp: Date.now()

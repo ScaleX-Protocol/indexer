@@ -12,4 +12,4 @@ export { OrderBookABI } from './OrderBook';
 export { UpgradeableBeaconABI } from './UpgradeableBeacon';
 export { BeaconProxyABI } from './BeaconProxy';
 export { MailboxABI } from './Mailbox';
-export { ScaleXRouterABI } from './ScaleXRouter';
+export { SCALEXRouterABI } from './ScaleXRouter';

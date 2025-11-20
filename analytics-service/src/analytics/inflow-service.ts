@@ -47,8 +47,8 @@ export class InflowService {
           avg_daily_inflow: balanceData.summary.avg_daily_inflow,
           peak_daily_inflow: balanceData.data.length > 0 ?
             Math.max(...balanceData.data.map(d => parseFloat(d.total_inflow))).toFixed(6) : '0',
-          net_inflow_trend: parseInt(balanceData.summary.total_deposits) > 10 ? 'positive' :
-            parseInt(balanceData.summary.total_deposits) > 5 ? 'neutral' : 'negative'
+          net_inflow_trend: parseInt(balanceData.summary.total_deposits.toString()) > 10 ? 'positive' :
+            parseInt(balanceData.summary.total_deposits.toString()) > 5 ? 'neutral' : 'negative'
         }
       };
 
@@ -74,9 +74,9 @@ export class InflowService {
           totalInflow: baseAnalytics.summary.total_inflows,
           deposits: baseAnalytics.summary.total_inflows,
           tradingInflow: '0.00', // Not applicable for balance-based analytics
-          uniqueUsers: parseInt(balanceData.summary.unique_depositors),
-          avgInflowSize: parseInt(balanceData.summary.total_deposits) > 0 ?
-            (parseFloat(baseAnalytics.summary.total_inflows) / parseInt(balanceData.summary.total_deposits)).toFixed(6) : '0.00',
+          uniqueUsers: parseInt(balanceData.summary.unique_depositors.toString()),
+          avgInflowSize: parseInt(balanceData.summary.total_deposits.toString()) > 0 ?
+            (parseFloat(baseAnalytics.summary.total_inflows) / parseInt(balanceData.summary.total_deposits.toString())).toFixed(6) : '0.00',
           trend: baseAnalytics.summary.net_inflow_trend
         }],
 

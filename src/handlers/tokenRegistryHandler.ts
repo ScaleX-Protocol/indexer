@@ -1,8 +1,71 @@
-import { tokenMappings, currencies } from "ponder:schema";
 import { createCurrencyId } from "@/utils";
-import { sql } from "ponder";
+import { currencies, tokenMappings } from "ponder:schema";
+import { ERC20ABI } from "../../abis/ERC20";
 
-// TokenRegistry event handlers
+// Helper function to fetch token data from blockchain
+async function fetchTokenData(client: any, address: string) {
+	try {
+		const [symbol, name, decimals] = await client.multicall({
+			contracts: [
+				{ address, abi: ERC20ABI, functionName: "symbol" },
+				{ address, abi: ERC20ABI, functionName: "name" },
+				{ address, abi: ERC20ABI, functionName: "decimals" },
+			],
+			blockTag: "latest"
+		});
+
+		return {
+			symbol: symbol.status === "success" ? symbol.result : "",
+			name: name.status === "success" ? name.result : "",
+			decimals: decimals.status === "success" ? Number(decimals.result) : 18,
+		};
+	} catch {
+		try {
+			return {
+				symbol: await safeReadContract(client, address, "symbol"),
+				name: await safeReadContract(client, address, "name"),
+				decimals: (await safeReadContract(client, address, "decimals")) || 18,
+			};
+		} catch {
+			return {
+				symbol: "",
+				name: "",
+				decimals: 18,
+			};
+		}
+	}
+}
+
+async function safeReadContract(client: any, address: string, functionName: string) {
+	try {
+		return await client.readContract({
+			address,
+			abi: ERC20ABI,
+			functionName,
+			blockTag: "latest"
+		});
+	} catch (e) {
+		console.error(`Failed to get ${functionName} for ${address}:`, e);
+		return functionName === "decimals" ? 18 : "";
+	}
+}
+
+// Helper function to check if a chain should be excluded (cross-chain filtering)
+function shouldExcludeChain(chainId: number): boolean {
+	const excludedChainsEnv = process.env.EXCLUDED_CHAINS || "4661,1918988905";
+	const EXCLUDED_CHAINS = excludedChainsEnv.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+
+	return EXCLUDED_CHAINS.includes(chainId);
+}
+
+// Helper function to check if a token mapping should be processed
+function shouldProcessTokenMapping(sourceChainId: number, targetChainId: number): boolean {
+	if (shouldExcludeChain(sourceChainId) || shouldExcludeChain(targetChainId)) {
+		return false;
+	}
+
+	return true;
+}
 
 // Helper function to insert currencies when tokens are registered
 async function insertCurrency(context: any, chainId: number, address: string, data: {
@@ -16,7 +79,7 @@ async function insertCurrency(context: any, chainId: number, address: string, da
 }) {
 	try {
 		const currencyId = createCurrencyId(chainId, address);
-		
+
 		await context.db
 			.insert(currencies)
 			.values({
@@ -45,7 +108,7 @@ async function insertCurrency(context: any, chainId: number, address: string, da
 				isActive: true,
 				registeredAt: data.registeredAt || Math.floor(Date.now() / 1000),
 			});
-			
+
 		console.log(`✅ Recorded currency: ${data.symbol} (${address}) on chain ${chainId} [${data.tokenType || "underlying"}]`);
 	} catch (error) {
 		console.error(`❌ Failed to record currency ${data.symbol}:`, error);
@@ -55,11 +118,20 @@ async function insertCurrency(context: any, chainId: number, address: string, da
 export async function handleTokenMappingRegistered({ event, context }: any) {
 	try {
 		const { sourceChainId, sourceToken, targetChainId, syntheticToken, symbol } = event.args;
-		const db = context.db;
+		const { client, db } = context;
 		const timestamp = Number(event.block.timestamp);
 
+		if (!client) throw new Error('Client context is null or undefined');
 		if (!db) throw new Error('Database context is null or undefined');
 		if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+		// Exclude cross-chain mappings
+		const sourceChainIdNum = Number(sourceChainId);
+		const targetChainIdNum = Number(targetChainId);
+
+		if (!shouldProcessTokenMapping(sourceChainIdNum, targetChainIdNum)) {
+			return;
+		}
 
 		const id = `${sourceChainId}-${sourceToken}-${targetChainId}`;
 
@@ -99,29 +171,21 @@ export async function handleTokenMappingRegistered({ event, context }: any) {
 				});
 			console.log(`✅ Stored/updated token mapping: ${symbol} from chain ${sourceChainId} to ${targetChainId}`);
 
-			// Record currencies in the currencies table
-			// Record the source token (underlying token)
-			let sourceDecimals = 18; // Default
-			if (symbol === "USDC") sourceDecimals = 6;
-			else if (symbol === "WBTC") sourceDecimals = 8;
-			
+			// Fetch actual token data from blockchain for source token
+			const sourceTokenData = await fetchTokenData(client, sourceToken);
 			await insertCurrency(context, Number(sourceChainId), sourceToken, {
-				symbol: symbol,
-				name: `${symbol} Token`,
-				decimals: sourceDecimals,
+				symbol: sourceTokenData.symbol,
+				name: sourceTokenData.name,
+				decimals: sourceTokenData.decimals,
 				tokenType: "underlying",
 				registeredAt: timestamp,
 			});
 
-			// Record the synthetic token
-			let syntheticDecimals = 18; // Default
-			if (symbol === "USDC") syntheticDecimals = 6;
-			else if (symbol === "WBTC") syntheticDecimals = 8;
-			
+			// For synthetic token, we can't fetch from blockchain directly, so we use derived data
 			await insertCurrency(context, Number(targetChainId), syntheticToken, {
-				symbol: symbol.startsWith('gs') ? symbol : `gs${symbol}`,
-				name: `ScaleX Synthetic ${symbol.replace('gs', '')}`,
-				decimals: syntheticDecimals,
+				symbol: symbol,
+				name: `ScaleX Synthetic ${sourceTokenData.symbol}`,
+				decimals: sourceTokenData.decimals,
 				tokenType: "synthetic",
 				sourceChainId: Number(sourceChainId),
 				underlyingTokenAddress: sourceToken,
@@ -140,12 +204,21 @@ export async function handleTokenMappingRegistered({ event, context }: any) {
 
 export async function handleTokenMappingUpdated({ event, context }: any) {
 	try {
-		const { sourceChainId, sourceToken, targetChainId, oldSynthetic, newSynthetic } = event.args;
+		const { sourceChainId, sourceToken, targetChainId, newSynthetic } = event.args;
 		const db = context.db;
 		const timestamp = Number(event.block.timestamp);
 
 		if (!db) throw new Error('Database context is null or undefined');
 		if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+		// Exclude cross-chain mappings - only process local chain mappings
+		const sourceChainIdNum = Number(sourceChainId);
+		const targetChainIdNum = Number(targetChainId);
+
+		if (!shouldProcessTokenMapping(sourceChainIdNum, targetChainIdNum)) {
+			console.log(`⏭️  Skipping cross-chain token mapping update: from chain ${sourceChainId} to ${targetChainId} (filtered out)`);
+			return; // Skip processing cross-chain mappings
+		}
 
 		const id = `${sourceChainId}-${sourceToken}-${targetChainId}`;
 
@@ -184,6 +257,15 @@ export async function handleTokenMappingRemoved({ event, context }: any) {
 
 		if (!db) throw new Error('Database context is null or undefined');
 		if (!event.transaction?.hash) throw new Error('Transaction hash is missing');
+
+		// Exclude cross-chain mappings - only process local chain mappings
+		const sourceChainIdNum = Number(sourceChainId);
+		const targetChainIdNum = Number(targetChainId);
+
+		if (!shouldProcessTokenMapping(sourceChainIdNum, targetChainIdNum)) {
+			console.log(`⏭️  Skipping cross-chain token mapping removal: from chain ${sourceChainId} to ${targetChainId} (filtered out)`);
+			return; // Skip processing cross-chain mappings
+		}
 
 		const id = `${sourceChainId}-${sourceToken}-${targetChainId}`;
 

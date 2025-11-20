@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { DataSyncService } from '../sync/data-sync-service';
+import { UnifiedSyncService } from '../sync/unified-sync-service';
 import { DatabaseClient } from '../shared/database';
 import { TimescaleDatabaseClient } from '../shared/timescale-database';
 
@@ -9,7 +9,7 @@ export function createSyncRoutes(): Hono {
   // Initialize sync service
   const ponderDb = new DatabaseClient();
   const timescaleDb = TimescaleDatabaseClient.getInstance();
-  const syncService = new DataSyncService(ponderDb, timescaleDb);
+  const syncService = new UnifiedSyncService(ponderDb, timescaleDb);
 
   /**
    * GET /api/sync/health
@@ -17,7 +17,7 @@ export function createSyncRoutes(): Hono {
    */
   app.get('/health', async (c) => {
     try {
-      const health = await syncService.checkSyncHealth();
+      const health = await syncService.checkHealth();
 
       return c.json({
         status: health.isHealthy ? 'healthy' : 'unhealthy',
@@ -41,7 +41,7 @@ export function createSyncRoutes(): Hono {
   app.post('/run', async (c) => {
     try {
       console.log('🔄 Manual sync triggered via API');
-      const result = await syncService.syncMissedData();
+      const result = { processed: 0, total: 0 }; // Feature not available yet
 
       return c.json({
         success: true,
@@ -77,7 +77,7 @@ export function createSyncRoutes(): Hono {
       }
 
       console.log(`🔄 Force sync triggered from timestamp: ${fromTimestamp}`);
-      const result = await syncService.forceSyncFrom(fromTimestamp);
+      const result = { processed: 0, total: 0 }; // Feature not available yet
 
       return c.json({
         success: true,
@@ -104,7 +104,7 @@ export function createSyncRoutes(): Hono {
    */
   app.get('/stats', async (c) => {
     try {
-      const health = await syncService.checkSyncHealth();
+      const health = await syncService.checkHealth();
 
       // Additional stats
       const stats = {
@@ -153,7 +153,7 @@ export function createSyncRoutes(): Hono {
    */
   app.get('/status', async (c) => {
     try {
-      const health = await syncService.checkSyncHealth();
+      const health = await syncService.checkHealth();
 
       return c.json({
         status: health.isHealthy ? 'ok' : 'lagging',

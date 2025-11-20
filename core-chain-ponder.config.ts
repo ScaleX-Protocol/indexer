@@ -2,7 +2,7 @@
 import dotenv from "dotenv";
 import { factory } from "ponder";
 import { fallback, getAddress, http, parseAbiItem } from "viem";
-import { BalanceManagerABI, LendingManagerABI, MailboxABI, OracleABI, OrderBookABI, PoolManagerABI, ScaleXRouterABI, SyntheticTokenFactoryABI, TokenRegistryABI } from "./abis";
+import { BalanceManagerABI, LendingManagerABI, MailboxABI, OracleABI, OrderBookABI, PoolManagerABI, SCALEXRouterABI, SyntheticTokenFactoryABI, TokenRegistryABI } from "./abis";
 
 dotenv.config({ path: ".env.core-chain" });
 
@@ -65,7 +65,7 @@ const contracts: any = {
 
 	// ScaleXRouter exists on ScaleX Anvil (core chain)
 	ScaleXRouter: {
-		abi: ScaleXRouterABI || [],
+		abi: SCALEXRouterABI || [],
 		network: {
 			coreDevnet: {
 				address: getAddress((process.env.ScaleXROUTER_CONTRACT_SCALEX_CORE_DEVNET_ADDRESS as `0x${string}`) || default_address),

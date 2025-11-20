@@ -121,7 +121,7 @@ function connectUser(address: string): void {
   }
 
   const normalizedAddress = address.toLowerCase();
-  let baseUrl = config.url.replace(/\/$/, "");
+  const baseUrl = config.url.replace(/\/$/, "");
   // if (!baseUrl.endsWith("/ws")) {
   //   baseUrl += "/ws";
   // }

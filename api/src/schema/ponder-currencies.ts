@@ -1,11 +1,17 @@
-import { integer, pgTable, text, varchar } from 'drizzle-orm/pg-core';
+import { integer, pgTable, text, varchar, boolean } from 'drizzle-orm/pg-core';
 
 export const currencies = pgTable('currencies', {
-  address: text('address').notNull().primaryKey(),
-  symbol: varchar('symbol', { length: 20 }).notNull(),
-  name: varchar('name', { length: 100 }).notNull(),
-  decimals: integer('decimals').notNull().default(18),
+  id: text('id').primaryKey(),
   chainId: integer('chain_id').notNull(),
+  address: text('address').notNull(),
+  name: varchar('name'),
+  symbol: varchar('symbol'),
+  decimals: integer('decimals'),
+  tokenType: varchar('token_type').default('underlying'),
+  sourceChainId: integer('source_chain_id'),
+  underlyingTokenAddress: text('underlying_token_address'),
+  isActive: boolean('is_active').default(true),
+  registeredAt: integer('registered_at'),
 });
 
 export type Currency = typeof currencies.$inferSelect;

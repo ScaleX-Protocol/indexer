@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Docker Compose Environment Configuration
 # Uses .env.core-chain for service environment variables
 
@@ -61,10 +59,6 @@ services:
       - redis
     volumes:
       - ./logs:/app/logs
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.base-sepolia-indexer.rule=Host(`base-sepolia-indexer.scalex.money`)"
-      - "traefik.http.services.base-sepolia-indexer.loadbalancer.server.port=42070"
 
   # WebSocket service
   websocket-service:
@@ -168,36 +162,6 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
-  # Traefik reverse proxy for indexer domain
-  traefik:
-    image: traefik:v3.1
-    command:
-      - "--api.dashboard=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.email=renaka@scalex.money"
-      - "--certificatesresolvers.letsencrypt.storage=/acme.json"
-      - "--certificatesresolvers.letsencrypt.httpchallenge.entrypoint=web"
-      - "--providers.file.filename=/traefik.yml"
-    ports:
-      - "42081:80"   # HTTP (alternative port to avoid conflict)
-      - "42082:443"  # HTTPS (alternative port to avoid conflict)
-      - "42083:8080" # Traefik dashboard (alternative port)
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/acme.json:/acme.json
-      - ./traefik/traefik.yml:/traefik.yml:ro
-    networks:
-      - scalex-network
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.base-sepolia-indexer.scalex.money`)"
-      - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
 
   # Monitoring services (COMMENTED OUT)
   # prometheus:

@@ -1,5 +1,5 @@
 import { ponderDb } from '../config/database';
-import { eq, asc, and } from 'drizzle-orm';
+import { eq, asc, and, not, ilike } from 'drizzle-orm';
 import { currencies } from '../schema/ponder-currencies';
 
 export const getAllCurrencies = async ({ query }: { query: any }) => {
@@ -7,33 +7,45 @@ export const getAllCurrencies = async ({ query }: { query: any }) => {
     const chainId = query.chainId ? parseInt(query.chainId) : undefined;
     const limit = parseInt(query.limit) || 100;
     const offset = parseInt(query.offset) || 0;
+    const tokenType = query.tokenType; // 'underlying', 'synthetic', or undefined for all
+    const onlyActual = query.onlyActual === 'true'; // filter for actual (underlying) tokens only
 
-    let dbQuery = ponderDb.select({
+    const conditions = [];
+    if (chainId) {
+      conditions.push(eq(currencies.chainId, chainId));
+    }
+    
+    // Filter by token type
+    if (tokenType) {
+      conditions.push(eq(currencies.tokenType, tokenType));
+    }
+    
+    // Filter for actual tokens only (exclude synthetic)
+    if (onlyActual) {
+      conditions.push(eq(currencies.tokenType, 'underlying'));
+    }
+
+    const allCurrencies = await ponderDb.select({
+      id: currencies.id,
       address: currencies.address,
       symbol: currencies.symbol,
       name: currencies.name,
       decimals: currencies.decimals,
       chainId: currencies.chainId,
-    }).from(currencies);
-
-    // Apply filters
-    const conditions = [];
-    if (chainId) {
-      conditions.push(eq(currencies.chainId, chainId));
-    }
-
-    if (conditions.length > 0) {
-      dbQuery = dbQuery.where(and(...conditions));
-    }
-
-    const allCurrencies = await dbQuery
+      tokenType: currencies.tokenType,
+      sourceChainId: currencies.sourceChainId,
+      underlyingTokenAddress: currencies.underlyingTokenAddress,
+      isActive: currencies.isActive,
+      registeredAt: currencies.registeredAt,
+    }).from(currencies)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(asc(currencies.symbol))
       .limit(limit)
       .offset(offset)
       .execute();
 
-    // Get total count
-    const countQuery = ponderDb.select({ count: currencies.address }).from(currencies);
+    // Get total count with same conditions
+    const countQuery = ponderDb.select({ count: currencies.id }).from(currencies);
     if (conditions.length > 0) {
       countQuery.where(and(...conditions));
     }
@@ -47,6 +59,11 @@ export const getAllCurrencies = async ({ query }: { query: any }) => {
         total: countResult.length,
         limit,
         offset,
+        filters: {
+          chainId,
+          tokenType,
+          onlyActual
+        }
       }
     };
   } catch (error) {
@@ -64,7 +81,19 @@ export const getCurrencyByAddress = async ({ params }: { params: any }) => {
     const { address } = params;
 
     const currency = await ponderDb
-      .select()
+      .select({
+        id: currencies.id,
+        address: currencies.address,
+        symbol: currencies.symbol,
+        name: currencies.name,
+        decimals: currencies.decimals,
+        chainId: currencies.chainId,
+        tokenType: currencies.tokenType,
+        sourceChainId: currencies.sourceChainId,
+        underlyingTokenAddress: currencies.underlyingTokenAddress,
+        isActive: currencies.isActive,
+        registeredAt: currencies.registeredAt,
+      })
       .from(currencies)
       .where(eq(currencies.address, address))
       .limit(1)

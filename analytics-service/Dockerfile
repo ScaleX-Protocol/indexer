@@ -2,20 +2,23 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install pnpm and curl for health check
+RUN npm install -g pnpm && apk add --no-cache curl
+
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json pnpm-lock.yaml* ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm ci --legacy-peer-deps
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN pnpm run build
 
 # Remove dev dependencies after build
-RUN npm prune --production
+RUN pnpm prune --prod
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -26,11 +29,11 @@ RUN chown -R analytics:nodejs /app
 USER analytics
 
 # Expose port
-EXPOSE 3001
+EXPOSE 42090
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3001/health || exit 1
+  CMD curl -f http://localhost:42090/health || exit 1
 
 # Start the service
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]

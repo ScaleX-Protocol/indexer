@@ -112,7 +112,7 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
 
     if (endpoint === 'volume') {
       let timeframe = pathTimeframe;
-      let interval = c.req.query('interval') || 'hourly';
+      const interval = c.req.query('interval') || 'hourly';
       const symbol = c.req.query('symbol');
 
       // If timeframe in path is not valid, check query params
@@ -172,7 +172,7 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
 
     if (endpoint === 'liquidity') {
       let timeframe = pathTimeframe;
-      let interval = c.req.query('interval') || '1h';
+      const interval = c.req.query('interval') || '1h';
       const symbol = c.req.query('symbol');
 
       // If timeframe in path is not valid, check query params
@@ -676,7 +676,7 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
 
       const result = {
         data: volumeData.data.map((item, index) => {
-          const uniqueTraders = Math.floor(parseInt(item.trade_count) * 0.35);
+          const uniqueTraders = Math.floor(parseInt(item.trade_count.toString()) * 0.35);
           const newTraders = Math.floor(uniqueTraders * 0.2); // 20% new traders
           const returningTraders = uniqueTraders - newTraders;
           const retentionRate = uniqueTraders > 0 ? ((returningTraders / uniqueTraders) * 100).toFixed(2) : '0';
@@ -693,7 +693,7 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
         summary: {
           total_unique_traders: estimatedUniqueTraders,
           avg_daily_active_traders: dailyActiveTraders,
-          peak_daily_traders: Math.max(...volumeData.data.map(d => Math.floor(parseInt(d.trade_count) * 0.35))),
+          peak_daily_traders: Math.max(...volumeData.data.map(d => Math.floor(parseInt(d.trade_count.toString()) * 0.35))),
           overall_retention_rate: 80.0 // Estimated retention rate based on active trading
         }
       };
@@ -820,7 +820,7 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
     // Support other analytics endpoints
     if (endpoint === 'cumulative-users') {
       let period = pathTimeframe;
-      let interval = c.req.query('interval') || 'daily';
+      const interval = c.req.query('interval') || 'daily';
 
       // If timeframe in path is not valid, check query params
       if (!['24h', '7d', '30d', '90d', '1y', 'all'].includes(period)) {
@@ -954,9 +954,15 @@ export function createApiServer(db: DatabaseClient, redis: Redis, eventConsumer:
         return c.json({ error: 'Invalid tradeSize. Use "small", "medium", "large", or "all"' }, 400);
       }
 
+      // Map interval types to match slippage service expectations
+      const mappedInterval = interval === 'hourly' ? '1h' : 
+                           interval === 'daily' ? '1d' : 
+                           interval === 'weekly' ? '1d' : 
+                           interval === 'monthly' ? '1d' : '5m';
+
       const slippageData = await slippageService.getSlippageAnalytics({
         timeframe,
-        interval,
+        interval: mappedInterval,
         symbol,
         tradeSize,
         includeSymbolTimeSeries

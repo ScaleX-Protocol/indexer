@@ -197,7 +197,7 @@ export class FaucetService {
         console.log('📝 Transaction built:', transaction);
 
         // Sign transaction locally
-        const signedTransaction = await this.walletClient.signTransaction(transaction);
+        const signedTransaction = await this.walletClient.signTransaction({ ...transaction, account: this.walletClient.account!, chain: null });
         console.log('✍️ Transaction signed locally');
 
         // Send raw transaction
