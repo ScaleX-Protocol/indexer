@@ -1,21 +1,82 @@
 import { db } from '../config/database';
 import { faucetRequests } from '../schema/faucet.schema';
-import { FaucetService, FaucetConfig, FaucetRequest } from '../services/faucet.service';
+import { FaucetService, FaucetConfig, FaucetRequest, NativeFaucetRequest } from '../services/faucet.service';
 import { RateLimitService } from '../services/ratelimit.service';
 import { NewFaucetRequest } from '../schema/faucet.schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export class FaucetController {
   private rateLimitService: RateLimitService;
-  
+
   constructor() {
     this.rateLimitService = RateLimitService.getInstance();
+  }
+
+  public async requestNativeTokens(
+    address: string,
+    chainId: number,
+    clientIP: string,
+  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+    try {
+      // Validate inputs
+      if (!address || !address.startsWith('0x') || address.length !== 42) {
+        return {
+          success: false,
+          error: 'Invalid address format'
+        };
+      }
+
+      // Check rate limits
+      const rateLimitResult = await this.rateLimitService.checkBothLimits(address, clientIP);
+      if (!rateLimitResult.allowed) {
+        const reason = rateLimitResult.reason || 'Rate limit exceeded';
+        return {
+          success: false,
+          error: `Rate limit exceeded: ${reason}`
+        };
+      }
+
+      // Get faucet configuration for this chain (same as existing token faucet)
+      let faucetConfig = this.getFaucetConfig(chainId);
+      if (!faucetConfig) {
+        return {
+          success: false,
+          error: "Faucet not available for this chain"
+        };
+      }
+
+      // Add nativeAmount to the config
+      faucetConfig = {
+        ...faucetConfig,
+        nativeAmount: process.env.FAUCET_NATIVE_AMOUNT
+      };
+
+      // Initialize faucet service
+      const faucetService = FaucetService.getInstance(chainId, faucetConfig);
+
+      // Send native tokens with backend-defined amount
+      const result = await faucetService.sendNative({
+        address: address as `0x${string}`
+      });
+
+      return {
+        success: result.success,
+        transactionHash: result.transactionHash,
+        error: result.error
+      };
+
+    } catch (error: any) {
+      console.error('Native faucet request error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error'
+      };
+    }
   }
 
   public async requestTokens(
     address: string,
     tokenAddress: string,
-    amount: string | undefined,
     chainId: number,
     clientIP: string,
     userAgent?: string
@@ -84,6 +145,9 @@ export class FaucetController {
         };
       }
 
+      // Use backend-defined amount
+      const defaultAmount = faucetConfig.defaultAmount;
+
       // Initialize faucet service
       const faucetService = FaucetService.getInstance(chainId, faucetConfig);
 
@@ -96,18 +160,18 @@ export class FaucetController {
         tokenSymbol: 'UNKNOWN', // Will be updated after service call
         tokenDecimals: 18, // Will be updated after service call
         amount: BigInt(0), // Will be updated after service call
-        amountFormatted: amount || '0',
+        amountFormatted: defaultAmount || '0',
         status: 'pending',
         requestTimestamp: new Date(),
         ipAddress: clientIP,
         userAgent: userAgent || null
       });
 
-      // Send tokens
+      // Send tokens with backend-defined amount
       const result = await faucetService.sendTokens({
         address: address as `0x${string}`,
         tokenAddress: tokenAddress as `0x${string}`,
-        amount
+        amount: defaultAmount
       });
 
       if (result.success && requestId) {
@@ -199,19 +263,18 @@ export class FaucetController {
     limit: number = 50
   ): Promise<{ success: boolean; data?: any[]; error?: string }> {
     try {
-      console.log('📜 Debug: Fetching faucet history', { address, chainId, limit });
-      
+
       // Build where conditions
       const conditions = [];
       if (address && chainId) {
         conditions.push(
           and(
-            eq(faucetRequests.requesterAddress, address.toLowerCase() as string),
+            sql`LOWER(${faucetRequests.requesterAddress}) = LOWER(${address})`,
             eq(faucetRequests.chainId, chainId)
           )
         );
       } else if (address) {
-        conditions.push(eq(faucetRequests.requesterAddress, address.toLowerCase() as string));
+        conditions.push(sql`LOWER(${faucetRequests.requesterAddress}) = LOWER(${address})`);
       } else if (chainId) {
         conditions.push(eq(faucetRequests.chainId, chainId));
       }
@@ -222,7 +285,6 @@ export class FaucetController {
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(faucetRequests.requestTimestamp)
         .limit(limit);
-      console.log('📊 Debug: Query results:', results.length, 'records');
 
       // Convert BigInt to string for JSON serialization
       const serializedResults = results.map(record => ({

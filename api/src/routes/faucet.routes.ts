@@ -9,6 +9,7 @@ export const faucetRoutes = new Elysia({ prefix: '/api/faucet' })
     version: '1.0.0',
     endpoints: {
       request: 'POST /api/faucet/request',
+      'native-request': 'POST /api/faucet/native-request',
       address: 'GET /api/faucet/address',
       history: 'GET /api/faucet/history'
     }
@@ -46,12 +47,11 @@ export const faucetRoutes = new Elysia({ prefix: '/api/faucet' })
     const clientIP = getClientIP(headers);
     const userAgent = headers['user-agent'];
 
-    const { address, tokenAddress, amount } = body as any;
+    const { address, tokenAddress } = body as any;
 
     const result = await faucetController.requestTokens(
       address,
       tokenAddress,
-      amount,
       chainId,
       clientIP,
       userAgent
@@ -85,8 +85,57 @@ export const faucetRoutes = new Elysia({ prefix: '/api/faucet' })
       tokenAddress: t.String({
         pattern: '^0x[a-fA-F0-9]{40}$',
         error: 'Invalid token address format'
-      }),
-      amount: t.Optional(t.String())
+      })
+    }),
+    headers: t.Object({
+      'user-agent': t.Optional(t.String()),
+      'x-forwarded-for': t.Optional(t.String()),
+      'x-real-ip': t.Optional(t.String()),
+      'cf-connecting-ip': t.Optional(t.String()),
+      'x-client-ip': t.Optional(t.String()),
+      'x-vercel-forwarded-for': t.Optional(t.String()),
+      'x-appengine-user-ip': t.Optional(t.String())
+    })
+  })
+
+  // Request native tokens (ETH) from faucet
+  .post('/native-request', async ({ body, query, headers }) => {
+    const chainId = parseInt(query.chainId || '31337');
+    const clientIP = getClientIP(headers);
+
+    const { address } = body as any;
+
+    const result = await faucetController.requestNativeTokens(
+      address,
+      chainId,
+      clientIP,
+      headers['user-agent']
+    );
+
+    if (result.success) {
+      return {
+        success: true,
+        transactionHash: result.transactionHash,
+        chainId,
+        timestamp: Date.now()
+      };
+    } else {
+      return {
+        success: false,
+        error: result.error,
+        chainId,
+        timestamp: Date.now()
+      };
+    }
+  }, {
+    query: t.Object({
+      chainId: t.Optional(t.String())
+    }),
+    body: t.Object({
+      address: t.String({
+        pattern: '^0x[a-fA-F0-9]{40}$',
+        error: 'Invalid Ethereum address format'
+      })
     }),
     headers: t.Object({
       'user-agent': t.Optional(t.String()),

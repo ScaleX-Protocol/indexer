@@ -46,6 +46,7 @@ services:
     env_file:
       - ./.env.core-chain
     environment:
+      # Override .env.core-chain with container networking
       - PONDER_DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder_core
       - REDIS_URL=redis://redis:6379
       - ENABLE_EVENT_PUBLISHING=true

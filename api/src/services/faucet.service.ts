@@ -6,12 +6,17 @@ export interface FaucetConfig {
   privateKey: string;
   chainId: number;
   defaultAmount?: string;
+  nativeAmount?: string;
 }
 
 export interface FaucetRequest {
   address: `0x${string}`;
   tokenAddress: `0x${string}`;
   amount?: string;
+}
+
+export interface NativeFaucetRequest {
+  address: `0x${string}`;
 }
 
 export interface FaucetResult {
@@ -69,6 +74,97 @@ export class FaucetService {
       FaucetService.instances.set(chainId, service);
     }
     return FaucetService.instances.get(chainId)!;
+  }
+
+  public async sendNative(request: NativeFaucetRequest): Promise<FaucetResult> {
+    try {
+      // Validate address format
+      if (!request.address || !request.address.startsWith('0x') || request.address.length !== 42) {
+        return {
+          success: false,
+          error: 'Invalid recipient address format'
+        };
+      }
+
+      // Use backend-defined amount
+      const defaultAmount = this.config.nativeAmount || "0.01"; // Default to 0.01 ETH if not set
+      const amountToSend = parseUnits(defaultAmount, 18);
+
+      // Check faucet ETH balance
+      const ethBalance = await this.publicClient.getBalance({ address: this.account.address });
+      console.log(`💰 Faucet ETH balance: ${formatUnits(ethBalance, 18)} ETH`);
+      console.log(`🎯 Amount to send: ${formatUnits(amountToSend, 18)} ETH (backend-configured)`);
+      
+      // Estimate gas for native transfer
+      const gasEstimate = BigInt(21000n); // Standard gas limit for ETH transfer
+      const gasPrice = await this.publicClient.getGasPrice();
+      const totalGasCost = gasEstimate * gasPrice;
+      
+      // Check if account has enough ETH for amount + gas
+      const totalCost = amountToSend + totalGasCost;
+      if (ethBalance < totalCost) {
+        return {
+          success: false,
+          error: `Insufficient ETH for amount + gas. Required: ${formatUnits(totalCost, 18)} ETH, Available: ${formatUnits(ethBalance, 18)} ETH`
+        };
+      }
+
+      // Build and send transaction
+      const nonce = await this.publicClient.getTransactionCount({
+        address: this.account.address,
+      });
+
+      const transaction = {
+        to: request.address,
+        value: amountToSend,
+        gas: gasEstimate,
+        gasPrice: gasPrice,
+        nonce,
+      };
+
+      console.log('📝 Native transfer transaction built:', transaction);
+
+      // Sign transaction locally
+      const signedTransaction = await this.walletClient.signTransaction({ ...transaction, account: this.walletClient.account!, chain: null });
+      console.log('✍️ Native transfer transaction signed locally');
+
+      // Send raw transaction
+      const hash = await this.publicClient.sendRawTransaction({
+        serializedTransaction: signedTransaction,
+      });
+      console.log('✅ Native transfer transaction sent successfully! Hash:', hash);
+
+      // Wait for transaction confirmation
+      const receipt = await this.publicClient.waitForTransactionReceipt({
+        hash,
+        confirmations: 1,
+        timeout: 30000,
+      });
+
+      if (receipt.status === 'success') {
+        return {
+          success: true,
+          transactionHash: hash,
+          amountSent: formatUnits(amountToSend, 18),
+          amountRaw: amountToSend,
+          tokenSymbol: 'ETH',
+          tokenDecimals: 18
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Transaction failed',
+          transactionHash: hash
+        };
+      }
+    } catch (error) {
+      console.error('Native transfer error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
   }
 
   public async sendTokens(request: FaucetRequest): Promise<FaucetResult> {
