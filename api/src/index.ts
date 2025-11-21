@@ -10,9 +10,7 @@ import { HttpStatus } from './enums';
 const app = new Elysia()
   .use(cors({
     origin: [
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'http://localhost:3000',
+      /^http:\/\/localhost:\d+$/,
       /^https:\/\/.*\.vercel\.app$/,
       /^https:\/\/.*\.netlify\.app$/
     ],
