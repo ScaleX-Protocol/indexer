@@ -1,6 +1,5 @@
-# Production Docker Compose Configuration
-# For deployment (Coolify, etc.) - No host port mappings
-# Use docker-compose.dev.yml for local development with port access
+# Docker Compose for Local Development
+# Includes host port mappings for local access
 
 services:
   # SCALEX API service
@@ -8,11 +7,13 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
+    ports:
+      - "8000:3000"  # Host port 8000 for local development
     env_file:
       - ./.env.core-chain
     environment:
       - DATABASE_URL=postgresql://postgres:password@scalex-postgres:5432/scalex_api
-      - NODE_ENV=production
+      - NODE_ENV=development
       - PORT=3000
     depends_on:
       - scalex-postgres
@@ -22,6 +23,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./api/logs:/app/logs
+      - ./api:/app  # Mount for hot reloading in dev
 
   # SCALEX API database
   scalex-postgres:
@@ -31,40 +33,43 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
     ports:
-      - "5435:5432"
+      - "5435:5432"  # Host port for local access
     volumes:
       - scalex_postgres_data:/var/lib/postgresql/data
     networks:
       - scalex-network
     restart: unless-stopped
 
-  # Core indexer service
+  # Core indexer service (existing)
   clob-indexer:
     build:
       context: .
       dockerfile: Dockerfile
+    # Use host networking to connect to localhost:5433
+    network_mode: "host"
     env_file:
       - ./.env.core-chain
     environment:
-      - PONDER_DATABASE_URL=postgresql://postgres:password@postgres:5432/ponder_core
-      - REDIS_URL=redis://redis:6379
+      - PONDER_DATABASE_URL=postgresql://postgres:password@localhost:5433/ponder_core
+      - REDIS_URL=redis://localhost:6380
       - ENABLE_EVENT_PUBLISHING=true
-      - ENABLE_WEBSOCKET=false
+      - ENABLE_WEBSOCKET=false  # Disabled in favor of separate websocket service
       - PONDER_PORT=42070
     depends_on:
       - postgres
       - redis
-    networks:
-      - scalex-network
-    restart: unless-stopped
     volumes:
       - ./logs:/app/logs
+      - .:/app  # Mount for hot reloading in dev
 
   # WebSocket service
   websocket-service:
     build:
       context: ./websocket-service
       dockerfile: Dockerfile
+    ports:
+      - "42080:42080"  # Host ports for local development
+      - "42084:8080"  # Health port
     env_file:
       - ./.env.core-chain
     environment:
@@ -84,12 +89,16 @@ services:
     networks:
       - scalex-network
     restart: unless-stopped
+    volumes:
+      - ./websocket-service:/app  # Mount for hot reloading in dev
 
   # Analytics service
   analytics-service:
     build:
       context: ./analytics-service
       dockerfile: Dockerfile
+    ports:
+      - "42090:42090"  # Host port for local development
     env_file:
       - ./.env.core-chain
     environment:
@@ -112,6 +121,8 @@ services:
     networks:
       - scalex-network
     restart: unless-stopped
+    volumes:
+      - ./analytics-service:/app  # Mount for hot reloading in dev
 
   # PostgreSQL database (Main indexer DB)
   postgres:
@@ -120,6 +131,8 @@ services:
       - POSTGRES_DB=ponder_core
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"  # Host port for local access
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -133,6 +146,8 @@ services:
       - POSTGRES_DB=analytics
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
+    ports:
+      - "5434:5432"  # Host port for local access
     volumes:
       - timescale_data:/var/lib/postgresql/data
       - ./analytics-service/init:/docker-entrypoint-initdb.d
@@ -144,6 +159,8 @@ services:
   # Redis for caching and message queuing
   redis:
     image: redis:7-alpine
+    ports:
+      - "6380:6379"  # Host port for local access
     volumes:
       - redis_data:/data
     networks:
@@ -151,41 +168,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
-
-  # Monitoring services (COMMENTED OUT)
-  # prometheus:
-  #   image: prom/prometheus:latest
-  #   ports:
-  #     - "9090:9090"
-  #   volumes:
-  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-  #     - prometheus_data:/prometheus
-  #   command:
-  #     - '--config.file=/etc/prometheus/prometheus.yml'
-  #     - '--storage.tsdb.path=/prometheus'
-  #     - '--web.console.libraries=/etc/prometheus/console_libraries'
-  #     - '--web.console.templates=/etc/prometheus/consoles'
-  #   networks:
-  #     - scalex-network
-  #   restart: unless-stopped
-
-  # grafana:
-  #   image: grafana/grafana:latest
-  #   ports:
-  #     - "3001:3000"  # Changed from 3000 to avoid conflict with scalex-api
-  #   environment:
-  #     - GF_SECURITY_ADMIN_PASSWORD=admin
-  #   volumes:
-  #     - grafana_data:/var/lib/grafana
-  #     - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
-  #     - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
-  #   depends_on:
-  #     - prometheus
-  #   networks:
-  #     - scalex-network
-  #   restart: unless-stopped
-
-  # Redis Commander for Redis management (dev only)
+  # Development tools
   redis-commander:
     image: rediscommander/redis-commander:latest
     ports:
@@ -196,8 +179,6 @@ services:
       - redis
     networks:
       - scalex-network
-    profiles:
-      - dev
     restart: unless-stopped
 
 volumes:
@@ -205,8 +186,6 @@ volumes:
   scalex_postgres_data:
   timescale_data:
   redis_data:
-  # prometheus_data:
-  # grafana_data:
 
 networks:
   scalex-network:
