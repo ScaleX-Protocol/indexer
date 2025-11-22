@@ -1,0 +1,6 @@
+node_modules
+.claude
+.cursor
+.env.example
+README.md
+scripts

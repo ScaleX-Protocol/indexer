@@ -3,6 +3,16 @@
 # Use docker-compose.dev.yml for local development with port access
 
 services:
+  # SCALEX API BASED ON ENVIO INDEXER
+  scalex-envio-api: 
+    build: 
+      context: ./envio-api
+      dockerfile: Dockerfile
+    env_file: /envio-api/.env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - 3333:3000
   # SCALEX API service
   scalex-api:
     build:
